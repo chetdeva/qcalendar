@@ -7,7 +7,7 @@ interface User { id: string; email: string; full_name: string | null; role: 'stu
 interface Invitation { id: string; email: string; role: 'teacher' | 'admin'; status: string; expires_at: string }
 const PAGE = 25;
 
-async function call<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; data: T & { error?: { message: string } } }> {
+async function call<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; data: T & { error?: { message: string; code?: string } } }> {
   const res = await fetch(url, { ...init, headers: { 'content-type': 'application/json' } });
   return { ok: res.ok, data: await res.json().catch(() => ({})) };
 }
@@ -22,6 +22,8 @@ export function AdminUsers({ meId }: { meId: string }) {
   const [notice, setNotice] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'teacher' | 'admin'>('teacher');
+  // Set when an invitation was refused because the address already has an account: offer to change that account's role instead.
+  const [existing, setExisting] = useState<{ email: string; role: 'teacher' | 'admin' } | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async (offset: number) => {
@@ -53,7 +55,7 @@ export function AdminUsers({ meId }: { meId: string }) {
     setError(''); setNotice('');
     const r = await call<User>(`/api/admin/users/${u.id}/role`, { method: 'PATCH', body: JSON.stringify({ role: next }) });
     if (!r.ok) return setError(r.data.error?.message ?? 'Could not change the role.');
-    replace(r.data); setNotice(`${u.email} is now ${next === 'admin' ? 'an admin' : `a ${next}`}.`);
+    replace(r.data); setNotice(`${u.email} is now ${next === 'admin' ? 'an admin' : `a ${next}`}. They should sign out and back in for it to take effect.`);
   }
 
   async function toggle(u: User) {
@@ -69,11 +71,28 @@ export function AdminUsers({ meId }: { meId: string }) {
     setError(''); setNotice('');
     const bad = emailError(inviteEmail);
     if (bad) return setError(bad);
+    setExisting(null);
     const r = await call<Invitation>('/api/admin/invitations', { method: 'POST', body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }) });
-    if (!r.ok) return setError(r.data.error?.message ?? 'Could not send the invitation.');
+    if (!r.ok) {
+      if (r.data.error?.code === 'email_exists') return setExisting({ email: inviteEmail.trim().toLowerCase(), role: inviteRole });
+      return setError(r.data.error?.message ?? 'Could not send the invitation.');
+    }
     setNotice(`Invitation sent to ${inviteEmail.trim().toLowerCase()}.`);
     setInviteEmail('');
     void loadInvitations();
+  }
+
+  async function promoteExisting() {
+    if (!existing) return;
+    setError(''); setNotice('');
+    const found = await call<{ users: User[] }>(`/api/admin/users?q=${encodeURIComponent(existing.email)}&limit=5`);
+    const user = found.data.users?.find((u) => u.email.toLowerCase() === existing.email);
+    if (!user) return setError('Could not find that account.');
+    const target = existing;
+    setExisting(null);
+    setInviteEmail('');
+    await changeRole(user, target.role);
+    void load(0);
   }
 
   async function revoke(i: Invitation) {
@@ -91,6 +110,7 @@ export function AdminUsers({ meId }: { meId: string }) {
 
       <section className="panel" aria-labelledby="invite-h">
         <h2 id="invite-h">Invite a teacher or admin</h2>
+        <p className="muted small">New people get an email invitation. If the address already has an account, you can change its role instead.</p>
         <form onSubmit={invite} className="row" noValidate>
           <div className="field">
             <label htmlFor="invite-email">Email to invite</label>
@@ -105,6 +125,15 @@ export function AdminUsers({ meId }: { meId: string }) {
           </div>
           <button type="submit" className="btn btn-primary">Send invitation</button>
         </form>
+        {existing && (
+          <div className="alert alert-info" role="status">
+            <b>{existing.email}</b> already has an account, so there is no invitation to accept. You can change their role directly.
+            <div className="actions" style={{ marginTop: 8 }}>
+              <button type="button" className="btn btn-sm btn-primary" onClick={promoteExisting}>Make them {existing.role === 'admin' ? 'an admin' : 'a teacher'}</button>
+              <button type="button" className="btn btn-sm" onClick={() => setExisting(null)}>No thanks</button>
+            </div>
+          </div>
+        )}
         {invitations.length > 0 && (
           <div className="table-wrap">
             <table aria-label="Pending invitations">

@@ -202,7 +202,7 @@ test.describe('invitations', () => {
     await invite(page, 'ONCE@example.test');
     await expect(page.locator('.alert-error')).toContainText('pending invitation');
     await invite(page, 'already@example.test');
-    await expect(page.locator('.alert-error')).toContainText('already has an account');
+    await expect(page.locator('.alert-info')).toContainText('already has an account');
     await invite(page, 'nope');
     await expect(page.locator('.alert-error')).toContainText('valid email');
     await expect(page.locator('table[aria-label="Pending invitations"] tbody tr')).toHaveCount(1);
@@ -222,6 +222,51 @@ test.describe('invitations', () => {
     await page.getByLabel('Confirm password').fill('welcome-pass-1');
     await page.getByRole('button', { name: 'Set password and continue' }).click();
     await expect(page.locator('.app-header .badge')).toHaveText('student'); // no invitation, so no teacher role
+  });
+});
+
+test.describe('inviting someone who already has an account', () => {
+  test.beforeEach(async ({ page }) => {
+    await logInAs(page, ADMIN);
+    await page.goto('/admin/users');
+  });
+
+  const invite = async (page: Page, email: string, role: 'Teacher' | 'Admin' = 'Teacher') => {
+    await page.getByLabel('Email to invite').fill(email);
+    await page.getByLabel('Role', { exact: true }).first().selectOption({ label: role });
+    await page.getByRole('button', { name: 'Send invitation' }).click();
+  };
+
+  test('explains that there is nothing to accept and offers to change the role, which works', async ({ page, request }) => {
+    await seedUser(request, { email: 'chet@example.test', name: 'Chet Existing' });
+    await invite(page, 'chet@example.test');
+    const offer = page.locator('.alert-info');
+    await expect(offer).toContainText('chet@example.test already has an account');
+    expect((await profileOf(request, 'chet@example.test'))?.role).toBe('student'); // nothing changed yet
+    await offer.getByRole('button', { name: 'Make them a teacher' }).click();
+    await expect(page.locator('.alert-ok')).toContainText('chet@example.test is now a teacher. They should sign out and back in');
+    expect((await profileOf(request, 'chet@example.test'))?.role).toBe('teacher');
+    await expect(offer).toHaveCount(0);
+    await expect(page.getByLabel('Role for chet@example.test')).toHaveValue('teacher');
+  });
+
+  test('"No thanks" leaves the account alone, and making someone an admin still asks first', async ({ page, request }) => {
+    await seedUser(request, { email: 'chet@example.test', name: 'Chet Existing' });
+    await invite(page, 'chet@example.test');
+    await page.locator('.alert-info').getByRole('button', { name: 'No thanks' }).click();
+    await expect(page.locator('.alert-info')).toHaveCount(0);
+    expect((await profileOf(request, 'chet@example.test'))?.role).toBe('student');
+
+    await invite(page, 'chet@example.test', 'Admin');
+    page.once('dialog', (d) => d.dismiss());
+    await page.locator('.alert-info').getByRole('button', { name: 'Make them an admin' }).click();
+    await expect(page.locator('.alert-info')).toHaveCount(0); // the offer closes once the (declined) change has been handled
+    expect((await profileOf(request, 'chet@example.test'))?.role).toBe('student'); // the admin confirmation was declined
+    await invite(page, 'chet@example.test', 'Admin');
+    page.once('dialog', (d) => d.accept());
+    await page.locator('.alert-info').getByRole('button', { name: 'Make them an admin' }).click();
+    await expect(page.locator('.alert-ok')).toContainText('is now an admin');
+    expect((await profileOf(request, 'chet@example.test'))?.role).toBe('admin');
   });
 });
 

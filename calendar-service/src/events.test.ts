@@ -122,7 +122,7 @@ test('privacy: a teacher sees only their own classes; a student only classes the
   assert.equal(mine.participantCount, 2);
   assert.deepEqual(mine.participants.map((p: any) => p.email), [s1.email], 'only themselves');
   assert.equal(mine.myStatus, 'invited');
-  assert.equal(mine.attendees, undefined);
+  assert.equal(mine.meetUrl, undefined, 'no deprecated aliases');
   assert.ok(!JSON.stringify(mine).includes(s2.email), 'the other student\'s email is nowhere in the response');
   const inList = (await json(await s1.call('GET', '/v1/events'))).events[0];
   assert.ok(!JSON.stringify(inList).includes(s2.email));

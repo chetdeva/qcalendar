@@ -40,11 +40,10 @@ const CreateSchema = z
     ownerEmail: email.optional(),
     ownerName: name.optional(),
     participants: z.array(ParticipantSchema).max(50).optional(),
-    attendees: z.array(email).max(50).optional(), // legacy: emails only
     force: z.boolean().optional(),
   })
   .refine((v) => v.end || v.durationMinutes, { message: 'end or durationMinutes is required' })
-  .refine((v) => (v.participants?.length ?? 0) + (v.attendees?.length ?? 0) <= 50, { message: 'At most 50 participants' });
+  ;
 
 const PatchSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
@@ -109,9 +108,7 @@ export function createApp(deps: { ctx: svc.Ctx; authenticator: Authenticator }) 
 
   app.post('/v1/events', async (c) => {
     const b = parse(CreateSchema, await body(c));
-    const { attendees, ...rest } = b;
-    const participants = [...(rest.participants ?? []), ...(attendees ?? []).map((e) => ({ email: e }))];
-    return c.json(await svc.createEvent(ctx, c.get('actor'), { ...rest, participants }), 201);
+    return c.json(await svc.createEvent(ctx, c.get('actor'), b), 201);
   });
 
   app.get('/v1/events', async (c) => {

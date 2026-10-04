@@ -9,8 +9,6 @@ import { enqueueWebhook } from './webhooks.ts';
 export interface Ctx {
   db: Db;
   defaultTimezone: string;
-  /** Legacy single-owner mode: the teacher whose calendar the service API key acts on when no ownerId is given. */
-  defaultOwnerId?: string;
   webhooks: boolean;
   meetingBaseUrl: string;
 }
@@ -43,7 +41,7 @@ function participantOut(p: PRow) {
 function baseView(e: EventRow) {
   return {
     id: e.id, ownerId: e.owner_id, ownerName: e.owner_name, title: e.title, description: e.description, location: e.location,
-    meetingUrl: e.meeting_url, meetUrl: e.meeting_url, // meetUrl: deprecated alias for the legacy calendar-ui
+    meetingUrl: e.meeting_url,
     start: iso(e.start_at), end: iso(e.end_at), timezone: e.timezone, category: e.category, status: e.status,
     externalRef: e.external_ref, createdAt: iso(e.created_at), updatedAt: iso(e.updated_at),
   };
@@ -52,7 +50,7 @@ function baseView(e: EventRow) {
 /** Teachers who own the class, and staff, see everyone. A participant sees themselves and a head count, never other students. */
 export function viewOf(e: EventRow, parts: PRow[], rel: Relation, mine?: PRow) {
   if (canManage(rel)) {
-    return { ...baseView(e), ownerEmail: e.owner_email, participants: parts.map(participantOut), attendees: parts.map((p) => p.email), participantCount: parts.length };
+    return { ...baseView(e), ownerEmail: e.owner_email, participants: parts.map(participantOut), participantCount: parts.length };
   }
   return { ...baseView(e), ownerEmail: e.owner_email, participants: mine ? [participantOut(mine)] : [], participantCount: parts.length, myStatus: mine?.status ?? null };
 }
@@ -189,7 +187,7 @@ export interface CreateInput {
 export async function createEvent(ctx: Ctx, actor: Actor, input: CreateInput) {
   let ownerId: string; let ownerEmail: string | null = input.ownerEmail ?? null; let ownerName: string | null = input.ownerName ?? null;
   if (actor.kind === 'service') {
-    const id = input.ownerId ?? ctx.defaultOwnerId;
+    const id = input.ownerId;
     if (!id) throw new HttpError(400, 'owner_required', 'ownerId is required');
     ownerId = id;
   } else if (actor.role === 'student') {
@@ -397,7 +395,7 @@ export async function getSettings(q: Queryable, teacherId: string, defaultTimezo
 /** Whose calendar does this request mean? Teachers: their own. Staff and the service key: the one they name. */
 export function resolveTeacher(ctx: Ctx, actor: Actor, teacherId: string | undefined, opts: { allowStudents: boolean }): string {
   if (actor.kind === 'service') {
-    const id = teacherId ?? ctx.defaultOwnerId;
+    const id = teacherId;
     if (!id) throw new HttpError(400, 'teacher_required', 'teacherId is required');
     return id;
   }

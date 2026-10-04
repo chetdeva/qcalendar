@@ -6,8 +6,7 @@ export type Role = 'student' | 'teacher' | 'admin';
 const ROLES: Role[] = ['student', 'teacher', 'admin'];
 
 /**
- * Who is calling. A person (signed Supabase token) or a trusted backend (the service API key, used by the booking
- * app and by the legacy single-owner calendar-ui).
+ * Who is calling. A person (signed Supabase token) or a trusted backend (the service API key, used by the booking app).
  */
 export type Actor =
   | { kind: 'user'; id: string; email: string | undefined; name: string | undefined; role: Role }

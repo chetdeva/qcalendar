@@ -2,7 +2,7 @@
 
 The scheduling backend for SyncSchedule: **each teacher has their own calendar, a class can have many students, and students get invitations and can accept or decline.**
 
-Node 24 + TypeScript (runs `.ts` directly, no build step), [Hono](https://hono.dev), Postgres, `zod`. People sign in with Supabase; this service verifies their token and decides what they may see and change. Trusted backends (the booking app, the current calendar-ui) use a service API key.
+Node 24 + TypeScript (runs `.ts` directly, no build step), [Hono](https://hono.dev), Postgres, `zod`. People sign in with Supabase; this service verifies their token and decides what they may see and change. Trusted backends (the future booking app) use a service API key.
 
 ```
 people ──Supabase token──►  calendar-service  ──►  Postgres (schema "calendar")
@@ -54,10 +54,6 @@ All under `/v1`, `Authorization: Bearer <Supabase access token or service API ke
 
 A typed client is in [client/calendar-client.ts](client/calendar-client.ts).
 
-### Legacy single-owner mode (temporary)
-
-The current `calendar-ui` still talks to this service with the service key and the old request shape. To keep it working, a request with the service key and no `ownerId` acts on the teacher named by `DEFAULT_OWNER_ID`, `attendees` (emails) is accepted as an alias of `participants`, and responses carry the deprecated aliases `attendees` and `meetUrl`. Remove `DEFAULT_OWNER_ID` once that app uses real logins. The old Google Calendar sync is gone for now; it returns later as a per-teacher integration (it stays in git history).
-
 ## Run it
 
 ```bash
@@ -75,7 +71,7 @@ Production uses a real Postgres. For Supabase: Project, Connect, "Session pooler
 |---|---|
 | `DATABASE_URL`, `DATABASE_SSL` | Postgres. SSL is `require` for remote hosts (encrypted, certificate not verified); use `verify` with `DATABASE_CA_CERT` for full verification |
 | `SUPABASE_URL` | Where people's tokens are verified (public keys, no secret needed) |
-| `API_KEY`, `DEFAULT_OWNER_ID` | Service key for trusted backends; legacy default teacher |
+| `API_KEY` | Service key for trusted backends. They must say whose calendar (`ownerId`, `teacherId`) |
 | `SMTP_URL`, `MAIL_FROM`, `CALENDAR_URL` | Invitation emails. AWS SES works through its SMTP interface |
 | `MEETING_BASE_URL` | Jitsi server for generated links |
 | `WEBHOOK_URL`, `WEBHOOK_SECRET` | Optional webhooks |
@@ -94,11 +90,11 @@ Classes keep their ids and creation times, attendees become students, and nothin
 ## Test it
 
 ```bash
-npm test            # 64 tests, about 10 seconds, no database or network needed
+npm test            # 60 tests, about 10 seconds, no database or network needed
 npm run typecheck
 ```
 
-Tests run against a real Postgres engine (PGlite) with real signed tokens and an in-memory mailer. They cover: authentication (expired, forged, wrong issuer or audience, disabled accounts, `user_metadata` ignored, key comparison); the role matrix for every endpoint; privacy between teachers and between students (including that no other student's email appears anywhere); double-booking for teachers and students, adjacency, `force`, and a race of five simultaneous bookings; rescheduling, sequence numbers and who is emailed; cancel; adding and removing students; accept and decline; availability and settings per teacher, including time zones and buffers; the `.ics` files (escaping, folding, injection, one attendee each); email retries, leasing and header injection; webhooks (signing, retries); the legacy single-owner path; the migrations and database constraints; and the SQLite copy.
+Tests run against a real Postgres engine (PGlite) with real signed tokens and an in-memory mailer. They cover: authentication (expired, forged, wrong issuer or audience, disabled accounts, `user_metadata` ignored, key comparison); the role matrix for every endpoint; privacy between teachers and between students (including that no other student's email appears anywhere); double-booking for teachers and students, adjacency, `force`, and a race of five simultaneous bookings; rescheduling, sequence numbers and who is emailed; cancel; adding and removing students; accept and decline; availability and settings per teacher, including time zones and buffers; the `.ics` files (escaping, folding, injection, one attendee each); email retries, leasing and header injection; webhooks (signing, retries); the migrations and database constraints; and the SQLite copy.
 
 The security-critical rules were also checked by mutation: deliberately breaking each one (no visibility check, roster leak, no conflict check, students allowed to create) makes the suite fail.
 

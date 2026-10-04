@@ -32,7 +32,6 @@ const webhookUrl = env.WEBHOOK_URL ?? '';
 const ctx = {
   db,
   defaultTimezone: env.DEFAULT_TIMEZONE ?? 'UTC',
-  defaultOwnerId: env.DEFAULT_OWNER_ID || undefined,
   webhooks: Boolean(webhookUrl),
   meetingBaseUrl: env.MEETING_BASE_URL ?? 'https://meet.jit.si',
 };

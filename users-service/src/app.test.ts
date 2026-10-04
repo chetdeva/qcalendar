@@ -150,6 +150,42 @@ test('a stale admin token is not enough: admin routes check the database', async
   assert.equal((await app.request('/v1/invitations', { method: 'POST', headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json' }, body: JSON.stringify({ email: 'x@example.test', role: 'admin' }) })).status, 403);
 });
 
+test('a token that is behind the database never locks people out or lets them see too much', async () => {
+  const get = (jwt: string, path: string) => app.request(path, { headers: { authorization: `Bearer ${jwt}` } });
+  dir.addProfile({ email: 'kid@example.test', full_name: 'Kid One', guardian_email: 'mum@example.test' });
+
+  // Promoted to admin AFTER signing in: the token still says student, the database says admin.
+  const newAdmin = dir.addProfile({ email: 'new-admin@example.test', role: 'admin' });
+  const lagging = await token(newAdmin.id, 'student');
+  const list = await get(lagging, '/v1/users');
+  assert.equal(list.status, 200);
+  assert.ok((await list.json()).users.every((u: object) => 'guardian_email' in u), 'admins get the full view');
+  assert.equal((await get(lagging, `/v1/users/${newAdmin.id}`)).status, 200);
+  assert.equal((await get(lagging, '/v1/invitations')).status, 200);
+
+  // Promoted to teacher after signing in: can now search students.
+  const newTeacher = dir.addProfile({ email: 'new-teacher@example.test', role: 'teacher' });
+  const res = await get(await token(newTeacher.id, 'student'), '/v1/users');
+  assert.equal(res.status, 200);
+  assert.deepEqual((await res.json()).users.map((u: { email: string }) => u.email), ['kid@example.test']);
+
+  // Demoted from admin to teacher: the old admin token must not keep the admin view or the guardian emails.
+  const demoted = dir.addProfile({ email: 'demoted@example.test', role: 'teacher' });
+  const stale = await get(await token(demoted.id, 'admin'), '/v1/users');
+  const body = await stale.json();
+  assert.ok(body.users.every((u: object) => Object.keys(u).sort().join() === 'email,full_name,id'), 'only the teacher view');
+  assert.ok(!JSON.stringify(body).includes('mum@example.test'));
+
+  // Demoted to student: nothing at all.
+  const gone = dir.addProfile({ email: 'gone@example.test', role: 'student' });
+  assert.equal((await get(await token(gone.id, 'admin'), '/v1/users')).status, 403);
+  assert.equal((await get(await token(gone.id, 'teacher'), `/v1/users/${newAdmin.id}`)).status, 403);
+
+  // Disabled in the database, token still looks fine.
+  const off = dir.addProfile({ email: 'off@example.test', role: 'admin', status: 'disabled' });
+  assert.equal((await get(await token(off.id, 'admin'), '/v1/users')).status, 403);
+});
+
 test('invitations: create, email is lower-cased and sent, duplicates and bad input rejected, revoke', async () => {
   const { call } = await as('admin');
   const res = await call('POST', '/v1/invitations', { email: 'New.Teacher@Example.test', role: 'teacher' });

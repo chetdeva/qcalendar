@@ -113,18 +113,25 @@ export function createApp({ verifier, directory, inviteRedirectTo }: AppDeps) {
     return c.json(me);
   });
 
+  /**
+   * Who is asking, according to the DATABASE. A token can be up to an hour behind a promotion or demotion, so decisions
+   * about who may see whom are made from the stored role, never from the role inside the token.
+   */
+  const liveProfile = async (c: { get: (k: 'principal') => Principal }) => {
+    const me = await directory.getProfile(c.get('principal').id);
+    if (!me || me.status !== 'active') throw new HttpError(403, 'forbidden', 'This account cannot do that');
+    return me;
+  };
+
   // ---- directory: admins see everyone; teachers see active students (name + email only); students see nobody ----
   app.get('/v1/users', async (c) => {
-    const { role } = c.get('principal');
+    const me = await liveProfile(c);
     const q = parse(ListQuery, c.req.query());
-    if (role === 'admin') {
-      await requireAdmin(c);
+    if (me.role === 'admin') {
       const rows = await directory.listProfiles({ search: q.q, role: q.role, status: q.status, limit: q.limit, offset: q.offset });
       return c.json({ users: rows });
     }
-    if (role === 'teacher') {
-      const me = await directory.getProfile(c.get('principal').id);
-      if (!me || me.role !== 'teacher' || me.status !== 'active') throw new HttpError(403, 'forbidden', 'Teacher access required');
+    if (me.role === 'teacher') {
       const rows = await directory.listProfiles({ search: q.q, role: 'student', status: 'active', limit: q.limit, offset: q.offset });
       return c.json({ users: rows.map(studentCard) });
     }
@@ -133,21 +140,14 @@ export function createApp({ verifier, directory, inviteRedirectTo }: AppDeps) {
 
   app.get('/v1/users/:id', async (c) => {
     const id = requireId(c.req.param('id'));
-    const principal = c.get('principal');
-    if (id === principal.id) {
-      const me = await directory.getProfile(id);
-      if (!me) throw new HttpError(404, 'not_found', 'User not found');
-      return c.json(me);
-    }
-    if (principal.role === 'admin') {
-      await requireAdmin(c);
+    const me = await liveProfile(c);
+    if (id === me.id) return c.json(me);
+    if (me.role === 'admin') {
       const user = await directory.getProfile(id);
       if (!user) throw new HttpError(404, 'not_found', 'User not found');
       return c.json(user);
     }
-    if (principal.role === 'teacher') {
-      const me = await directory.getProfile(principal.id);
-      if (!me || me.role !== 'teacher' || me.status !== 'active') throw new HttpError(403, 'forbidden', 'Teacher access required');
+    if (me.role === 'teacher') {
       const user = await directory.getProfile(id);
       // Anyone a teacher may not see looks exactly like someone who does not exist.
       if (!user || user.role !== 'student' || user.status !== 'active') throw new HttpError(404, 'not_found', 'User not found');

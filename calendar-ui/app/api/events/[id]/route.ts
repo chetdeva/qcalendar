@@ -1,21 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { calendar } from '@/lib/calendar';
-import { fail } from '@/lib/http';
+import { forwardCalendar, readBody } from '@/lib/bff';
 
 type Ctx = { params: Promise<{ id: string }> };
+const path = async (c: Ctx) => `/v1/events/${encodeURIComponent((await c.params).id)}`;
 
-export async function PATCH(req: NextRequest, { params }: Ctx) {
-  try {
-    return NextResponse.json(await calendar.updateEvent((await params).id, await req.json()));
-  } catch (e) {
-    return fail(e);
-  }
-}
-
-export async function DELETE(_req: NextRequest, { params }: Ctx) {
-  try {
-    return NextResponse.json(await calendar.cancelEvent((await params).id));
-  } catch (e) {
-    return fail(e);
-  }
-}
+export const GET = async (_r: Request, c: Ctx) => forwardCalendar('GET', await path(c));
+export const PATCH = async (r: Request, c: Ctx) => forwardCalendar('PATCH', await path(c), (await readBody(r)) ?? null);
+export const DELETE = async (_r: Request, c: Ctx) => forwardCalendar('DELETE', await path(c));

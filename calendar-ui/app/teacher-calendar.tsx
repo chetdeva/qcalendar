@@ -7,74 +7,76 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { DateSelectArg, DatesSetArg, EventClickArg, EventDropArg, EventInput } from '@fullcalendar/core';
 import type { EventResizeDoneArg } from '@fullcalendar/interaction';
-import type { CalendarEvent, CalendarSettings } from '@/lib/calendar';
-import { capacityHours, hm, hoursByCategory, mergeSlots, minutesBetween, parseEmails, ymd } from '@/lib/format';
+import type { CalendarEvent, CalendarSettings, Me, Participant, Person, Student } from '@/lib/calendar';
+import { capacityHours, hm, hoursByCategory, mergeSlots, minutesBetween, ymd } from '@/lib/format';
+import { api, ApiError } from './api-client';
 import { TopBar } from './components/top-bar';
 import { CalendarToolbar, type ViewType } from './components/calendar-toolbar';
-import { CreateDrawer, DetailsDrawer, type LessonForm } from './components/lesson-drawer';
+import { conflictMessage, CreateDrawer, DetailsDrawer, type Conflict, type LessonForm } from './components/lesson-drawer';
 import { dayHeader, makeEventContent } from './components/event-content';
 
 const PLUGINS = [dayGridPlugin, timeGridPlugin, interactionPlugin];
 const slotLabel = (a: { date: Date }) => a.date.toLocaleTimeString('en-US', { hour: 'numeric' });
 
-class ApiError extends Error {
-  status: number;
-  constructor(message: string, status: number) {
-    super(message);
-    this.status = status;
-  }
-}
+const blankForm = (): LessonForm => ({ title: '', date: ymd(new Date()), time: '10:00', duration: 60, students: [], meet: true, category: 'tutoring', teacher: null });
 
-async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, { ...init, headers: { 'content-type': 'application/json' } });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(json.error ?? res.statusText, res.status);
-  return json as T;
-}
+const toConflict = (e: ApiError): Conflict | null =>
+  e.code === 'conflict' ? { kind: 'owner', people: [] }
+  : e.code === 'participant_conflict' ? { kind: 'students', people: Array.isArray(e.details) ? (e.details as string[]) : [] }
+  : null;
 
-const blankForm = (): LessonForm => ({ title: '', date: ymd(new Date()), time: '10:00', duration: 60, attendees: '', meet: true, category: 'tutoring' });
+const participantsOut = (list: Student[]) => list.map((s) => ({ email: s.email, name: s.name, userId: s.userId }));
 
-export default function Calendar() {
+/** The full calendar for teachers (their own classes) and admins (every class). */
+export default function TeacherCalendar({ me }: { me: Me }) {
+  const admin = me.role === 'admin';
+  const role = admin ? 'admin' : 'teacher';
   const cal = useRef<FullCalendar>(null);
   const [view, setView] = useState<ViewType>('timeGridWeek');
   const [title, setTitle] = useState('');
   const [range, setRange] = useState<{ start: Date; end: Date } | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [settings, setSettings] = useState<CalendarSettings | null>(null);
-  const [connected, setConnected] = useState<boolean | null>(null);
+  const [teachers, setTeachers] = useState<Person[]>([]);
   const [panel, setPanel] = useState<'create' | 'details' | null>('create');
   const [picked, setPicked] = useState<CalendarEvent | null>(null);
   const [form, setForm] = useState<LessonForm>(blankForm);
   const [error, setError] = useState('');
-  const [conflict, setConflict] = useState(false);
+  const [conflict, setConflict] = useState<Conflict | null>(null);
   const [busy, setBusy] = useState(false);
   const [showFree, setShowFree] = useState(true);
-  const [studentSessions, setStudentSessions] = useState<number | null>(null);
   const [tz, setTz] = useState('');
 
   const refetch = () => cal.current?.getApi().refetchEvents();
 
   useEffect(() => {
-    api<CalendarSettings>('/api/settings').then(setSettings, () => {});
-    api<{ connected: boolean }>('/api/google/status').then((s) => setConnected(s.connected), () => setConnected(false));
+    if (admin) api<{ teachers: Person[] }>('/api/teachers').then((r) => setTeachers(r.teachers), () => {});
+    else api<CalendarSettings>('/api/settings').then(setSettings, () => {});
     setTz(new Intl.DateTimeFormat('en-US', { timeZoneName: 'shortOffset' }).formatToParts(new Date()).find((p) => p.type === 'timeZoneName')?.value ?? '');
-  }, []);
+  }, [admin]);
 
   // The loader reads these through refs so its identity never changes; a new function would make
   // FullCalendar treat it as a new event source and refetch on every keystroke or click.
   const showFreeRef = useRef(showFree);
   const durationRef = useRef(form.duration);
+  const teacherRef = useRef(form.teacher?.id);
   showFreeRef.current = showFree;
   durationRef.current = form.duration;
+  teacherRef.current = form.teacher?.id;
 
+  const adminRef = useRef(admin);
+  const meIdRef = useRef(me.id);
   const loadEvents = useCallback(async (info: { start: Date; end: Date }): Promise<EventInput[]> => {
     const qs = `from=${encodeURIComponent(info.start.toISOString())}&to=${encodeURIComponent(info.end.toISOString())}`;
     try {
       const { events: list } = await api<{ events: CalendarEvent[] }>(`/api/events?${qs}`);
       setEvents(list);
-      const items: EventInput[] = list.map((e) => ({ id: e.id, title: e.title, start: e.start, end: e.end, extendedProps: { ev: e } }));
-      if (showFreeRef.current) {
-        const a = await api<{ slots: { start: string; end: string }[] }>(`/api/availability?${qs}&duration=${durationRef.current}`);
+      const mine = (e: CalendarEvent) => adminRef.current || e.ownerId === meIdRef.current;
+      const items: EventInput[] = list.map((e) => ({ id: e.id, title: e.title, start: e.start, end: e.end, extendedProps: { ev: e }, editable: mine(e) }));
+      const shadeFor = adminRef.current ? teacherRef.current : 'self';
+      if (showFreeRef.current && shadeFor) {
+        const who = adminRef.current ? `&teacherId=${teacherRef.current}` : '';
+        const a = await api<{ slots: { start: string; end: string }[] }>(`/api/availability?${qs}&duration=${durationRef.current}${who}`);
         for (const r of mergeSlots(a.slots)) items.push({ start: r.start, end: r.end, display: 'background', classNames: ['free'] });
       }
       setError('');
@@ -98,45 +100,27 @@ export default function Calendar() {
     setRange({ start: a.start, end: a.end });
   }, []);
 
-  const eventContent = useMemo(() => makeEventContent(Boolean(connected)), [connected]);
+  const eventContent = useMemo(() => makeEventContent({ showTeacher: admin }), [admin]);
 
   const stats = useMemo(() => {
     const live = events.filter((e) => e.status === 'confirmed');
     const byCategory = hoursByCategory(live);
     const booked = byCategory.tutoring + byCategory.office_hours + byCategory.personal;
-    return { sessions: live.length, byCategory, booked, capacity: range ? capacityHours(settings, range.start, range.end) : 0 };
-  }, [events, settings, range]);
-
-  const emails = parseEmails(form.attendees);
-  const firstEmail = emails.valid[0];
-  useEffect(() => {
-    setStudentSessions(null);
-    if (!firstEmail) return;
-    let stale = false;
-    const t = setTimeout(() => {
-      api<{ events: CalendarEvent[] }>(`/api/events?attendee=${encodeURIComponent(firstEmail)}`).then(
-        (r) => !stale && setStudentSessions(r.events.length),
-        () => !stale && setStudentSessions(0),
-      );
-    }, 350);
-    return () => {
-      stale = true;
-      clearTimeout(t);
-    };
-  }, [firstEmail]);
+    return { sessions: live.length, byCategory, booked, capacity: admin ? null : range ? capacityHours(settings, range.start, range.end) : 0 };
+  }, [events, settings, range, admin]);
 
   const missing: string[] = [];
+  if (admin && !form.teacher) missing.push('a teacher');
   if (!form.title.trim()) missing.push('a title');
   if (!form.date) missing.push('a date');
   if (!form.time) missing.push('a start time');
-  if (emails.invalid.length) missing.push(`valid emails (check: ${emails.invalid.join(', ')})`);
-  else if (!emails.valid.length) missing.push('at least one student email');
+  if (form.category === 'tutoring' && form.students.length === 0) missing.push('at least one student');
 
   const openCreate = () => {
     setPanel('create');
     setPicked(null);
     setError('');
-    setConflict(false);
+    setConflict(null);
   };
 
   function onSelect(info: DateSelectArg) {
@@ -156,7 +140,7 @@ export default function Calendar() {
       await patch(false);
     } catch (e) {
       const err = e as ApiError;
-      if (err.status === 409 && confirm('That time overlaps another event. Move it anyway?')) {
+      if (err.status === 409 && confirm('That time overlaps another class, or a student\'s other class. Move it anyway?')) {
         try {
           await patch(true);
         } catch (e2) {
@@ -169,13 +153,15 @@ export default function Calendar() {
       }
     }
     refetch();
+    setPicked((cur) => (cur && cur.id === ev.id ? null : cur));
+    setPanel((p) => (p === 'details' ? 'create' : p));
   }
 
   async function create(force = false) {
     if (missing.length) return;
     setBusy(true);
     setError('');
-    setConflict(false);
+    setConflict(null);
     try {
       await api('/api/events', {
         method: 'POST',
@@ -183,26 +169,60 @@ export default function Calendar() {
           title: form.title.trim(),
           start: new Date(`${form.date}T${form.time}`).toISOString(),
           durationMinutes: form.duration,
-          attendees: emails.valid,
+          participants: participantsOut(form.students),
           meet: form.meet,
           category: form.category,
           force,
+          ...(admin && form.teacher ? { ownerId: form.teacher.id, ownerEmail: form.teacher.email, ownerName: form.teacher.name ?? undefined } : {}),
         }),
       });
-      setForm({ ...form, title: '', attendees: '' });
+      setForm({ ...form, title: '', students: [] });
       cal.current?.getApi().unselect();
       refetch();
     } catch (e) {
       const err = e as ApiError;
-      if (err.status === 409) setConflict(true);
-      setError(err.message);
+      const c = toConflict(err);
+      setConflict(c);
+      setError(c ? conflictMessage({ ...c, people: c.people }) : err.message);
     } finally {
       setBusy(false);
     }
   }
 
+  async function addStudents(students: Student[], force: boolean) {
+    if (!picked) return false;
+    setBusy(true);
+    setError('');
+    setConflict(null);
+    try {
+      const updated = await api<CalendarEvent>(`/api/events/${picked.id}/participants`, { method: 'POST', body: JSON.stringify({ participants: participantsOut(students), force }) });
+      setPicked(updated);
+      refetch();
+      return true;
+    } catch (e) {
+      const err = e as ApiError;
+      const c = toConflict(err);
+      setConflict(c);
+      setError(c ? conflictMessage(c) : err.message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeStudent(p: Participant) {
+    if (!picked) return;
+    setError('');
+    try {
+      setPicked(await api<CalendarEvent>(`/api/events/${picked.id}/participants/${p.id}`, { method: 'DELETE' }));
+      refetch();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
   async function cancel(id: string) {
-    if (!confirm('Cancel this lesson and notify attendees?')) return;
+    if (!confirm('Cancel this class and notify the students?')) return;
     try {
       await api(`/api/events/${id}`, { method: 'DELETE' });
       setPicked(null);
@@ -224,13 +244,14 @@ export default function Calendar() {
   return (
     <div className="shell">
       <TopBar
-        connected={connected}
+        me={me}
         sessions={stats.sessions}
         bookedHours={stats.booked}
         capacityHours={stats.capacity}
         byCategory={stats.byCategory}
         view={view}
         showFree={showFree}
+        canShade={!admin || Boolean(form.teacher)}
         onShowFree={(v) => { setShowFree(v); setTimeout(refetch, 0); }}
         onQuickAdd={openCreate}
       />
@@ -239,53 +260,64 @@ export default function Calendar() {
           <CalendarToolbar title={title} view={view} tz={tz} onNav={nav} onView={(v) => cal.current?.getApi().changeView(v)} />
           <div className="fcbox">
             <div className="fchost">
-            <FullCalendar
-              ref={cal}
-              plugins={PLUGINS}
-              initialView="timeGridWeek"
-              headerToolbar={false}
-              height="100%"
-              allDaySlot={false}
-              nowIndicator
-              selectable
-              selectMirror
-              editable
-              eventDurationEditable
-              slotDuration="00:30:00"
-              slotLabelInterval="01:00"
-              slotLabelContent={slotLabel}
-              scrollTime="08:00:00"
-              eventOverlap
-              dayHeaderContent={dayHeader}
-              eventContent={eventContent}
-              eventClassNames={(a) => (a.event.extendedProps.ev ? [`cat-${(a.event.extendedProps.ev as CalendarEvent).category}`] : [])}
-              events={eventSource}
-              datesSet={onDates}
-              select={onSelect}
-              eventClick={(a: EventClickArg) => { setPicked(a.event.extendedProps.ev as CalendarEvent); setPanel('details'); setError(''); }}
-              eventDrop={move}
-              eventResize={move}
-            />
+              <FullCalendar
+                ref={cal}
+                plugins={PLUGINS}
+                initialView="timeGridWeek"
+                headerToolbar={false}
+                height="100%"
+                allDaySlot={false}
+                nowIndicator
+                selectable
+                selectMirror
+                editable
+                eventDurationEditable
+                slotDuration="00:30:00"
+                slotLabelInterval="01:00"
+                slotLabelContent={slotLabel}
+                scrollTime="08:00:00"
+                eventOverlap
+                dayHeaderContent={dayHeader}
+                eventContent={eventContent}
+                eventClassNames={(a) => (a.event.extendedProps.ev ? [`cat-${(a.event.extendedProps.ev as CalendarEvent).category}`] : [])}
+                events={eventSource}
+                datesSet={onDates}
+                select={onSelect}
+                eventClick={(a: EventClickArg) => { setPicked(a.event.extendedProps.ev as CalendarEvent); setPanel('details'); setError(''); setConflict(null); }}
+                eventDrop={move}
+                eventResize={move}
+              />
             </div>
           </div>
         </section>
         {panel === 'create' && (
           <CreateDrawer
             form={form}
-            setForm={setForm}
-            emails={emails}
+            setForm={(f) => { if (f.teacher?.id !== form.teacher?.id) setTimeout(refetch, 0); setForm(f); }}
+            role={role}
+            teachers={teachers}
             missing={missing}
             busy={busy}
             error={error}
             conflict={conflict}
-            connected={connected}
-            studentSessions={studentSessions}
             onCreate={create}
             onClose={() => setPanel(null)}
           />
         )}
         {panel === 'details' && picked && (
-          <DetailsDrawer ev={picked} connected={connected} error={error} onCancel={() => cancel(picked.id)} onNew={openCreate} onClose={() => setPanel(null)} />
+          <DetailsDrawer
+            key={picked.id}
+            ev={picked}
+            role={role}
+            error={error}
+            conflict={conflict}
+            busy={busy}
+            onCancel={() => cancel(picked.id)}
+            onNew={openCreate}
+            onClose={() => setPanel(null)}
+            onAdd={addStudents}
+            onRemove={removeStudent}
+          />
         )}
       </div>
     </div>

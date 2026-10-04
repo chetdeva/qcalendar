@@ -1,4 +1,4 @@
-import type { CalendarEvent, CalendarSettings, EventCategory } from './calendar';
+import type { CalendarEvent, CalendarSettings, EventCategory, Participant } from './calendar';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 export const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -16,11 +16,8 @@ export function rangeLabel(startIso: string, endIso: string): string {
 
 export const minutesBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 60000);
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-export function parseEmails(raw: string) {
-  const all = raw.split(/[,\s;]+/).filter(Boolean);
-  return { valid: all.filter((e) => EMAIL.test(e)), invalid: all.filter((e) => !EMAIL.test(e)) };
-}
+export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const isEmail = (s: string) => s.length <= 254 && EMAIL.test(s);
 
 export function nameFromEmail(email: string): string {
   return email
@@ -82,3 +79,22 @@ export function hoursByCategory(events: CalendarEvent[]): Record<EventCategory, 
 }
 
 export const hoursLabel = (h: number) => `${Math.round(h * 10) / 10}`;
+
+export const personName = (p: { name?: string | null; email: string }) => p.name?.trim() || nameFromEmail(p.email);
+
+/** Who is in a class, in few words: "Liam", "Liam +2", or "3 students" when you may not see the names. */
+export function participantsLabel(ev: CalendarEvent): string {
+  const n = ev.participantCount;
+  if (n === 0) return '';
+  const first: Participant | undefined = ev.participants[0];
+  if (ev.participants.length === n && first) return n === 1 ? personName(first) : `${personName(first)} +${n - 1}`;
+  return `${n} ${n === 1 ? 'student' : 'students'}`;
+}
+
+export function answerSummary(parts: Participant[]): string {
+  const c = { accepted: 0, declined: 0, invited: 0 };
+  for (const p of parts) c[p.status]++;
+  return [c.accepted && `${c.accepted} accepted`, c.declined && `${c.declined} declined`, c.invited && `${c.invited} waiting`].filter(Boolean).join(' · ');
+}
+
+export const STATUS_LABEL = { accepted: 'Accepted', declined: 'Declined', invited: 'Waiting' } as const;

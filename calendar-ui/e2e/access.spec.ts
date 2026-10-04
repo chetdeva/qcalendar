@@ -83,6 +83,48 @@ test.describe('each role gets its own view', () => {
   });
 });
 
+test.describe('a role changed after signing in', () => {
+  test('the new view appears at once, with a banner explaining why some actions still fail until the next sign-in', async ({ context, request }) => {
+    const person = await seed(request, 'student', 'Pat Promoted');
+    const admin = await seed(request, 'admin', 'Ada Admin');
+    await signIn(context, request, person); // signs in while still a student: the token says "student"
+    const promote = await request.fetch(`${USERS_URL}/v1/users/${person.id}/role`, { method: 'PATCH', data: { role: 'teacher' }, headers: { authorization: `Bearer ${await tokenFor(request, admin)}` } });
+    expect(promote.status()).toBe(200);
+
+    const page = await context.newPage();
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'New Lesson' })).toBeVisible(); // the database says teacher
+    await expect(page.locator('.stale-banner')).toContainText('Your role was changed to teacher');
+    await expect(page.locator('.stale-banner form')).toHaveAttribute('action', `${USERS_UI}/auth/signout`);
+
+    // Creating a class is decided from the token, so it is refused for now, and the page says so plainly.
+    await page.getByRole('button', { name: 'Personal' }).click();
+    await page.getByLabel('Event Title *').fill('Too early');
+    await page.getByRole('button', { name: 'Create & Send Invites' }).click();
+    await expect(page.locator('.err')).toContainText('Students cannot create classes');
+
+    // After signing in again the token matches, the banner is gone, and it works.
+    await context.clearCookies();
+    await signIn(context, request, person);
+    await page.reload();
+    await expect(page.locator('.stale-banner')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Personal' }).click();
+    await page.getByLabel('Event Title *').fill('On time');
+    await page.getByRole('button', { name: 'Create & Send Invites' }).click();
+    await expect(page.locator('.fc-event', { hasText: 'On time' })).toBeVisible();
+  });
+
+  test('no banner when the token and the database agree', async ({ context, request }) => {
+    for (const role of ['teacher', 'student', 'admin'] as const) {
+      const page = await openPage(context, request, await seed(request, role, `Some ${role}`));
+      await expect(page.locator('.who-name')).toBeVisible();
+      await expect(page.locator('.stale-banner')).toHaveCount(0);
+      await context.clearCookies();
+      await page.close();
+    }
+  });
+});
+
 test.describe('the server routes enforce roles even if someone calls them by hand', () => {
   test('a student cannot create classes, search students, or list teachers', async ({ context, request }) => {
     const teacher = await seed(request, 'teacher', 'Tess Teacher');

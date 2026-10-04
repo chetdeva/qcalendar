@@ -244,3 +244,6 @@ button:disabled { cursor: default; }
 .fc .fc-event.my-declined .ec-title { text-decoration: line-through; }
 .boot-error { max-width: 480px; margin: 20vh auto; padding: 24px; background: var(--surface); border-radius: 12px; }
 @media (max-width: 960px) { .classes-panel { width: 100%; } .who { margin-left: 0; flex-wrap: wrap; } }
+
+.stale-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #fff3d6; color: #6b4300; padding: 8px 16px; font-size: 13px; line-height: 18px; position: relative; z-index: 7; }
+.stale-banner form { margin: 0; display: flex; }

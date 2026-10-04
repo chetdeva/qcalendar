@@ -14,6 +14,7 @@ import { TopBar } from './components/top-bar';
 import { CalendarToolbar, type ViewType } from './components/calendar-toolbar';
 import { conflictMessage, CreateDrawer, DetailsDrawer, type Conflict, type LessonForm } from './components/lesson-drawer';
 import { dayHeader, makeEventContent } from './components/event-content';
+import { RoleBanner } from './components/role-banner';
 
 const PLUGINS = [dayGridPlugin, timeGridPlugin, interactionPlugin];
 const slotLabel = (a: { date: Date }) => a.date.toLocaleTimeString('en-US', { hour: 'numeric' });
@@ -28,7 +29,7 @@ const toConflict = (e: ApiError): Conflict | null =>
 const participantsOut = (list: Student[]) => list.map((s) => ({ email: s.email, name: s.name, userId: s.userId }));
 
 /** The full calendar for teachers (their own classes) and admins (every class). */
-export default function TeacherCalendar({ me }: { me: Me }) {
+export default function TeacherCalendar({ me, staleRole = false }: { me: Me; staleRole?: boolean }) {
   const admin = me.role === 'admin';
   const role = admin ? 'admin' : 'teacher';
   const cal = useRef<FullCalendar>(null);
@@ -243,6 +244,7 @@ export default function TeacherCalendar({ me }: { me: Me }) {
 
   return (
     <div className="shell">
+      {staleRole && <RoleBanner me={me} />}
       <TopBar
         me={me}
         sessions={stats.sessions}

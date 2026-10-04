@@ -12,6 +12,7 @@ import { api } from './api-client';
 import { CalendarToolbar, type ViewType } from './components/calendar-toolbar';
 import { dayHeader, makeEventContent } from './components/event-content';
 import { UserMenu } from './components/user-menu';
+import { RoleBanner } from './components/role-banner';
 import { Icon } from './components/ui-icon';
 
 const PLUGINS = [dayGridPlugin, timeGridPlugin, interactionPlugin];
@@ -21,7 +22,7 @@ const DAY = 86_400_000;
 const dayHeading = (iso: string) => new Date(iso).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 
 /** A student's view: their own classes to accept or decline, and a read-only calendar. They cannot create or change anything. */
-export default function StudentHome({ me }: { me: Me }) {
+export default function StudentHome({ me, staleRole = false }: { me: Me; staleRole?: boolean }) {
   const cal = useRef<FullCalendar>(null);
   const [view, setView] = useState<ViewType>('timeGridWeek');
   const [title, setTitle] = useState('');
@@ -136,6 +137,7 @@ export default function StudentHome({ me }: { me: Me }) {
 
   return (
     <div className="shell">
+      {staleRole && <RoleBanner me={me} />}
       <header className="utility">
         <div className="u-row">
           <div className="sync-pill">

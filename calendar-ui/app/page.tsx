@@ -1,4 +1,4 @@
-import { getMe } from '@/lib/me';
+import { getMe, tokenRole } from '@/lib/me';
 import StudentHome from './student-home';
 import TeacherCalendar from './teacher-calendar';
 
@@ -14,6 +14,7 @@ export default async function Page() {
     );
   }
   const { me } = result;
+  const stale = (await tokenRole()) !== me.role;
   // Students get "My classes"; teachers get their calendar; admins get every class.
-  return me.role === 'student' ? <StudentHome me={me} /> : <TeacherCalendar me={me} />;
+  return me.role === 'student' ? <StudentHome me={me} staleRole={stale} /> : <TeacherCalendar me={me} staleRole={stale} />;
 }

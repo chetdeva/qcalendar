@@ -24,7 +24,8 @@ export default defineConfig({
   webServer: [
     {
       command: `rm -rf .e2e-data && mkdir -p .e2e-data && cd ${SERVICE_DIR} && node --disable-warning=ExperimentalWarning src/index.ts`,
-      env: { API_KEY, PORT: String(API_PORT), DB_PATH: path.resolve(__dirname, '.e2e-data/e2e.db'), DEFAULT_TIMEZONE: 'UTC', PUBLIC_URL: API_URL },
+      // An embedded Postgres in a throwaway folder, and the service API key acting on one default teacher (legacy single-owner mode).
+      env: { API_KEY, PORT: String(API_PORT), PGLITE_DIR: path.resolve(__dirname, '.e2e-data/pglite'), DEFAULT_OWNER_ID: '00000000-0000-4000-8000-00000000e2e0', DEFAULT_TIMEZONE: 'UTC' },
       url: `${API_URL}/health`,
       reuseExistingServer: false,
     },

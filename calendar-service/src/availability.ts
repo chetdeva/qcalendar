@@ -1,5 +1,3 @@
-import { kvGet, type DB } from './db.ts';
-
 export interface Interval {
   start: number;
   end: number;
@@ -12,7 +10,6 @@ export interface Settings {
   workingHours: Record<(typeof DAYS)[number], Window[]>;
   bufferMinutes: number;
   slotStepMinutes: number;
-  webhookUrl: string;
 }
 
 export function defaultSettings(timezone = 'UTC'): Settings {
@@ -22,7 +19,6 @@ export function defaultSettings(timezone = 'UTC'): Settings {
     workingHours: { sun: [], mon: weekday, tue: weekday, wed: weekday, thu: weekday, fri: weekday, sat: [] },
     bufferMinutes: 0,
     slotStepMinutes: 30,
-    webhookUrl: '',
   };
 }
 
@@ -107,8 +103,4 @@ export function computeSlots(opts: {
     }
   }
   return slots;
-}
-
-export function loadSettings(db: DB, defaultTimezone?: string): Settings {
-  return { ...defaultSettings(defaultTimezone), ...(kvGet<Partial<Settings>>(db, 'settings') ?? {}) };
 }

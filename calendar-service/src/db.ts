@@ -1,90 +1,98 @@
-import { DatabaseSync } from 'node:sqlite';
+import { readdirSync, readFileSync } from 'node:fs';
 import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import pg from 'pg';
+import { PGlite } from '@electric-sql/pglite';
 
-export type DB = DatabaseSync;
+export type Row = Record<string, any>;
 
-export const CATEGORIES = ['tutoring', 'office_hours', 'personal'] as const;
-export type Category = (typeof CATEGORIES)[number];
-
-export interface EventRow {
-  id: string;
-  title: string;
-  description: string | null;
-  location: string | null;
-  start_utc: string;
-  end_utc: string;
-  timezone: string;
-  attendees: string;
-  external_ref: string | null;
-  meet: number;
-  meet_url: string | null;
-  category: Category;
-  status: 'confirmed' | 'cancelled';
-  google_event_id: string | null;
-  sync_status: 'pending' | 'synced' | 'error';
-  sync_error: string | null;
-  created_at: string;
-  updated_at: string;
+export interface Queryable {
+  query<T extends Row = Row>(sql: string, params?: unknown[]): Promise<T[]>;
+  /** Runs a script of several statements (no parameters), e.g. a migration file. */
+  exec(sql: string): Promise<void>;
 }
 
-export function openDb(path: string): DB {
-  if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
-  const db = new DatabaseSync(path);
-  db.exec(`
-    PRAGMA journal_mode = WAL;
-    PRAGMA busy_timeout = 5000;
-    CREATE TABLE IF NOT EXISTS events (
-      id TEXT PRIMARY KEY,
-      title TEXT NOT NULL,
-      description TEXT,
-      location TEXT,
-      start_utc TEXT NOT NULL,
-      end_utc TEXT NOT NULL,
-      timezone TEXT NOT NULL,
-      attendees TEXT NOT NULL DEFAULT '[]',
-      external_ref TEXT,
-      meet INTEGER NOT NULL DEFAULT 0,
-      meet_url TEXT,
-      category TEXT NOT NULL DEFAULT 'tutoring',
-      status TEXT NOT NULL DEFAULT 'confirmed',
-      google_event_id TEXT,
-      sync_status TEXT NOT NULL DEFAULT 'pending',
-      sync_error TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS events_time ON events (start_utc, end_utc);
-    CREATE INDEX IF NOT EXISTS events_ref ON events (external_ref);
-    CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS webhook_queue (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      type TEXT NOT NULL,
-      payload TEXT NOT NULL,
-      attempts INTEGER NOT NULL DEFAULT 0,
-      next_at INTEGER NOT NULL,
-      done INTEGER NOT NULL DEFAULT 0
-    );
-  `);
-  const cols = db.prepare('PRAGMA table_info(events)').all() as { name: string }[];
-  if (!cols.some((c) => c.name === 'category')) {
-    db.exec(`ALTER TABLE events ADD COLUMN category TEXT NOT NULL DEFAULT 'tutoring'`);
+/** The only thing the rest of the service knows about storage. Production uses Postgres; tests and local dev use PGlite. */
+export interface Db extends Queryable {
+  /** Runs fn inside one transaction; rolls back if it throws. */
+  tx<T>(fn: (q: Queryable) => Promise<T>): Promise<T>;
+  close(): Promise<void>;
+}
+
+export type SslMode = 'off' | 'require' | 'verify';
+
+export function createPgDb(connectionString: string, opts: { ssl?: SslMode; caCert?: string } = {}): Db {
+  const local = /@(localhost|127\.0\.0\.1|\[::1\])[:/]/.test(connectionString);
+  const mode: SslMode = opts.ssl ?? (local ? 'off' : 'require');
+  const ssl = mode === 'off' ? false : mode === 'verify' ? { ca: opts.caCert, rejectUnauthorized: true } : { rejectUnauthorized: false };
+  const pool = new pg.Pool({ connectionString, ssl, max: 5 });
+  pool.on('error', (e) => console.error('postgres pool error', e.message));
+  return {
+    async query(sql, params) {
+      return (await pool.query(sql, params as unknown[])).rows;
+    },
+    async exec(sql) {
+      await pool.query(sql);
+    },
+    async tx(fn) {
+      const client = await pool.connect();
+      try {
+        await client.query('begin');
+        const result = await fn({
+          query: async (sql, params) => (await client.query(sql, params as unknown[])).rows,
+          exec: async (sql) => void (await client.query(sql)),
+        });
+        await client.query('commit');
+        return result;
+      } catch (e) {
+        await client.query('rollback').catch(() => {});
+        throw e;
+      } finally {
+        client.release();
+      }
+    },
+    close: () => pool.end(),
+  };
+}
+
+/** In-memory (no dir) or file-backed Postgres engine running inside this process. */
+export function createPgliteDb(dir?: string): Db {
+  if (dir) mkdirSync(dir, { recursive: true });
+  const db = dir ? new PGlite(dir) : new PGlite();
+  return {
+    async query(sql, params) {
+      return (await db.query(sql, params as unknown[])).rows as any[];
+    },
+    async exec(sql) {
+      await db.exec(sql);
+    },
+    tx: (fn) =>
+      db.transaction((t) =>
+        fn({
+          query: async (sql, params) => (await t.query(sql, params as unknown[])).rows as any[],
+          exec: async (sql) => void (await t.exec(sql)),
+        }),
+      ),
+    close: () => db.close(),
+  };
+}
+
+const MIGRATIONS = join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
+
+/** Applies any migrations/*.sql not yet recorded in calendar.schema_migrations, in filename order. */
+export async function migrate(db: Db, dir = MIGRATIONS): Promise<string[]> {
+  await db.query('create schema if not exists calendar');
+  await db.query('create table if not exists calendar.schema_migrations (name text primary key, applied_at timestamptz not null default now())');
+  const done = new Set((await db.query<{ name: string }>('select name from calendar.schema_migrations')).map((r) => r.name));
+  const applied: string[] = [];
+  for (const file of readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()) {
+    const name = file.replace(/\.sql$/, '');
+    if (done.has(name)) continue;
+    const sql = readFileSync(join(dir, file), 'utf8');
+    await db.tx((q) => q.exec(sql));
+    await db.query('insert into calendar.schema_migrations (name) values ($1) on conflict do nothing', [name]);
+    applied.push(name);
   }
-  return db;
-}
-
-export function kvGet<T>(db: DB, key: string): T | undefined {
-  const row = db.prepare('SELECT value FROM kv WHERE key = ?').get(key) as { value: string } | undefined;
-  return row ? (JSON.parse(row.value) as T) : undefined;
-}
-
-export function kvSet(db: DB, key: string, value: unknown): void {
-  db.prepare('INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(
-    key,
-    JSON.stringify(value),
-  );
-}
-
-export function getEvent(db: DB, id: string): EventRow | undefined {
-  return db.prepare('SELECT * FROM events WHERE id = ?').get(id) as EventRow | undefined;
+  return applied;
 }

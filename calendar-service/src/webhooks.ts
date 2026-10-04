@@ -1,31 +1,25 @@
 import { createHmac, randomUUID } from 'node:crypto';
-import type { DB } from './db.ts';
+import type { Db, Queryable } from './db.ts';
 
-export function enqueueWebhook(db: DB, type: string, data: unknown): void {
+export async function enqueueWebhook(q: Queryable, type: string, data: unknown) {
   const payload = JSON.stringify({ id: randomUUID(), type, createdAt: new Date().toISOString(), data });
-  db.prepare('INSERT INTO webhook_queue (type, payload, next_at) VALUES (?, ?, ?)').run(type, payload, Date.now());
+  await q.query('insert into calendar.webhook_queue (type, payload) values ($1, $2)', [type, payload]);
 }
 
 const MAX_ATTEMPTS = 8;
 
-export async function processWebhooks(
-  db: DB,
-  opts: { url: () => string; secret: string; fetchImpl?: typeof fetch },
-): Promise<void> {
+export async function processWebhooks(db: Db, opts: { url: string; secret: string; fetchImpl?: typeof fetch }) {
   const send = opts.fetchImpl ?? fetch;
-  const rows = db
-    .prepare('SELECT * FROM webhook_queue WHERE done = 0 AND next_at <= ? ORDER BY id LIMIT 20')
-    .all(Date.now()) as { id: number; type: string; payload: string; attempts: number }[];
-  const url = opts.url();
-  for (const row of rows) {
-    if (!url) {
-      db.prepare('UPDATE webhook_queue SET done = 1 WHERE id = ?').run(row.id);
-      continue;
-    }
+  const rows = await db.query<{ id: string; type: string; payload: string; attempts: number }>(
+    `update calendar.webhook_queue set next_at = now() + interval '2 minutes'
+      where id in (select id from calendar.webhook_queue where not done and next_at <= now() order by id limit 20 for update skip locked)
+      returning id, type, payload, attempts`,
+  );
+  for (const row of rows.sort((a, b) => Number(a.id) - Number(b.id))) {
     let ok = false;
     try {
       const sig = createHmac('sha256', opts.secret).update(row.payload).digest('hex');
-      const res = await send(url, {
+      const res = await send(opts.url, {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-calendar-event': row.type, 'x-calendar-signature': `sha256=${sig}` },
         body: row.payload,
@@ -37,9 +31,9 @@ export async function processWebhooks(
     }
     const attempts = row.attempts + 1;
     if (ok || attempts >= MAX_ATTEMPTS) {
-      db.prepare('UPDATE webhook_queue SET done = 1, attempts = ? WHERE id = ?').run(attempts, row.id);
+      await db.query('update calendar.webhook_queue set done = true, attempts = $2 where id = $1', [row.id, attempts]);
     } else {
-      db.prepare('UPDATE webhook_queue SET attempts = ?, next_at = ? WHERE id = ?').run(attempts, Date.now() + 30_000 * 2 ** attempts, row.id);
+      await db.query(`update calendar.webhook_queue set attempts = $2, next_at = now() + ($3 || ' seconds')::interval where id = $1`, [row.id, attempts, String(30 * 2 ** attempts)]);
     }
   }
 }

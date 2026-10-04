@@ -1,6 +1,6 @@
 import type { CalendarEvent, EventCategory } from '@/lib/calendar';
 import { CATEGORIES, CATEGORY_ORDER, initials, nameFromEmail, rangeLabel } from '@/lib/format';
-import { Icon } from './icon';
+import { Icon } from './ui-icon';
 
 export interface LessonForm {
   title: string;

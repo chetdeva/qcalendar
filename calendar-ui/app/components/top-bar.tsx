@@ -1,6 +1,6 @@
 import type { EventCategory } from '@/lib/calendar';
 import { CATEGORIES, CATEGORY_ORDER, hoursLabel } from '@/lib/format';
-import { Icon } from './icon';
+import { Icon } from './ui-icon';
 
 import type { ViewType } from './calendar-toolbar';
 

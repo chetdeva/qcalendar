@@ -1,7 +1,7 @@
 import type { DayHeaderContentArg, EventContentArg } from '@fullcalendar/core';
 import type { CalendarEvent } from '@/lib/calendar';
 import { CATEGORIES, minutesBetween, nameFromEmail, rangeLabel, timeLabel } from '@/lib/format';
-import { Icon } from './icon';
+import { Icon } from './ui-icon';
 
 const WEEKDAY = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 

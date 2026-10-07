@@ -48,7 +48,8 @@ export const grades = Array.from({ length: 10 }, (_, i) => `Grade ${i + 1}`);
 export const why = {
   eyebrow: 'Why Quanttoria',
   title: 'Children are not bad or weak at maths. They just need a tailored approach.',
-  intro: 'We meet children where they are and bridge foundational gaps, train them to apply strategies, keep going when a problem is hard and analyse it rightfully.',
+  introLead: 'Here’s how we help every child feel confident in maths. We:',
+  intro: ['Meet children where they are', 'Bridge foundational gaps', 'Train them to apply strategies', 'Keep going when a problem is hard and analyse it rightfully'],
   imageAlt: 'Two children pointing excitedly at a whiteboard showing fractions, blocks and shapes',
   reasons: [
     { icon: '👀', title: 'Understanding first', text: 'We explain the why behind each method, so your child builds detailed understanding and reasoning instead of relying on memorised steps.' },

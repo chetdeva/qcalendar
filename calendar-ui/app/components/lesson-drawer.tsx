@@ -1,43 +1,52 @@
-import type { CalendarEvent, EventCategory } from '@/lib/calendar';
-import { CATEGORIES, CATEGORY_ORDER, initials, nameFromEmail, rangeLabel } from '@/lib/format';
-import { Icon } from './icon';
+'use client';
+
+import { useState } from 'react';
+import type { CalendarEvent, EventCategory, Participant, Person, Student } from '@/lib/calendar';
+import { answerSummary, CATEGORIES, CATEGORY_ORDER, initials, personName, rangeLabel, STATUS_LABEL } from '@/lib/format';
+import { StudentPicker } from './student-picker';
+import { Icon } from './ui-icon';
 
 export interface LessonForm {
   title: string;
   date: string;
   time: string;
   duration: number;
-  attendees: string;
+  students: Student[];
   meet: boolean;
   category: EventCategory;
+  /** Admins only: whose calendar the class goes on. */
+  teacher: Person | null;
 }
 
+/** A 409 from the service: the teacher is busy, or some of the chosen students already are. */
+export type Conflict = { kind: 'owner' | 'students'; people: string[] };
+
 const DURATIONS = [30, 60, 75, 90];
+const iconFor = (c: EventCategory) => (c === 'tutoring' ? 'tutoring' : c === 'office_hours' ? 'office-hours' : 'personal');
+
+export function conflictMessage(c: Conflict) {
+  return c.kind === 'owner'
+    ? 'That time overlaps another class on the calendar.'
+    : `Already in another class at this time: ${c.people.join(', ')}.`;
+}
 
 interface CreateProps {
   form: LessonForm;
   setForm: (f: LessonForm) => void;
-  emails: { valid: string[]; invalid: string[] };
+  role: 'teacher' | 'admin';
+  teachers: Person[];
   missing: string[];
   busy: boolean;
   error: string;
-  conflict: boolean;
-  connected: boolean | null;
-  studentSessions: number | null;
+  conflict: Conflict | null;
   onCreate: (force: boolean) => void;
   onClose: () => void;
 }
 
 export function CreateDrawer(p: CreateProps) {
   const { form, setForm } = p;
-  const first = p.emails.valid[0];
   const set = <K extends keyof LessonForm>(k: K, v: LessonForm[K]) => setForm({ ...form, [k]: v });
   const canBook = p.missing.length === 0;
-  const inviteNote = !p.connected
-    ? 'Saved here only until Google Calendar is connected'
-    : form.meet
-      ? 'Sends calendar invite + automatic Google Meet'
-      : 'Sends calendar invite';
 
   return (
     <aside className="drawer" aria-label="New lesson">
@@ -46,7 +55,7 @@ export function CreateDrawer(p: CreateProps) {
           <span className="d-icon"><Icon name="header-add" color="#005bbf" /></span>
           <div>
             <h3>New Lesson</h3>
-            <p>Add slot &amp; trigger Google Calendar push</p>
+            <p>Add a class and email the invitations</p>
           </div>
         </div>
         <button type="button" className="d-close" aria-label="Close panel" onClick={p.onClose}>
@@ -55,22 +64,23 @@ export function CreateDrawer(p: CreateProps) {
       </div>
 
       <div className="d-body">
+        {p.role === 'admin' && (
+          <label className="field">
+            <span>Teacher *</span>
+            <select value={form.teacher?.id ?? ''} onChange={(e) => set('teacher', p.teachers.find((t) => t.id === e.target.value) ?? null)}>
+              <option value="">Choose a teacher</option>
+              {p.teachers.map((t) => <option key={t.id} value={t.id}>{personName(t)}</option>)}
+            </select>
+          </label>
+        )}
+
         <label className="field">
           <span>Event Title *</span>
           <input value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="AP Statistics - Private Session" />
         </label>
 
-        <div className="field">
-          <label htmlFor="student-email">Student Email *</label>
-          <div className="with-icon">
-            <span className="in-icon"><Icon name="mail" color="#727785" /></span>
-            <input id="student-email" value={form.attendees} onChange={(e) => set('attendees', e.target.value)} placeholder="student@example.com" />
-          </div>
-          <div className={`hint ${p.connected ? 'ok' : 'warn'}`}>
-            <Icon name="verified-sync" color={p.connected ? '#006c4a' : '#854f0b'} />
-            {inviteNote}
-          </div>
-        </div>
+        <StudentPicker label="Students" required={form.category === 'tutoring'} value={form.students} onChange={(v) => set('students', v)} />
+        <div className="hint ok"><Icon name="verified-sync" color="#006c4a" />Each student gets an email invitation</div>
 
         <div className="field">
           <span id="session-type">Session Type</span>
@@ -84,7 +94,7 @@ export function CreateDrawer(p: CreateProps) {
                 style={form.category === c ? { color: CATEGORIES[c].color } : undefined}
                 onClick={() => set('category', c)}
               >
-                <Icon name={c === 'tutoring' ? 'tutoring' : c === 'office_hours' ? 'office-hours' : 'personal'} color={form.category === c ? CATEGORIES[c].color : '#414754'} />
+                <Icon name={iconFor(c)} color={form.category === c ? CATEGORIES[c].color : '#414754'} />
                 {CATEGORIES[c].label}
               </button>
             ))}
@@ -117,31 +127,12 @@ export function CreateDrawer(p: CreateProps) {
           <div className="toggle-row">
             <span className="t-ico"><Icon name="meet-toggle" color="#005bbf" /></span>
             <div className="t-text">
-              <b>Add Google Meet</b>
-              <small>Auto-generates meeting link</small>
+              <b>Add video meeting</b>
+              <small>Creates a private meeting link</small>
             </div>
-            <button type="button" role="switch" aria-checked={form.meet} aria-label="Add Google Meet" className="switch" onClick={() => set('meet', !form.meet)} />
-          </div>
-          <div className="toggle-row">
-            <span className="t-ico"><Icon name="sync-toggle" color="#006c4a" /></span>
-            <div className="t-text">
-              <b>Sync to Google Calendar</b>
-              <small>{p.connected ? "Blocks slot in tutor's master cal" : 'Connect Google in calendar-service'}</small>
-            </div>
-            <button type="button" role="switch" aria-checked={Boolean(p.connected)} aria-label="Sync to Google Calendar" aria-disabled="true" disabled className="switch green" />
+            <button type="button" role="switch" aria-checked={form.meet} aria-label="Add video meeting" className="switch" onClick={() => set('meet', !form.meet)} />
           </div>
         </div>
-
-        {first && (
-          <div className="student-card">
-            <span className="avatar">{initials(nameFromEmail(first))}</span>
-            <div className="s-text">
-              <b>{nameFromEmail(first)} (Client)</b>
-              <small><span className="dot-sm" />{p.studentSessions === null ? 'Checking history…' : `${p.studentSessions} ${p.studentSessions === 1 ? 'session' : 'sessions'} booked`}</small>
-            </div>
-            <Icon name="arrow-right" color="#727785" />
-          </div>
-        )}
 
         <div className="actions">
           <button type="button" className="cta" disabled={p.busy || !canBook} onClick={() => p.onCreate(false)}>
@@ -159,15 +150,23 @@ export function CreateDrawer(p: CreateProps) {
 
 interface DetailsProps {
   ev: CalendarEvent;
-  connected: boolean | null;
+  role: 'teacher' | 'admin';
   error: string;
+  conflict: Conflict | null;
+  busy: boolean;
   onCancel: () => void;
   onNew: () => void;
   onClose: () => void;
+  onAdd: (students: Student[], force: boolean) => Promise<boolean>;
+  onRemove: (p: Participant) => void;
 }
 
-export function DetailsDrawer({ ev, connected, error, onCancel, onNew, onClose }: DetailsProps) {
+export function DetailsDrawer({ ev, role, error, conflict, busy, onCancel, onNew, onClose, onAdd, onRemove }: DetailsProps) {
   const cat = CATEGORIES[ev.category];
+  const [adding, setAdding] = useState<Student[]>([]);
+  const summary = answerSummary(ev.participants);
+  const add = async (force: boolean) => { if (await onAdd(adding, force)) setAdding([]); };
+
   return (
     <aside className="drawer" aria-label="Lesson details">
       <div className="d-head">
@@ -187,26 +186,43 @@ export function DetailsDrawer({ ev, connected, error, onCancel, onNew, onClose }
           <b className="detail-title">{ev.title}</b>
           <span>{new Date(ev.start).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
           <span>{rangeLabel(ev.start, ev.end)}</span>
+          {role === 'admin' && <span>Teacher: {ev.ownerName ?? ev.ownerEmail ?? 'unknown'}</span>}
         </div>
-        {ev.attendees.length > 0 && (
-          <div className="field">
-            <span>Attendees</span>
-            <ul className="attendees">
-              {ev.attendees.map((a) => (
-                <li key={a}><span className="avatar sm">{initials(nameFromEmail(a))}</span>{a}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {ev.meetUrl && (
-          <a className="meet-link" href={ev.meetUrl} target="_blank" rel="noreferrer">
-            <Icon name="video" color="#005bbf" /> Join Google Meet
+
+        {ev.meetingUrl && (
+          <a className="meet-link" href={ev.meetingUrl} target="_blank" rel="noreferrer">
+            <Icon name="video" color="#005bbf" /> Join video meeting
           </a>
         )}
-        <div className={`hint ${ev.syncStatus === 'synced' ? 'ok' : 'warn'}`}>
-          <Icon name="verified-sync" color={ev.syncStatus === 'synced' ? '#006c4a' : '#854f0b'} />
-          {ev.syncStatus === 'synced' ? 'On your Google Calendar' : connected ? 'Waiting to sync to Google Calendar' : 'Not on Google Calendar yet'}
+
+        <div className="field">
+          <span>Students{ev.participants.length ? ` (${ev.participants.length})` : ''}</span>
+          {summary && <small className="hint">{summary}</small>}
+          {ev.participants.length === 0 && <p className="muted-line">No students in this class yet.</p>}
+          <ul className="attendees" aria-label="Students in this class">
+            {ev.participants.map((p) => (
+              <li key={p.id}>
+                <span className="avatar sm" aria-hidden="true">{initials(personName(p))}</span>
+                <span className="who-line"><b>{personName(p)}</b><small>{p.email}</small></span>
+                <span className={`status status-${p.status}`}>{STATUS_LABEL[p.status]}</span>
+                {ev.status === 'confirmed' && (
+                  <button type="button" className="x-btn" aria-label={`Remove ${p.email}`} onClick={() => onRemove(p)}>
+                    <Icon name="close" color="#414754" />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
         </div>
+
+        {ev.status === 'confirmed' && (
+          <div className="add-box">
+            <StudentPicker label="Add students" value={adding} onChange={setAdding} exclude={ev.participants.map((p) => p.email)} />
+            <button type="button" className="ghost" disabled={busy || adding.length === 0} onClick={() => add(false)}>Add to class</button>
+            {conflict && <button type="button" className="ghost" onClick={() => add(true)}>Add anyway</button>}
+          </div>
+        )}
+
         <div className="actions">
           <button type="button" className="cta" onClick={onNew}>
             <Icon name="plus-circle" color="#fff" />

@@ -5,8 +5,7 @@ services:
     env_file: .env
     environment:
       PORT: "3000"
-    volumes:
-      - ./data:/data
+      NODE_ENV: production # requires DATABASE_URL and SUPABASE_URL
   caddy:
     image: caddy:2
     restart: unless-stopped

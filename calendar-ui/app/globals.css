@@ -184,3 +184,66 @@ button:disabled { cursor: default; }
 .fc .fc-daygrid-event { border-radius: 4px; }
 .fc .fc-daygrid-day-number { color: var(--ink); font-size: 13px; padding: 4px 8px; }
 .fc .fc-daygrid-day.fc-day-today { background: rgba(216, 226, 255, 0.35); }
+
+/* ---- roles, pickers, rosters, student view ---- */
+.who { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.who form { display: flex; margin: 0; }
+.who-name { font-size: 13px; font-weight: 500; }
+.badge { display: inline-block; border-radius: 9999px; padding: 1px 10px; font-size: 11px; line-height: 18px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; background: var(--tint-2); color: var(--ink-2); }
+.badge-admin { background: #eaddff; color: #25005a; }
+.badge-teacher { background: #d8e2ff; color: #001a41; }
+.as-link { text-decoration: none; display: inline-flex; align-items: center; color: inherit; }
+.free-toggle { margin-left: 0; }
+.field select { width: 100%; background: var(--surface); border: 1px solid var(--field-line); border-radius: 8px; padding: 6px 12px; font: inherit; font-size: 14px; color: var(--ink); }
+.picker { position: relative; }
+.chips { list-style: none; margin: 0 0 4px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-s { display: inline-flex; align-items: center; gap: 6px; background: var(--tint); border-radius: 9999px; padding: 2px 4px 2px 4px; font-size: 13px; }
+.chip-s button { width: 20px; height: 20px; border: 0; border-radius: 9999px; background: transparent; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+.chip-s button:hover { background: rgba(0, 0, 0, .08); }
+.chip-name { font-weight: 500; }
+.chip-note { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: #854f0b; }
+.avatar { width: 40px; height: 40px; border-radius: 9999px; background: #eaddff; color: #25005a; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; flex: none; }
+.avatar.sm { width: 28px; height: 28px; font-size: 11px; }
+.avatar.xs { width: 22px; height: 22px; font-size: 10px; }
+.picker-list { position: absolute; z-index: 20; left: 0; right: 0; top: 100%; margin: 4px 0 0; padding: 4px; list-style: none; background: var(--surface); border: 1px solid var(--field-line); border-radius: 10px; box-shadow: 0 8px 24px rgba(11, 28, 48, .14); max-height: 260px; overflow: auto; }
+.picker-list button { width: 100%; display: flex; align-items: center; gap: 8px; text-align: left; background: transparent; border: 0; border-radius: 8px; padding: 6px 8px; }
+.picker-list button:hover, .picker-list button:focus-visible { background: var(--tint); }
+.p-text { display: flex; flex-direction: column; min-width: 0; }
+.p-text b { font-size: 13px; line-height: 16px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+.p-text small { font-size: 12px; line-height: 16px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; }
+.p-empty { padding: 8px; font-size: 12px; color: var(--ink-3); }
+.status { flex: none; border-radius: 9999px; padding: 1px 8px; font-size: 11px; line-height: 16px; font-weight: 600; background: var(--tint-2); color: var(--ink-2); }
+.status-accepted { background: #e3f6ee; color: #0a4d36; }
+.status-declined { background: #fdecec; color: #7a1414; }
+.status-invited { background: #fff3d6; color: #6b4300; }
+.attendees { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.attendees li { display: flex; align-items: center; gap: 8px; }
+.who-line { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.who-line b { font-size: 13px; line-height: 16px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+.who-line small { font-size: 12px; line-height: 16px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; }
+.x-btn { width: 24px; height: 24px; border: 0; border-radius: 9999px; background: transparent; display: inline-flex; align-items: center; justify-content: center; padding: 0; flex: none; }
+.x-btn:hover { background: rgba(0, 0, 0, .06); }
+.add-box { display: flex; flex-direction: column; gap: 8px; background: var(--tint); border-radius: 12px; padding: 12px; }
+.muted-line { margin: 0; font-size: 13px; color: var(--ink-2); }
+.classes-panel { width: 420px; }
+.sec-h { margin: 0 0 6px; font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--ink-3); }
+.day-group { margin-bottom: 10px; }
+.day-h { margin: 8px 0 6px; font-size: 13px; font-weight: 600; }
+.class-card { position: relative; overflow: hidden; background: var(--tint); border-radius: 10px; padding: 10px 12px 10px 16px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 4px; }
+.class-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--accent, var(--primary)); }
+.class-card.sel { outline: 2px solid var(--primary); outline-offset: -2px; }
+.cc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cc-head b { font-size: 14px; font-weight: 600; }
+.cc-when { font-size: 13px; font-weight: 500; }
+.cc-who, .cc-note { font-size: 12px; line-height: 16px; color: var(--ink-2); margin: 0; }
+.cc-actions { display: flex; gap: 8px; margin-top: 4px; }
+.cc-actions button { flex: 1; border-radius: 9999px; border: 1px solid var(--field-line); background: var(--surface); padding: 5px 0; font-weight: 600; font-size: 13px; }
+.cc-actions .btn-accept[aria-pressed='true'] { background: var(--green); border-color: var(--green); color: #fff; }
+.cc-actions .btn-decline[aria-pressed='true'] { background: var(--red); border-color: var(--red); color: #fff; }
+.fc .fc-event.my-declined { opacity: .5; }
+.fc .fc-event.my-declined .ec-title { text-decoration: line-through; }
+.boot-error { max-width: 480px; margin: 20vh auto; padding: 24px; background: var(--surface); border-radius: 12px; }
+@media (max-width: 960px) { .classes-panel { width: 100%; } .who { margin-left: 0; flex-wrap: wrap; } }
+
+.stale-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #fff3d6; color: #6b4300; padding: 8px 16px; font-size: 13px; line-height: 18px; position: relative; z-index: 7; }
+.stale-banner form { margin: 0; display: flex; }

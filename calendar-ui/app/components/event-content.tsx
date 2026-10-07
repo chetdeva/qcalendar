@@ -1,7 +1,7 @@
 import type { DayHeaderContentArg, EventContentArg } from '@fullcalendar/core';
 import type { CalendarEvent } from '@/lib/calendar';
-import { CATEGORIES, minutesBetween, nameFromEmail, rangeLabel, timeLabel } from '@/lib/format';
-import { Icon } from './icon';
+import { CATEGORIES, minutesBetween, participantsLabel, rangeLabel, timeLabel } from '@/lib/format';
+import { Icon } from './ui-icon';
 
 const WEEKDAY = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
@@ -17,7 +17,7 @@ export function dayHeader(arg: DayHeaderContentArg) {
   );
 }
 
-export function makeEventContent(googleConnected: boolean) {
+export function makeEventContent(opts: { showTeacher?: boolean; showStudents?: boolean } = {}) {
   return function eventContent(arg: EventContentArg) {
     const ev = arg.event.extendedProps.ev as CalendarEvent | undefined;
     if (!ev) return null;
@@ -34,7 +34,7 @@ export function makeEventContent(googleConnected: boolean) {
     }
 
     const minutes = minutesBetween(ev.start, ev.end);
-    const guest = ev.attendees[0] ? nameFromEmail(ev.attendees[0]) : '';
+    const guest = [opts.showTeacher ? ev.ownerName : '', opts.showStudents === false ? '' : participantsLabel(ev)].filter(Boolean).join(' · ');
     if (minutes <= 45) {
       return (
         <div className="ec ec-compact">
@@ -50,13 +50,13 @@ export function makeEventContent(googleConnected: boolean) {
             <Icon name={cat.icon} color="currentColor" />
             {cat.badge}
           </span>
-          {googleConnected && ev.syncStatus !== 'synced' && <span className="ec-pending">Pending</span>}
+          {ev.myStatus === 'invited' && <span className="ec-pending">Reply</span>}
         </div>
         <div className="ec-title">{ev.title}</div>
         {guest && <div className="ec-sub">{guest}</div>}
         <div className="ec-foot">
           <span className="ec-time">{rangeLabel(ev.start, ev.end)}</span>
-          {ev.meetUrl && <Icon name="video" color="#005bbf" />}
+          {ev.meetingUrl && <Icon name="video" color="#005bbf" />}
         </div>
       </div>
     );

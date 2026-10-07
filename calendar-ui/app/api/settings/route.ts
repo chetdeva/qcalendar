@@ -1,11 +1,4 @@
-import { NextResponse } from 'next/server';
-import { calendar } from '@/lib/calendar';
-import { fail } from '@/lib/http';
+import type { NextRequest } from 'next/server';
+import { forwardCalendar } from '@/lib/bff';
 
-export async function GET() {
-  try {
-    return NextResponse.json(await calendar.settings());
-  } catch (e) {
-    return fail(e);
-  }
-}
+export const GET = (req: NextRequest) => forwardCalendar('GET', `/v1/settings${req.nextUrl.search}`);

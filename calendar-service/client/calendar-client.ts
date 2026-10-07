@@ -1,17 +1,42 @@
-// Server-side only. Copy into your Next.js app (e.g. lib/calendar.ts).
+// Server-side only. Copy into a backend that talks to calendar-service with the service API key
+// (for example the future booking app), or pass a person's own access token to act as that person.
 // Env: CALENDAR_API_URL=https://calendar.example.com  CALENDAR_API_KEY=...
 export type EventCategory = 'tutoring' | 'office_hours' | 'personal';
+export type ParticipantStatus = 'invited' | 'accepted' | 'declined';
+
+export interface Participant { id: string; userId: string | null; email: string; name: string | null; status: ParticipantStatus; respondedAt: string | null }
 
 export interface CalendarEvent {
-  id: string; title: string; description: string | null; location: string | null;
-  start: string; end: string; timezone: string; attendees: string[];
-  externalRef: string | null; meet: boolean; meetUrl: string | null; category: EventCategory;
-  status: 'confirmed' | 'cancelled'; syncStatus: 'pending' | 'synced' | 'error';
+  id: string; ownerId: string; ownerName: string | null; ownerEmail: string | null;
+  title: string; description: string | null; location: string | null; meetingUrl: string | null;
+  start: string; end: string; timezone: string; category: EventCategory; status: 'confirmed' | 'cancelled';
+  externalRef: string | null;
+  /** Everyone for the owner and staff; only yourself for a student. */
+  participants: Participant[];
+  participantCount: number;
+  /** Set when you are viewing as a participant. */
+  myStatus?: ParticipantStatus | null;
+  createdAt: string; updatedAt: string;
 }
+
+export interface ParticipantInput { email: string; name?: string; userId?: string }
+
 export interface CreateEventInput {
   title: string; start: string; end?: string; durationMinutes?: number; timezone?: string;
-  attendees?: string[]; description?: string; location?: string; meet?: boolean;
-  externalRef?: string; category?: EventCategory; force?: boolean;
+  description?: string; location?: string; category?: EventCategory; externalRef?: string;
+  /** An https link, or set meet: true to get a unique Jitsi room. */
+  meetingUrl?: string; meet?: boolean;
+  participants?: ParticipantInput[];
+  /** Required with the service key; teachers always use their own calendar. */
+  ownerId?: string; ownerEmail?: string; ownerName?: string;
+  /** Book over a clash on purpose. */
+  force?: boolean;
+}
+
+export interface CalendarSettings {
+  teacherId: string; timezone: string;
+  workingHours: Record<'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat', [string, string][]>;
+  bufferMinutes: number; slotStepMinutes: number;
 }
 
 export class CalendarError extends Error {
@@ -21,36 +46,31 @@ export class CalendarError extends Error {
   }
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${process.env.CALENDAR_API_URL}${path}`, {
-    method,
-    headers: { authorization: `Bearer ${process.env.CALENDAR_API_KEY}`, 'content-type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-    cache: 'no-store',
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new CalendarError(res.status, json.error?.code ?? 'error', json.error?.message ?? res.statusText, json.error?.details);
-  return json as T;
+/** token: the service API key, or a signed-in person's Supabase access token. */
+export function calendarClient(token: string, baseUrl = process.env.CALENDAR_API_URL ?? '') {
+  async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+    const res = await fetch(`${baseUrl}${path}`, {
+      method, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined, cache: 'no-store',
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new CalendarError(res.status, json.error?.code ?? 'error', json.error?.message ?? res.statusText, json.error?.details);
+    return json as T;
+  }
+  const qs = (q: Record<string, string | undefined>) => new URLSearchParams(Object.entries(q).filter((e): e is [string, string] => e[1] !== undefined)).toString();
+  return {
+    createEvent: (input: CreateEventInput) => request<CalendarEvent>('POST', '/v1/events', input),
+    getEvent: (id: string) => request<CalendarEvent>('GET', `/v1/events/${id}`),
+    listEvents: (q: { from?: string; to?: string; ownerId?: string; participant?: string; externalRef?: string; includeCancelled?: 'true' } = {}) =>
+      request<{ events: CalendarEvent[] }>('GET', `/v1/events?${qs(q)}`),
+    updateEvent: (id: string, patch: Partial<CreateEventInput>) => request<CalendarEvent>('PATCH', `/v1/events/${id}`, patch),
+    cancelEvent: (id: string) => request<CalendarEvent>('DELETE', `/v1/events/${id}`),
+    addParticipants: (id: string, participants: ParticipantInput[], force = false) => request<CalendarEvent>('POST', `/v1/events/${id}/participants`, { participants, force }),
+    removeParticipant: (id: string, participantId: string) => request<CalendarEvent>('DELETE', `/v1/events/${id}/participants/${participantId}`),
+    respond: (id: string, response: 'accepted' | 'declined') => request<CalendarEvent>('POST', `/v1/events/${id}/respond`, { response }),
+    availability: (q: { from: string; to: string; duration?: number; teacherId?: string }) =>
+      request<{ teacherId: string; timezone: string; slots: { start: string; end: string }[] }>('GET', `/v1/availability?${qs({ from: q.from, to: q.to, duration: q.duration ? String(q.duration) : undefined, teacherId: q.teacherId })}`),
+    settings: (teacherId?: string) => request<CalendarSettings>('GET', `/v1/settings?${qs({ teacherId })}`),
+    updateSettings: (patch: Partial<Omit<CalendarSettings, 'teacherId'>>, teacherId?: string) => request<CalendarSettings>('PUT', `/v1/settings?${qs({ teacherId })}`, patch),
+  };
 }
-
-export interface CalendarSettings {
-  timezone: string;
-  workingHours: Record<'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat', [string, string][]>;
-  bufferMinutes: number;
-  slotStepMinutes: number;
-  webhookUrl: string;
-}
-
-export const calendar = {
-  settings: () => request<CalendarSettings>('GET', '/v1/settings'),
-  googleStatus: () => request<{ configured: boolean; connected: boolean; unsyncedEvents: number }>('GET', '/v1/google/status'),
-  createEvent: (input: CreateEventInput) => request<CalendarEvent>('POST', '/v1/events', input),
-  getEvent: (id: string) => request<CalendarEvent>('GET', `/v1/events/${id}`),
-  listEvents: (q: { from?: string; to?: string; externalRef?: string; attendee?: string } = {}) =>
-    request<{ events: CalendarEvent[] }>('GET', `/v1/events?${new URLSearchParams(q as Record<string, string>)}`),
-  updateEvent: (id: string, patch: Partial<CreateEventInput>) => request<CalendarEvent>('PATCH', `/v1/events/${id}`, patch),
-  cancelEvent: (id: string) => request<CalendarEvent>('DELETE', `/v1/events/${id}`),
-  availability: (from: string, to: string, duration = 60) =>
-    request<{ timezone: string; slots: { start: string; end: string }[]; warnings: string[] }>(
-      'GET', `/v1/availability?${new URLSearchParams({ from, to, duration: String(duration) })}`),
-};

@@ -1,39 +1,57 @@
-import { defineConfig } from '@playwright/test';
 import path from 'node:path';
+import { defineConfig } from '@playwright/test';
+import { AUTH_URL, CAL_URL, SERVICE_KEY, USERS_UI, USERS_URL, WEB_URL } from './e2e/helpers';
 
-import { API_KEY, API_PORT, API_URL, WEB_PORT } from './e2e/helpers';
-
-// The e2e suite runs the UI against a real calendar-service. Override to test another checkout.
-const SERVICE_DIR = process.env.CALENDAR_SERVICE_DIR ?? '../calendar-service';
+// The suite runs the UI against REAL calendar-service and users-service code. Override to test another checkout.
+const CAL_DIR = process.env.CALENDAR_SERVICE_DIR ?? '../calendar-service';
 
 export default defineConfig({
   testDir: './e2e',
+  testMatch: '*.spec.ts',
   workers: 1,
   fullyParallel: false,
   retries: 0,
   timeout: 30_000,
   reporter: [['list']],
   use: {
-    baseURL: `http://localhost:${WEB_PORT}`,
+    baseURL: WEB_URL,
     channel: 'chrome', // uses the installed Google Chrome, no browser download
     timezoneId: 'UTC',
     locale: 'en-US',
-    viewport: { width: 1280, height: 1400 },
+    viewport: { width: 1360, height: 1200 },
     trace: 'retain-on-failure',
   },
   webServer: [
     {
-      command: `rm -rf .e2e-data && mkdir -p .e2e-data && cd ${SERVICE_DIR} && node --disable-warning=ExperimentalWarning src/index.ts`,
-      env: { API_KEY, PORT: String(API_PORT), DB_PATH: path.resolve(__dirname, '.e2e-data/e2e.db'), DEFAULT_TIMEZONE: 'UTC', PUBLIC_URL: API_URL },
-      url: `${API_URL}/health`,
+      // Fake Supabase Auth + real users-service code on an in-memory directory.
+      command: 'node --disable-warning=ExperimentalWarning e2e/backend.mts',
+      url: `${AUTH_URL}/__test/health`,
       reuseExistingServer: false,
     },
     {
-      command: `npx next dev -p ${WEB_PORT}`,
-      env: { NEXT_DIST_DIR: '.next-e2e', CALENDAR_API_URL: API_URL, CALENDAR_API_KEY: API_KEY },
-      url: `http://localhost:${WEB_PORT}`,
+      // The real calendar-service with an embedded Postgres in a throwaway folder, verifying tokens against the fake.
+      command: `rm -rf .e2e-data && mkdir -p .e2e-data && cd ${CAL_DIR} && node --disable-warning=ExperimentalWarning src/index.ts`,
+      url: `${CAL_URL}/health`,
+      reuseExistingServer: false,
+      env: {
+        PORT: String(new URL(CAL_URL).port), PGLITE_DIR: path.resolve(__dirname, '.e2e-data/pglite'), SUPABASE_URL: AUTH_URL,
+        API_KEY: SERVICE_KEY, DEFAULT_TIMEZONE: 'UTC', MEETING_BASE_URL: 'https://meet.example.test',
+      },
+    },
+    {
+      command: `npx next dev -p ${new URL(WEB_URL).port}`,
+      url: `${WEB_URL}/api/me`, // answers 401 when signed out; the front page redirects away
       reuseExistingServer: false,
       timeout: 120_000,
+      env: {
+        NEXT_DIST_DIR: '.next-e2e',
+        NEXT_PUBLIC_SUPABASE_URL: AUTH_URL,
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_e2e_not_a_real_key',
+        NEXT_PUBLIC_USERS_UI_URL: USERS_UI,
+        NEXT_PUBLIC_COOKIE_DOMAIN: '',
+        CALENDAR_API_URL: CAL_URL,
+        USERS_SERVICE_URL: USERS_URL,
+      },
     },
   ],
 });

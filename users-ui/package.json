@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3003",
+    "dev": "NODE_OPTIONS=--max-http-header-size=65536 next dev -p 3003",
     "build": "next build",
-    "start": "next start -p 3003",
+    "start": "NODE_OPTIONS=--max-http-header-size=65536 next start -p 3003",
     "test": "node --disable-warning=ExperimentalWarning --test lib/*.test.ts",
     "test:e2e": "playwright test"
   },

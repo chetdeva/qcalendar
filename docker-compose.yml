@@ -1,0 +1,82 @@
+# Run the whole system locally:
+#
+#   docker compose up --build            first run builds the four images (a few minutes)
+#   docker compose up -d --build         same, in the background; then `docker compose logs -f`
+#   docker compose down                  stop (keeps the calendar data)   |   down -v  also wipes the calendar data
+#
+# Open http://localhost:3004 (home), http://localhost:3002 (calendar) or http://localhost:3003 (accounts). Ports: home-ui 3004, calendar-service 3000,
+# calendar-ui 3002, users-ui 3003, users-service 3010. Stop any `npm run dev` servers on those ports first.
+#
+# Needs: .env at the repo root (SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY, see .env.example) and users-service/.env
+# (it holds the Supabase SECRET key, which stays out of the images). Login still goes through your real Supabase
+# project, so http://localhost:3002/** and http://localhost:3003/** must be in its redirect URLs.
+name: syncschedule
+
+x-supabase-public: &supabase-public
+  NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_URL:?set SUPABASE_URL in .env}
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:?set SUPABASE_PUBLISHABLE_KEY in .env}
+
+services:
+  users-service:
+    build: { context: ., dockerfile: docker/service.Dockerfile, args: { APP: users-service } }
+    env_file:
+      - path: users-service/.env # SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+        required: false
+    environment:
+      PORT: "3010"
+      INVITE_REDIRECT_URL: http://localhost:3003/accept-invite # opened in the browser, so localhost, not a container name
+    ports: ["3010:3010"]
+
+  calendar-service:
+    build: { context: ., dockerfile: docker/service.Dockerfile, args: { APP: calendar-service } }
+    environment:
+      PORT: "3000"
+      SUPABASE_URL: ${SUPABASE_URL}
+      DATABASE_URL: ${DATABASE_URL:-} # empty = an embedded Postgres in the calendar-data volume
+      PGLITE_DIR: /data/pglite
+      DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:-UTC}
+      SMTP_URL: ${SMTP_URL:-} # empty = invitation emails are only logged
+      MAIL_FROM: ${MAIL_FROM:-SyncSchedule <no-reply@localhost>}
+      CALENDAR_URL: http://localhost:3002
+    volumes: [calendar-data:/data]
+    ports: ["3000:3000"]
+
+  users-ui:
+    build:
+      context: .
+      dockerfile: docker/next.Dockerfile
+      args:
+        <<: *supabase-public
+        APP: users-ui
+        NEXT_PUBLIC_ALLOWED_RETURN_ORIGINS: http://localhost:3002
+        NEXT_PUBLIC_CALENDAR_URL: http://localhost:3002
+    environment:
+      USERS_SERVICE_URL: http://users-service:3010 # server to server, over the compose network
+    depends_on: [users-service]
+    ports: ["3003:3003"]
+
+  calendar-ui:
+    build:
+      context: .
+      dockerfile: docker/next.Dockerfile
+      args:
+        <<: *supabase-public
+        APP: calendar-ui
+        NEXT_PUBLIC_USERS_UI_URL: http://localhost:3003
+    environment:
+      CALENDAR_API_URL: http://calendar-service:3000
+      USERS_SERVICE_URL: http://users-service:3010
+    depends_on: [calendar-service, users-service]
+    ports: ["3002:3002"]
+
+  home-ui:
+    build:
+      context: .
+      dockerfile: docker/next.Dockerfile
+      args:
+        APP: home-ui
+        NEXT_PUBLIC_ACCOUNTS_URL: http://localhost:3003
+    ports: ["3004:3004"]
+
+volumes:
+  calendar-data:

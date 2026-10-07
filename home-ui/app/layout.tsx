@@ -7,9 +7,10 @@ const jakarta = Plus_Jakarta_Sans({ subsets: ['latin'], display: 'swap', variabl
 const fredoka = Fredoka({ subsets: ['latin'], display: 'swap', variable: '--font-fredoka' });
 
 export const metadata: Metadata = {
-  title: `${BRAND}: 1:1 online math tutoring, Grades 1–10`,
-  description: 'Dedicated 1:1 math coaches who teach the “why”, building confidence and resilience. Book a free 45-minute diagnostic evaluation.',
-  openGraph: { title: `${BRAND}: Confidence Unlocked`, description: '1:1 online math tutoring for Grades 1–10.', type: 'website' },
+  title: `${BRAND} | Personalized Learning for US Students`,
+  description: 'Private, one-to-one online maths coaching for Grades 1-10. Help your child build understanding, analysis, problem-solving strategies and confidence across global maths curricula.',
+  keywords: ['maths coaching for children', 'one-to-one maths classes', 'US Common Core maths', 'AP maths support', BRAND],
+  openGraph: { title: `${BRAND} | Personalized Learning for US Students`, description: 'Patient, personalised maths coaching that helps children move from confusion to understanding and confidence.', type: 'website' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

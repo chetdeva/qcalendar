@@ -1,19 +1,24 @@
-import { ArrowRight, BadgeCheck, CalendarDays, CheckCircle2, Award, GraduationCap, ShieldCheck, Star, User } from 'lucide-react';
-import BookingForm from './BookingForm';
-import Portals from './Portals';
-import { ACCOUNTS_URL, BRAND, coaches, fill, footer, framework, hero, nav, portals, reviews, trust } from '@/content/site';
+import Image from 'next/image';
+import { ArrowRight, CalendarCheck, CheckCircle2, ExternalLink, Quote, Star } from 'lucide-react';
+import { PlanButton } from './PlanDialog';
+import { ACCOUNTS_URL, BRAND, fill, footer, founder, framework, hero, nav, reviews, site, whatsappLink, why } from '@/content/site';
+
+function WhatsApp({ className = 'wa' }: { className?: string }) {
+  return <Image src="/images/whatsapp-glyph-white.png" alt="" width={20} height={20} className={className} />;
+}
 
 export function Header() {
   return (
     <header className="top">
       <div className="wrap top-in">
-        <a className="logo" href="#top"><b>{BRAND}</b><small>Grades 1–10 US</small></a>
+        <a className="logo" href="#top" aria-label={`${BRAND} home`}>
+          <Image src="/images/quanttoria-mark.png" alt="" width={40} height={38} priority />
+          <b>{BRAND}</b>
+        </a>
         <nav aria-label="Main">
           {nav.map((n) => <a key={n.href} href={n.href}>{n.label}</a>)}
         </nav>
-        <a className="login" href={`${ACCOUNTS_URL}/login`}>Log In</a>
-        <a className="btn btn-primary" href="#book">Book Free Demo</a>
-        <a className="avatar" href={`${ACCOUNTS_URL}/signup`} aria-label="Create an account"><User size={18} aria-hidden /></a>
+        <a className="btn btn-primary" href={`${ACCOUNTS_URL}/login`}>Login</a>
       </div>
     </header>
   );
@@ -22,153 +27,191 @@ export function Header() {
 export function Hero() {
   return (
     <div className="hero-bg">
-    <div className="doodles" aria-hidden>
-      <span style={{ top: 40, left: '6%', rotate: '12deg' }}>➕</span><span style={{ top: 150, left: '2%' }}>✨</span>
-      <span style={{ top: 70, right: '6%', rotate: '40deg' }}>📐</span><span style={{ bottom: 60, right: '3%' }}>🌟</span>
-      <span style={{ bottom: 90, left: '48%' }}>➗</span>
-    </div>
-    <section id="why" className="wrap hero">
-      <div>
-        <p className="chip chip-blue badge">● {hero.badge}</p>
-        <h1>{hero.title[0]}<br /><em>{hero.title[1]}<svg viewBox="0 0 250 14" preserveAspectRatio="none" aria-hidden><path d="M3 9 Q 70 1, 130 8 T 247 6" fill="none" stroke="#f59e0b" strokeWidth="5" strokeLinecap="round" /></svg></em></h1>
-        <p className="lede">{fill(hero.body).split('Adversity Quotient (AQ)').flatMap((t, i) => (i ? [<span key={i} className="mark">Adversity Quotient (AQ)</span>, t] : [t]))}</p>
-        <div className="cta-row">
-          <a className="btn btn-primary btn-lg" href="#book">Book Your Free Demo <CalendarDays size={18} aria-hidden /></a>
-          <p className="small"><CheckCircle2 size={16} aria-hidden /> {hero.note}</p>
+      <div className="doodles" aria-hidden>
+        <span style={{ top: 40, left: '6%', rotate: '12deg' }}>➕</span><span style={{ top: 150, left: '2%' }}>✨</span>
+        <span style={{ top: 70, right: '6%', rotate: '40deg' }}>📐</span><span style={{ bottom: 60, right: '3%' }}>🌟</span>
+        <span style={{ bottom: 90, left: '48%' }}>➗</span>
+      </div>
+      <section className="wrap hero">
+        <div>
+          <p className="chip chip-blue badge"><Star size={14} aria-hidden /> {hero.badge}</p>
+          <h1>{hero.title[0]}<br /><em>{hero.title[1]}<svg viewBox="0 0 250 14" preserveAspectRatio="none" aria-hidden><path d="M3 9 Q 70 1, 130 8 T 247 6" fill="none" stroke="#f59e0b" strokeWidth="5" strokeLinecap="round" /></svg></em></h1>
+          <p className="lede">{fill(hero.body)}</p>
+          <div className="cta-row">
+            <PlanButton className="btn btn-primary btn-lg">Customize your plan</PlanButton>
+            <a className="btn btn-outline btn-lg" href="#how-it-works">See how we teach <ArrowRight size={18} aria-hidden /></a>
+          </div>
+          <ul className="stats">
+            {hero.stats.map((s) => (
+              <li key={s.label}><b>{s.value}<small>{s.unit}</small></b><span>{s.label}</span></li>
+            ))}
+          </ul>
         </div>
-        <ul className="stats">
-          {hero.stats.map((s) => (
-            <li key={s.label}><b>{s.value}<small>{s.unit}</small></b><span>{s.label}</span></li>
+        <div className="hero-right">
+          <div className="photo">
+            <Image src="/images/hero-kid-math-realistic.png" alt={hero.imageAlt} width={800} height={800} priority sizes="(max-width: 1000px) 100vw, 560px" style={{ transform: 'scaleX(-1)' }} />
+            <span className="sticker s1" aria-hidden>{hero.stickers[0]}</span>
+            <span className="sticker s2" aria-hidden>{hero.stickers[1]}</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+export function Why() {
+  return (
+    <section id="why" className="band">
+      <div className="wrap">
+        <div className="why-top">
+          <Image className="why-img" src="/images/visual-math.png" alt={why.imageAlt} width={1024} height={1024} sizes="(max-width: 1000px) 100vw, 560px" />
+          <div>
+            <p className="pill">{why.eyebrow}</p>
+            <h2>{why.title}</h2>
+            <p className="muted lede2">{why.intro}</p>
+          </div>
+        </div>
+        <ul className="grid4">
+          {why.reasons.map((r, i) => (
+            <li key={r.title} className="card stage">
+              <div className="row"><span className="emoji" aria-hidden>{r.icon}</span><span className="num">{i + 1}</span></div>
+              <h3>{r.title}</h3>
+              <p className="muted">{r.text}</p>
+            </li>
           ))}
         </ul>
       </div>
-      <div className="hero-right">
-        {/* ponytail: gradient stand-in for the photo; swap for a real <Image> in public/ */}
-        <div className="photo" aria-hidden>
-          <span className="chip chip-white">{hero.card.tag}</span>
-          <span className="sticker">From tears to A’s! 🎓</span>
-          <span className="glyph">∑ π √</span>
-          <div className="photo-card">
-            <Award size={22} aria-hidden />
-            <div><strong>{hero.card.title}</strong><p>{hero.card.text}</p></div>
-            <span className="chip chip-green">{hero.card.chip}</span>
-          </div>
-        </div>
-        <BookingForm />
-      </div>
     </section>
-    </div>
   );
 }
 
 export function Framework() {
+  const f = framework;
   return (
-    <section id="how-it-works" className="band">
-      <div className="wrap">
-        <div className="sec-head">
-          <div><p className="eyebrow">{framework.eyebrow}</p><h2>{fill(framework.title)}</h2></div>
-          <p className="muted">{framework.intro}</p>
-        </div>
-        <div className="grid4">
-          {framework.stages.map((s, i) => (
-            <article key={s.title} className="card stage">
-              <div className="row"><span className="emoji" aria-hidden>{s.icon}</span><span className="chip chip-blue">Stage {String(i + 1).padStart(2, '0')}</span></div>
-              <h3>{s.title}</h3>
-              <p className="muted">{s.text}</p>
-              <p className="tag"><BadgeCheck size={14} aria-hidden /> {s.tag}</p>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-export function Coaches() {
-  return (
-    <section id="coaches" className="wrap sec">
+    <section id="how-it-works" className="wrap sec">
       <div className="sec-head">
-        <div><p className="eyebrow">{coaches.eyebrow}</p><h2>{coaches.title}</h2></div>
-        <div className="vet"><ShieldCheck size={22} aria-hidden /><div><strong>{coaches.vetting.title}</strong><p className="muted">{coaches.vetting.text}</p></div></div>
+        <div><p className="pill">{f.eyebrow}</p><h2>{f.title}</h2></div>
+        <p className="muted">{f.intro}</p>
       </div>
-      <div className="grid3">
-        {coaches.list.map((c) => (
-          <article key={c.name} className="card coach">
-            {/* ponytail: initials stand in for coach photos */}
-            <div className="coach-photo" aria-hidden><span>{c.initials}</span><span className="chip chip-white"><Star size={12} aria-hidden /> {c.rating}</span><span className="chip chip-dark">{c.creds}</span></div>
-            <h3>{c.name}</h3>
-            <p className="role">{c.role}</p>
-            <p className="muted">{c.bio}</p>
-            <blockquote><b>Parent praise:</b><br />“{c.praise}”</blockquote>
-          </article>
+      <ol className="grid4">
+        {f.stages.map((s, i) => (
+          <li key={s.title} className="card stage">
+            <div className="row"><span className="emoji" aria-hidden>{s.icon}</span><span className="chip chip-blue">Step {String(i + 1).padStart(2, '0')}</span></div>
+            <h3>{s.title}</h3>
+            <p className="muted">{s.text}</p>
+          </li>
         ))}
-        <aside className="card bar-card">
-          <span className="seal"><ShieldCheck size={22} aria-hidden /></span>
-          <p className="eyebrow">{coaches.bar.eyebrow}</p>
-          <h3>{coaches.bar.title}</h3>
-          <p className="muted">{coaches.bar.text}</p>
-          <ul>{coaches.bar.checks.map((c) => <li key={c}><CheckCircle2 size={16} aria-hidden /> {c}</li>)}</ul>
-          <a className="btn btn-dark" href="#book">{coaches.bar.cta}</a>
-        </aside>
-      </div>
+      </ol>
 
-      <div className="reviews">
-        <div className="sec-head">
-          <div className="rating"><span className="stars" aria-label="5 stars">★★★★★</span><div><h2>{reviews.title}</h2><p className="muted">{reviews.sub}</p></div></div>
-          <span className="chip chip-white">● {reviews.badge}</span>
+      <div className="boards">
+        <div>
+          <p className="pill pill-light">US learning support</p>
+          <h3>{f.boardsTitle}</h3>
+          <p>{f.boardsText}</p>
         </div>
-        <div className="grid3">
-          {reviews.list.map((r) => (
-            <figure key={r.who} className="card review">
-              <span className="stars small" aria-hidden>★★★★★</span>
-              <h3>{r.title}</h3>
-              <blockquote>{r.text}</blockquote>
-              <figcaption><b>{r.who}</b><span>{r.where}</span></figcaption>
-            </figure>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-export function PortalsSection() {
-  return (
-    <section id="portals" className="band">
-      <div className="wrap">
-        <div className="sec-head">
-          <div><p className="eyebrow">{portals.eyebrow}</p><h2>{portals.title}</h2></div>
-        </div>
-        <Portals />
-      </div>
-    </section>
-  );
-}
-
-export function TrustAndFooter() {
-  const icons = [BadgeCheck, GraduationCap, Award];
-  return (
-    <footer className="band end">
-      <div className="wrap">
-        <ul className="trust">
-          {trust.map((t, i) => { const Icon = icons[i]; return <li key={t.title}><span className="seal"><Icon size={22} aria-hidden /></span><div><strong>{t.title}</strong><p className="muted">{t.text}</p></div></li>; })}
+        <ul>
+          {f.boards.map((b) => <li key={b.name}><span className="chip chip-sun">{b.name}</span><p className="muted small">{b.text}</p></li>)}
         </ul>
-        <div className="foot">
-          <div><b className="logo-b">{BRAND}</b><p className="muted">{footer.about}</p></div>
-          {footer.columns.map((c) => (
-            <div key={c.title}>
-              <h4>{c.title}</h4>
-              <p className="link">{c.lead}</p>
-              <ul>{c.links.map((l) => <li key={l} className="muted">{l}</li>)}</ul>
-            </div>
-          ))}
+      </div>
+
+      <div className="free">
+        <div><h3>{f.free.title}</h3><p className="muted">{fill(f.free.text)}</p></div>
+        <PlanButton className="btn btn-primary">{f.free.cta}</PlanButton>
+      </div>
+
+      <div className="outcomes">
+        <div>
+          <h3>{f.outcomesTitle}</h3>
+          <ul>{f.outcomes.map((o) => <li key={o}><CheckCircle2 size={18} aria-hidden /> {o}</li>)}</ul>
         </div>
-        <div className="legal">
-          <span>© {new Date().getFullYear()} {BRAND} Learning Inc. All rights reserved.</span>
-          <span>{footer.legal.join(' · ')}</span>
+        <div className="card">
+          <h3>{f.whoTitle}</h3>
+          <div className="chips">{f.who.map((g) => <span key={g} className="chip chip-blue">{g}</span>)}</div>
+          <p className="muted small">{f.whoText}</p>
+          <p className="note">{f.whoNote}</p>
         </div>
       </div>
-      <a className="float" href="#book">⚡ Register for a Demo <ArrowRight size={16} aria-hidden /></a>
+    </section>
+  );
+}
+
+export function Founder() {
+  return (
+    <section id="tutor" className="band band-blue">
+      <div className="wrap founder">
+        <div>
+          <p className="pill">{founder.eyebrow}</p>
+          <Image className="founder-img" src="/images/princy.jpg" alt={`Portrait of ${site.owner.name}`} width={226} height={442} />
+        </div>
+        <div className="founder-body">
+          <h2>{site.owner.name}</h2>
+          <p className="role">{site.owner.role} &amp; {founder.tagline}</p>
+          <div className="founder-links">
+            <a className="btn btn-wa" href={whatsappLink()} target="_blank" rel="noopener noreferrer"><WhatsApp /> Connect on WhatsApp</a>
+            <a className="btn btn-ghost" href={site.owner.linkedinUrl} target="_blank" rel="noopener noreferrer">Connect on LinkedIn <ExternalLink size={14} aria-hidden /></a>
+          </div>
+          <blockquote><Quote size={28} aria-hidden /> {founder.quote}</blockquote>
+          <p>{founder.text}</p>
+          <dl className="creds">
+            {founder.credentials.map((c) => <div key={c.label}><dt>{c.label}</dt><dd>{c.value}</dd></div>)}
+          </dl>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function Reviews() {
+  return (
+    <section id="reviews" className="wrap sec">
+      <div className="sec-head">
+        <div><p className="pill">{reviews.eyebrow}</p><h2>{reviews.title}</h2></div>
+      </div>
+      <ul className="stats stats-row">
+        {reviews.stats.map(([v, l]) => <li key={l}><b>{v}</b><span>{l}</span></li>)}
+      </ul>
+      <div className="rev-head">
+        <h3>{reviews.heading}</h3>
+        <a className="link" href={site.trustpilotUrl} target="_blank" rel="noopener noreferrer">{reviews.all} <ExternalLink size={14} aria-hidden /></a>
+      </div>
+      <ul className="rev-list" aria-label="Parent testimonials">
+        {reviews.list.map((r) => (
+          <li key={r.name + r.text.slice(0, 20)}>
+            <a className="card review" href={site.trustpilotUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open ${r.name}’s review on Trustpilot`}>
+              <span className="stars" role="img" aria-label="5 out of 5 stars">★★★★★</span>
+              <blockquote>“{r.text}”</blockquote>
+              <span className="who"><b>{r.name}</b><span>{r.where}</span></span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+export function Footer() {
+  return (
+    <footer id="contact" className="band end">
+      <div className="wrap"><p className="pill">Contact</p></div>
+      <div className="wrap foot">
+        <div className="foot-brand">
+          <Image src="/images/quanttoria-logo.png" alt={`${BRAND}: Empowering Global Minds with Mathematics`} width={861} height={678} sizes="96px" className="foot-logo" />
+          <div>
+            <p className="muted small">{footer.about}</p>
+            <p className="legal">© {new Date().getFullYear()} {BRAND}. All rights reserved.</p>
+          </div>
+        </div>
+        <div className="foot-links">
+          <nav aria-label="Footer">
+            {nav.map((n) => <a key={n.href} href={n.href}>{n.label}</a>)}
+          </nav>
+          <div className="foot-contact">
+            <a href={whatsappLink()} target="_blank" rel="noopener noreferrer">WhatsApp {site.whatsappDisplay}</a>
+            {site.emails.map((e) => <a key={e} href={`mailto:${e}`}>{e}</a>)}
+          </div>
+        </div>
+      </div>
+      <PlanButton className="float"><CalendarCheck size={18} aria-hidden /> Book a free demo</PlanButton>
     </footer>
   );
 }

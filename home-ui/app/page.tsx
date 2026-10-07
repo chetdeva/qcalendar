@@ -1,4 +1,5 @@
-import { Coaches, Framework, Header, Hero, PortalsSection, TrustAndFooter } from '@/components/Sections';
+import PlanDialog from '@/components/PlanDialog';
+import { Footer, Founder, Framework, Header, Hero, Reviews, Why } from '@/components/Sections';
 
 export default function Home() {
   return (
@@ -6,11 +7,13 @@ export default function Home() {
       <Header />
       <main>
         <Hero />
+        <Why />
         <Framework />
-        <Coaches />
-        <PortalsSection />
+        <Founder />
+        <Reviews />
       </main>
-      <TrustAndFooter />
+      <Footer />
+      <PlanDialog />
     </div>
   );
 }

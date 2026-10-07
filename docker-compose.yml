@@ -75,7 +75,8 @@ services:
       dockerfile: docker/next.Dockerfile
       args:
         APP: home-ui
-        NEXT_PUBLIC_ACCOUNTS_URL: http://localhost:3003
+        NEXT_PUBLIC_ACCOUNTS_URL: http://localhost:3003 # the Login button goes to users-ui (opened in the browser, so localhost)
+    depends_on: [users-ui] # so `docker compose up home-ui` also starts the login page
     ports: ["3004:3004"]
 
 volumes:

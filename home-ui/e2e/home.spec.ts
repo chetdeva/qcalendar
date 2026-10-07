@@ -127,3 +127,68 @@ test('footer: both emails, and the links and contact rows share one left edge', 
   const x = async (name: string | RegExp) => Math.round((await f.getByRole('link', { name }).first().boundingBox())!.x);
   expect(await x('Why Quanttoria')).toBe(await x(/^WhatsApp/));
 });
+
+test('mobile: section links move into a menu that opens, navigates and closes', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+  const header = page.getByRole('banner');
+  await expect(header.getByRole('link', { name: 'Login' })).toBeVisible(); // Login stays in the bar
+  await expect(header.getByRole('link', { name: 'How it works' })).toHaveCount(0); // desktop links are hidden
+  const menu = page.getByRole('navigation', { name: 'Mobile' });
+  await expect(menu).toHaveCount(0);
+  await header.getByRole('button', { name: 'Open menu' }).click();
+  for (const l of ['Why Quanttoria', 'How it works', 'Meet our founder', 'Why parents trust us', 'Contact']) await expect(menu.getByRole('link', { name: l })).toBeVisible();
+  await menu.getByRole('link', { name: 'How it works' }).click();
+  await expect(menu).toHaveCount(0); // closes after choosing
+  await expect(page).toHaveURL(/#how-it-works$/);
+  await expect(page.locator('#how-it-works')).toBeInViewport();
+  await header.getByRole('button', { name: 'Open menu' }).click();
+  await expect(menu).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+  await header.getByRole('button', { name: 'Open menu' }).click();
+  await header.getByRole('button', { name: 'Close menu' }).click();
+  await expect(menu).toHaveCount(0);
+});
+
+test('desktop: no menu button', async ({ page }) => {
+  await page.setViewportSize({ width: 1296, height: 800 });
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Open menu' })).toBeHidden();
+  await expect(page.getByRole('banner').getByRole('link', { name: 'How it works' })).toBeVisible();
+});
+
+test('tablet 768: menu button shown, no horizontal scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Open menu' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('why intro is a sentence plus bullets, and the how-it-works intro sits under its title across the full width', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#why .lede2')).toHaveText(/Here’s how we help every child feel confident in maths\. We:$/);
+  await expect(page.locator('#why .bullets li')).toHaveText([/Meet children where they are/, /Bridge foundational gaps/, /Train them to apply strategies/, /Keep going when a problem is hard/]);
+  const head = page.locator('#how-it-works .sec-head');
+  const [box, title, intro] = await Promise.all([head.boundingBox(), head.locator('h2').boundingBox(), head.locator(':scope > p').boundingBox()]);
+  expect(intro!.y).toBeGreaterThanOrEqual(title!.y + title!.height - 1); // under the title
+  expect(Math.round(intro!.x)).toBe(Math.round(box!.x));
+  expect(Math.round(intro!.width)).toBe(Math.round(box!.width)); // spans the whole row
+});
+
+test('"Book a free demo" animates on hover and press like the other primary buttons', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+  const state = (name: string) => page.getByRole(name === 'Login' ? 'link' : 'button', { name }).first().evaluate((e) => { const c = getComputedStyle(e); return { t: c.transform, s: c.boxShadow }; });
+  for (const name of ['Login', 'Customize your plan', 'Book a free demo']) {
+    const loc = page.getByRole(name === 'Login' ? 'link' : 'button', { name }).first();
+    const rest = await state(name);
+    await loc.hover();
+    await page.waitForTimeout(300);
+    const hover = await state(name);
+    expect(hover.t, `${name} moves on hover`).not.toBe(rest.t);
+    expect(hover.s, `${name} shadow shrinks on hover`).not.toBe(rest.s);
+    await page.mouse.move(0, 400);
+  }
+});

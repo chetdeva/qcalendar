@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { ArrowRight, CalendarCheck, CheckCircle2, ExternalLink, Quote, Star } from 'lucide-react';
+import MobileNav from './MobileNav';
 import { PlanButton } from './PlanDialog';
 import { ACCOUNTS_URL, BRAND, fill, footer, founder, framework, hero, nav, reviews, site, whatsappLink, why } from '@/content/site';
 
@@ -19,6 +20,7 @@ export function Header() {
           {nav.map((n) => <a key={n.href} href={n.href}>{n.label}</a>)}
         </nav>
         <a className="btn btn-primary" href={`${ACCOUNTS_URL}/login`}>Login</a>
+        <MobileNav links={nav} />
       </div>
     </header>
   );
@@ -68,7 +70,8 @@ export function Why() {
           <div>
             <p className="pill">{why.eyebrow}</p>
             <h2>{why.title}</h2>
-            <p className="muted lede2">{why.intro}</p>
+            <p className="muted lede2">{why.introLead}</p>
+            <ul className="bullets">{why.intro.map((t) => <li key={t}><CheckCircle2 size={18} aria-hidden /> {t}</li>)}</ul>
           </div>
         </div>
         <ul className="grid4">
@@ -211,7 +214,7 @@ export function Footer() {
           </div>
         </div>
       </div>
-      <PlanButton className="float"><CalendarCheck size={18} aria-hidden /> Book a free demo</PlanButton>
+      <PlanButton className="float btn btn-primary"><CalendarCheck size={18} aria-hidden /> Book a free demo</PlanButton>
     </footer>
   );
 }

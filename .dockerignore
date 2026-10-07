@@ -1,0 +1,12 @@
+# Keep images small and keep secrets and macOS-built dependencies out of every build.
+**/node_modules
+**/.next
+**/.next-e2e
+**/.e2e-data
+**/test-results
+**/playwright-report
+**/data
+**/.env
+**/.env.*
+**/.git
+**/.DS_Store

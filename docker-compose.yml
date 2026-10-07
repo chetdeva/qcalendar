@@ -4,7 +4,7 @@
 #   docker compose up -d --build         same, in the background; then `docker compose logs -f`
 #   docker compose down                  stop (keeps the calendar data)   |   down -v  also wipes the calendar data
 #
-# Open http://localhost:3002 (calendar) or http://localhost:3003 (accounts). Ports: calendar-service 3000,
+# Open http://localhost:3004 (home), http://localhost:3002 (calendar) or http://localhost:3003 (accounts). Ports: home-ui 3004, calendar-service 3000,
 # calendar-ui 3002, users-ui 3003, users-service 3010. Stop any `npm run dev` servers on those ports first.
 #
 # Needs: .env at the repo root (SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY, see .env.example) and users-service/.env
@@ -68,6 +68,15 @@ services:
       USERS_SERVICE_URL: http://users-service:3010
     depends_on: [calendar-service, users-service]
     ports: ["3002:3002"]
+
+  home-ui:
+    build:
+      context: .
+      dockerfile: docker/next.Dockerfile
+      args:
+        APP: home-ui
+        NEXT_PUBLIC_ACCOUNTS_URL: http://localhost:3003
+    ports: ["3004:3004"]
 
 volumes:
   calendar-data:

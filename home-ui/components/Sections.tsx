@@ -66,12 +66,10 @@ export function Why() {
     <section id="why" className="band">
       <div className="wrap">
         <div className="why-top">
-          <Image className="why-img" src="/images/visual-math.png" alt={why.imageAlt} width={1024} height={1024} sizes="(max-width: 1000px) 100vw, 560px" />
           <div>
             <p className="pill">{why.eyebrow}</p>
             <h2>{why.title}</h2>
-            <p className="muted lede2">{why.introLead}</p>
-            <ul className="bullets">{why.intro.map((t) => <li key={t}><CheckCircle2 size={18} aria-hidden /> {t}</li>)}</ul>
+            <p className="muted why-sub">{why.subtitle}</p>
           </div>
         </div>
         <ul className="grid4">

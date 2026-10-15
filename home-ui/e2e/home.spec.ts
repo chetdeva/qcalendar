@@ -9,7 +9,8 @@ test('renders every section, the real content and the header links', async ({ pa
   await expect(page.getByText('MathExcellence')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: /tailored approach/ })).toBeVisible();
   await expect(page.locator('#how-it-works ol > li')).toHaveCount(4);
-  await expect(page.getByRole('heading', { name: 'Princy Sugandh' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pprincy Sugandhh' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /our family is part of the journey/ })).toBeVisible();
   await expect(page.getByText('Sarah Lin')).toHaveCount(0);
   await expect(page.getByText('Marcus Vance')).toHaveCount(0);
   await expect(page.locator('#reviews .review')).toHaveCount(6);
@@ -166,15 +167,19 @@ test('tablet 768: menu button shown, no horizontal scroll', async ({ page }) => 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
-test('why intro is a sentence plus bullets, and the how-it-works intro sits under its title across the full width', async ({ page }) => {
+test('why section has no intro or bullets, and the how-it-works intro sits under its title with the same 760px measure as the why subtitle', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('#why .lede2')).toHaveText(/Here’s how we help every child feel confident in maths\. We:$/);
-  await expect(page.locator('#why .bullets li')).toHaveText([/Meet children where they are/, /Bridge foundational gaps/, /Train them to apply strategies/, /Keep going when a problem is hard/]);
+  await expect(page.locator('#why .bullets')).toHaveCount(0);
+  await expect(page.getByText(/Here’s how we help every child/)).toHaveCount(0);
+  await expect(page.locator('#why .why-sub')).toHaveText('We meet children where they are, bridge their foundational gaps, and equip them with strategies to stay persistent and analyze challenging problems with confidence.');
   const head = page.locator('#how-it-works .sec-head');
   const [box, title, intro] = await Promise.all([head.boundingBox(), head.locator('h2').boundingBox(), head.locator(':scope > p').boundingBox()]);
   expect(intro!.y).toBeGreaterThanOrEqual(title!.y + title!.height - 1); // under the title
   expect(Math.round(intro!.x)).toBe(Math.round(box!.x));
-  expect(Math.round(intro!.width)).toBe(Math.round(box!.width)); // spans the whole row
+  expect(intro!.width).toBeLessThanOrEqual(760);
+  expect(intro!.width).toBeLessThan(box!.width); // leaves a right margin instead of spanning the row
+  const why = await page.locator('#why .why-sub').boundingBox();
+  expect(Math.round(intro!.width)).toBe(Math.round(why!.width)); // same line length as the why subtitle
 });
 
 test('"Book a free demo" animates on hover and press like the other primary buttons', async ({ page }) => {

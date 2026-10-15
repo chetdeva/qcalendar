@@ -6,7 +6,7 @@ export const ACCOUNTS_URL = process.env.NEXT_PUBLIC_ACCOUNTS_URL ?? 'http://loca
 
 export const site = {
   owner: {
-    name: 'Princy Sugandh',
+    name: 'Pprincy Sugandhh',
     role: 'Founder & Lead Math Educator',
     hours: '20000+',
     linkedinUrl: 'https://www.linkedin.com/in/princysugandh/',
@@ -48,9 +48,7 @@ export const grades = Array.from({ length: 10 }, (_, i) => `Grade ${i + 1}`);
 export const why = {
   eyebrow: 'Why Quanttoria',
   title: 'Children are not bad or weak at maths. They just need a tailored approach.',
-  introLead: 'Here’s how we help every child feel confident in maths. We:',
-  intro: ['Meet children where they are', 'Bridge foundational gaps', 'Train them to apply strategies', 'Keep going when a problem is hard and analyse it rightfully'],
-  imageAlt: 'Two children pointing excitedly at a whiteboard showing fractions, blocks and shapes',
+  subtitle: 'We meet children where they are, bridge their foundational gaps, and equip them with strategies to stay persistent and analyze challenging problems with confidence.',
   reasons: [
     { icon: '👀', title: 'Understanding first', text: 'We explain the why behind each method, so your child builds detailed understanding and reasoning instead of relying on memorised steps.' },
     { icon: '🌎', title: 'US curriculum support', text: 'Personalized support for Common Core, AP pathways and state standards from Grade 1 to 10.' },
@@ -107,7 +105,7 @@ export const founder = {
 
 export const reviews = {
   eyebrow: 'Why parents trust us',
-  title: 'Progress feels better when families are part of the journey.',
+  title: 'Progress feels better when our family is part of the journey.',
   stats: [['20,000+', 'teaching hours'], ['1:1', 'live attention'], ['100%', 'personalized plans']],
   heading: 'Clients rated us 5 stars on Trustpilot',
   all: 'Read all reviews',

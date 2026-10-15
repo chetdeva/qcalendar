@@ -1,0 +1,22 @@
+# Production reverse proxy. Caddy gets and renews the HTTPS certificates by itself.
+# DOMAIN comes from .env (quanttoria.com in production, e.g. test.quanttoria.com for a dry run).
+# Only Caddy is reachable from the internet; the apps and APIs live on the private Docker network.
+
+{$DOMAIN} {
+	redir https://www.{$DOMAIN}{uri} permanent
+}
+
+www.{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy home-ui:3004
+}
+
+accounts.{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy users-ui:3003
+}
+
+calendar.{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy calendar-ui:3002
+}

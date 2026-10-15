@@ -1,0 +1,69 @@
+# Production override. Run on the server with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# See deploy/README.md. Needs DOMAIN, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY and DATABASE_URL in .env,
+# and users-service/.env (the Supabase secret key).
+#
+# Differences from local: nothing is published to the host except Caddy (80/443), every app restarts on
+# reboot, and the browser-facing addresses are the real https ones. NEXT_PUBLIC_* values are baked into the
+# web apps at build time, so changing DOMAIN needs a rebuild (--build).
+
+x-domain: &domain ${DOMAIN:?set DOMAIN in .env, e.g. quanttoria.com}
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      DOMAIN: *domain
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [home-ui, users-ui, calendar-ui]
+
+  users-service:
+    restart: unless-stopped
+    ports: !reset []
+    environment:
+      NODE_ENV: production
+      INVITE_REDIRECT_URL: https://accounts.${DOMAIN}/accept-invite
+
+  calendar-service:
+    restart: unless-stopped
+    ports: !reset []
+    environment:
+      NODE_ENV: production # makes it refuse to start without DATABASE_URL and SUPABASE_URL
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env (Supabase session pooler string)}
+      CALENDAR_URL: https://calendar.${DOMAIN}
+      MAIL_FROM: ${MAIL_FROM:-Quanttoria <no-reply@quanttoria.com>}
+
+  users-ui:
+    restart: unless-stopped
+    ports: !reset []
+    build:
+      args:
+        NEXT_PUBLIC_COOKIE_DOMAIN: .${DOMAIN}
+        NEXT_PUBLIC_APP_URL: https://accounts.${DOMAIN} # behind Caddy the apps only see localhost:<port>, so redirects need this
+        NEXT_PUBLIC_ALLOWED_RETURN_ORIGINS: https://calendar.${DOMAIN}
+        NEXT_PUBLIC_CALENDAR_URL: https://calendar.${DOMAIN}
+
+  calendar-ui:
+    restart: unless-stopped
+    ports: !reset []
+    build:
+      args:
+        NEXT_PUBLIC_COOKIE_DOMAIN: .${DOMAIN}
+        NEXT_PUBLIC_APP_URL: https://calendar.${DOMAIN}
+        NEXT_PUBLIC_USERS_UI_URL: https://accounts.${DOMAIN}
+
+  home-ui:
+    restart: unless-stopped
+    ports: !reset []
+    build:
+      args:
+        NEXT_PUBLIC_ACCOUNTS_URL: https://accounts.${DOMAIN}
+
+volumes:
+  caddy-data:
+  caddy-config:

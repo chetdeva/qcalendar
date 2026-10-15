@@ -284,3 +284,14 @@ test('makeAdmin promotes an existing account, is idempotent, and refuses unknown
   assert.equal((await makeAdmin(dir, 'first@example.test')).role, 'admin');
   await assert.rejects(() => makeAdmin(dir, 'nobody@example.test'), /Sign up first/);
 });
+
+test('lookup: any active user can read name and email for known ids, and nothing else', async () => {
+  const student = await as('student');
+  const teacher = await as('teacher', { full_name: 'Tess Teacher' });
+  const res = await student.call('POST', '/v1/users/lookup', { ids: [teacher.profile.id, crypto.randomUUID()] });
+  assert.equal(res.status, 200);
+  assert.deepEqual((await res.json()).users, [{ id: teacher.profile.id, full_name: 'Tess Teacher', email: teacher.profile.email }]); // no role, status or guardian email
+  assert.equal((await student.call('POST', '/v1/users/lookup', { ids: [] })).status, 400);
+  assert.equal((await student.call('POST', '/v1/users/lookup', { ids: ['nope'] })).status, 400);
+  assert.equal((await app.request('/v1/users/lookup', { method: 'POST' })).status, 401);
+});

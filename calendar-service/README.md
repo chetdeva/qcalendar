@@ -48,7 +48,9 @@ All under `/v1`, `Authorization: Bearer <Supabase access token or service API ke
 | DELETE | `/events/:id` | Cancels (kept, status `cancelled`) |
 | POST | `/events/:id/participants` | `{participants:[…], force?}`; only new people are invited |
 | DELETE | `/events/:id/participants/:pid` | Removed student gets a cancellation |
-| POST | `/events/:id/respond` | `{response:"accepted"\|"declined"}` |
+| POST | `/events/:id/respond` | `{response:"accepted"\|"declined", note?}` (a note of up to 500 characters is allowed with a decline; the teacher is emailed) |
+| POST | `/events/:id/change-requests` | `{start, note?}`: an invited student asks to move a one-to-one class (same length); a new request replaces the open one |
+| POST | `/events/:id/change-requests/:rid/approve` \| `/reject` | The owning teacher or an admin. Approving moves the class (conflicts are a 409 and the request stays pending) |
 | GET | `/availability` | `teacherId` (not needed for teachers), `from`, `to`, `duration` |
 | GET / PUT | `/settings` | `?teacherId=` for staff and the service key |
 

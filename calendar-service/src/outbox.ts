@@ -2,7 +2,7 @@ import type { Db, Queryable } from './db.ts';
 import { buildIcs } from './ics.ts';
 import type { Mailer, MailMessage } from './mail.ts';
 
-export type MailKind = 'invite' | 'update' | 'cancel';
+export type MailKind = 'invite' | 'update' | 'cancel' | 'declined' | 'change_request';
 
 /** Everything needed to write one person's email, frozen when the change happened. */
 export interface OutboxPayload {
@@ -11,6 +11,10 @@ export interface OutboxPayload {
     start: string; end: string; timezone: string; sequence: number; ownerEmail: string | null; ownerName: string | null;
   };
   recipient: { email: string; name: string | null };
+  /** For notes to the teacher: who wrote it, what they wrote and, for a time-change request, the time they want. */
+  from?: { name: string };
+  note?: string | null;
+  requested?: { start: string; end: string };
 }
 
 export async function enqueueMail(q: Queryable, kind: MailKind, payloads: OutboxPayload[]) {
@@ -30,9 +34,36 @@ function when(startIso: string, endIso: string, timezone: string) {
   return { text: `${day}, ${t(startIso)} to ${t(endIso)} (${tz})`, short: `${new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: tz }).format(new Date(startIso))} ${tz}` };
 }
 
+/** A student's answer, sent to the teacher: a decline with their note, or a request to move the class. Plain text, no attachment. */
+function renderStudentNote(kind: 'declined' | 'change_request', p: OutboxPayload, w: { text: string; short: string }, opts: { calendarUrl?: string }): MailMessage {
+  const { event: e, recipient: r } = p;
+  const student = oneLine(p.from?.name ?? 'A student');
+  const wanted = p.requested ? when(p.requested.start, p.requested.end, e.timezone).text : '';
+  const note = p.note?.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').trim();
+  const lines = [
+    r.name ? `Hi ${oneLine(r.name)},` : 'Hello,',
+    '',
+    kind === 'declined' ? `${student} declined:` : `${student} asked to move:`,
+    '',
+    oneLine(e.title),
+    `When: ${w.text}`,
+    ...(kind === 'change_request' ? [`Requested time: ${wanted}`] : []),
+    ...(note ? ['', `Their note: ${note}`] : []),
+    '',
+    kind === 'change_request' ? 'Approve or reject the request on the class' : 'See the class',
+    ...(opts.calendarUrl ? [opts.calendarUrl] : []),
+  ];
+  return {
+    to: r.email,
+    subject: kind === 'declined' ? `${student} declined: ${oneLine(e.title)} (${w.short})` : `${student} asks to move: ${oneLine(e.title)} (${w.short})`,
+    text: lines.join('\n'),
+  };
+}
+
 export function renderMail(kind: MailKind, p: OutboxPayload, opts: { fromEmail: string; calendarUrl?: string }): MailMessage {
   const { event: e, recipient: r } = p;
   const w = when(e.start, e.end, e.timezone);
+  if (kind === 'declined' || kind === 'change_request') return renderStudentNote(kind, p, w, opts);
   const teacher = e.ownerName || 'Your teacher';
   const verb = kind === 'invite' ? 'invited you to' : kind === 'update' ? 'changed' : 'cancelled';
   const prefix = kind === 'invite' ? 'Invitation' : kind === 'update' ? 'Updated' : 'Cancelled';

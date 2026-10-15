@@ -24,7 +24,11 @@ interface EventRow {
 }
 interface PRow {
   id: string; event_id: string; user_id: string | null; email: string; name: string | null;
-  status: 'invited' | 'accepted' | 'declined'; created_at: Date | string; responded_at: Date | string | null;
+  status: 'invited' | 'accepted' | 'declined'; created_at: Date | string; responded_at: Date | string | null; note: string | null;
+}
+interface CRRow {
+  id: string; event_id: string; participant_id: string; requested_start: Date | string; requested_end: Date | string; note: string | null;
+  status: 'pending' | 'approved' | 'rejected' | 'withdrawn'; created_at: Date | string; decided_at: Date | string | null;
 }
 
 type Relation = 'manager' | 'owner' | 'participant';
@@ -35,8 +39,10 @@ const isStaff = (a: Actor) => a.kind === 'service' || a.role === 'admin';
 // ---------- views: what each kind of caller is allowed to see ----------
 
 function participantOut(p: PRow) {
-  return { id: p.id, userId: p.user_id, email: p.email, name: p.name, status: p.status, respondedAt: p.responded_at ? iso(p.responded_at) : null };
+  return { id: p.id, userId: p.user_id, email: p.email, name: p.name, status: p.status, respondedAt: p.responded_at ? iso(p.responded_at) : null, note: p.note };
 }
+
+const changeOut = (c: CRRow) => ({ id: c.id, start: iso(c.requested_start), end: iso(c.requested_end), note: c.note, status: c.status, createdAt: iso(c.created_at) });
 
 function baseView(e: EventRow) {
   return {
@@ -48,11 +54,13 @@ function baseView(e: EventRow) {
 }
 
 /** Teachers who own the class, and staff, see everyone. A participant sees themselves and a head count, never other students. */
-export function viewOf(e: EventRow, parts: PRow[], rel: Relation, mine?: PRow) {
+export function viewOf(e: EventRow, parts: PRow[], rel: Relation, mine?: PRow, cr?: CRRow | null) {
+  // The latest time-change request: the teacher and staff see it; a student only sees their own. (Only when the caller loaded it.)
+  const change = cr === undefined ? {} : { changeRequest: cr && (canManage(rel) || cr.participant_id === mine?.id) ? changeOut(cr) : null };
   if (canManage(rel)) {
-    return { ...baseView(e), ownerEmail: e.owner_email, participants: parts.map(participantOut), participantCount: parts.length };
+    return { ...baseView(e), ownerEmail: e.owner_email, participants: parts.map(participantOut), participantCount: parts.length, ...change };
   }
-  return { ...baseView(e), ownerEmail: e.owner_email, participants: mine ? [participantOut(mine)] : [], participantCount: parts.length, myStatus: mine?.status ?? null };
+  return { ...baseView(e), ownerEmail: e.owner_email, participants: mine ? [participantOut(mine)] : [], participantCount: parts.length, myStatus: mine?.status ?? null, ...change };
 }
 
 // ---------- small helpers ----------
@@ -63,6 +71,13 @@ async function participantsOf(q: Queryable, ids: string[]): Promise<Map<string, 
   const rows = await q.query<PRow>('select * from calendar.event_participants where event_id = any($1::uuid[]) order by created_at, email', [ids]);
   for (const r of rows) map.get(r.event_id)!.push(r);
   return map;
+}
+
+/** The most recent change request of each class (a class has at most one open one, and 1:1 classes are the only ones that get any). */
+async function latestChanges(q: Queryable, ids: string[]): Promise<Map<string, CRRow>> {
+  if (!ids.length) return new Map();
+  const rows = await q.query<CRRow>('select distinct on (event_id) * from calendar.change_requests where event_id = any($1::uuid[]) order by event_id, created_at desc, id', [ids]);
+  return new Map(rows.map((r) => [r.event_id, r]));
 }
 
 async function findMine(q: Queryable, eventId: string, actor: Actor): Promise<PRow | undefined> {
@@ -169,6 +184,12 @@ function mailPayload(e: EventRow, p: { email: string; name: string | null }, seq
   };
 }
 
+/** Tell the teacher what a student answered. Skipped when the class has no owner email on record. */
+const tellTeacher = (q: Queryable, kind: 'declined' | 'change_request', e: EventRow, studentName: string, extra: { note?: string | null; requested?: { start: string; end: string } } = {}) =>
+  e.owner_email
+    ? enqueueMail(q, kind, [{ ...mailPayload(e, { email: e.owner_email, name: e.owner_name }), from: { name: studentName }, ...extra }])
+    : Promise.resolve();
+
 const notify = (q: Queryable, kind: MailKind, e: EventRow, to: { email: string; name: string | null }[], sequence?: number) =>
   enqueueMail(q, kind, to.map((p) => mailPayload(e, p, sequence)));
 
@@ -244,12 +265,13 @@ export async function listEvents(ctx: Ctx, actor: Actor, f: ListFilters) {
   if (!f.includeCancelled) where.push(`e.status = 'confirmed'`);
   const events = await ctx.db.query<EventRow>(`select e.* from calendar.events e ${where.length ? 'where ' + where.join(' and ') : ''} order by e.start_at, e.id limit 500`, args);
   const parts = await participantsOf(ctx.db, events.map((e) => e.id));
+  const changes = await latestChanges(ctx.db, events.map((e) => e.id));
   const out = [];
   for (const e of events) {
     const all = parts.get(e.id)!;
     const staff = isStaff(actor); const owner = actor.kind === 'user' && actor.id === e.owner_id;
     const mine = actor.kind === 'user' ? all.find((p) => p.user_id === actor.id || p.email.toLowerCase() === (actor.email ?? '').toLowerCase()) : undefined;
-    out.push(viewOf(e, all, staff ? 'manager' : owner ? 'owner' : 'participant', mine));
+    out.push(viewOf(e, all, staff ? 'manager' : owner ? 'owner' : 'participant', mine, changes.get(e.id) ?? null));
   }
   return out;
 }
@@ -276,7 +298,7 @@ export async function contactIds(ctx: Ctx, actor: Actor): Promise<string[]> {
 export async function getEvent(ctx: Ctx, actor: Actor, id: string) {
   await linkAccount(ctx.db, actor);
   const { e, rel, mine } = await loadVisible(ctx.db, actor, id);
-  return viewOf(e, (await participantsOf(ctx.db, [id])).get(id)!, rel, mine);
+  return viewOf(e, (await participantsOf(ctx.db, [id])).get(id)!, rel, mine, (await latestChanges(ctx.db, [id])).get(id) ?? null);
 }
 
 export interface PatchInput {
@@ -386,20 +408,72 @@ export async function removeParticipant(ctx: Ctx, actor: Actor, eventId: string,
   });
 }
 
-export async function respond(ctx: Ctx, actor: Actor, id: string, response: 'accepted' | 'declined') {
+export async function respond(ctx: Ctx, actor: Actor, id: string, response: 'accepted' | 'declined', rawNote?: string) {
   if (actor.kind !== 'user') throw new HttpError(403, 'forbidden', 'Only a person can answer an invitation');
+  const note = rawNote?.trim() || null;
+  if (note && response !== 'declined') throw new HttpError(400, 'invalid_request', 'A note can only be added when declining');
   return ctx.db.tx(async (q) => {
     const { e, rel, mine } = await loadVisible(q, actor, id, true);
     if (!mine) throw new HttpError(404, 'not_found', 'Event not found'); // owners and staff are not invitees
     if (e.status === 'cancelled') throw new HttpError(409, 'cancelled', 'This class is cancelled');
     const updated = (await q.query<PRow>(
-      `update calendar.event_participants set status = $2, responded_at = now(), user_id = coalesce(user_id, $3) where id = $1 returning *`,
-      [mine.id, response, actor.id],
+      `update calendar.event_participants set status = $2, note = $4, responded_at = now(), user_id = coalesce(user_id, $3) where id = $1 returning *`,
+      [mine.id, response, actor.id, note],
     ))[0];
+    if (response === 'declined') {
+      // Declining withdraws a time-change request that was waiting on the teacher.
+      await q.query(`update calendar.change_requests set status = 'withdrawn', decided_at = now() where participant_id = $1 and status = 'pending'`, [mine.id]);
+      if (mine.status !== 'declined') await tellTeacher(q, 'declined', e, actor.name || updated.name || updated.email, { note });
+    }
     const parts = (await participantsOf(q, [id])).get(id)!;
-    await emit(ctx, q, 'event.responded', e, parts, { responder: { email: updated.email, status: updated.status } });
-    return viewOf(e, parts, rel, updated);
+    await emit(ctx, q, 'event.responded', e, parts, { responder: { email: updated.email, status: updated.status, note: updated.note } });
+    return viewOf(e, parts, rel, updated, (await latestChanges(q, [id])).get(id) ?? null);
   });
+}
+
+// ---------- time-change requests (one-to-one classes) ----------
+
+export async function requestChange(ctx: Ctx, actor: Actor, id: string, input: { start: string; note?: string }) {
+  if (actor.kind !== 'user') throw new HttpError(403, 'forbidden', 'Only a person can ask to move a class');
+  const note = input.note?.trim() || null;
+  return ctx.db.tx(async (q) => {
+    const { e, rel, mine } = await loadVisible(q, actor, id, true);
+    if (!mine) throw new HttpError(404, 'not_found', 'Event not found');
+    if (e.status === 'cancelled') throw new HttpError(409, 'cancelled', 'This class is cancelled');
+    if (mine.status === 'declined') throw new HttpError(409, 'declined', 'You declined this class');
+    const parts = (await participantsOf(q, [id])).get(id)!;
+    if (parts.length > 1) throw new HttpError(409, 'group_class', 'Time changes can only be requested for one-to-one classes');
+    const start = new Date(input.start);
+    if (start.getTime() <= Date.now()) throw new HttpError(400, 'invalid_request', 'The new time must be in the future');
+    if (start.toISOString() === iso(e.start_at)) throw new HttpError(400, 'invalid_request', 'That is already the time of the class');
+    const end = new Date(start.getTime() + (Date.parse(iso(e.end_at)) - Date.parse(iso(e.start_at))));
+    await q.query(`delete from calendar.change_requests where event_id = $1 and status = 'pending'`, [id]); // a new request replaces the open one
+    const cr = (await q.query<CRRow>(
+      `insert into calendar.change_requests (event_id, participant_id, requested_start, requested_end, note) values ($1,$2,$3,$4,$5) returning *`,
+      [id, mine.id, start.toISOString(), end.toISOString(), note],
+    ))[0];
+    await tellTeacher(q, 'change_request', e, actor.name || mine.name || mine.email, { note, requested: { start: iso(cr.requested_start), end: iso(cr.requested_end) } });
+    await emit(ctx, q, 'event.change_requested', e, parts, { request: changeOut(cr) });
+    return viewOf(e, parts, rel, mine, cr);
+  });
+}
+
+/**
+ * The teacher (or an admin) answers a request. Approving moves the class through patchEvent, so the conflict check and the
+ * update email to the student are exactly what they are for any other move; if the move fails the request stays pending.
+ */
+export async function decideChange(ctx: Ctx, actor: Actor, eventId: string, requestId: string, decision: 'approve' | 'reject') {
+  const cr = await ctx.db.tx(async (q) => {
+    await loadManaged(q, actor, eventId);
+    const row = (await q.query<CRRow>('select * from calendar.change_requests where id = $1 and event_id = $2', [requestId, eventId]))[0];
+    if (!row) throw new HttpError(404, 'not_found', 'Request not found');
+    if (row.status !== 'pending') throw new HttpError(409, 'already_decided', 'This request has already been answered');
+    return row;
+  });
+  // ponytail: the move and the status update are two steps; a crash between them leaves an approved move with a pending request that the teacher can just reject.
+  if (decision === 'approve') await patchEvent(ctx, actor, eventId, { start: iso(cr.requested_start) });
+  await ctx.db.query(`update calendar.change_requests set status = $2, decided_at = now() where id = $1 and status = 'pending'`, [requestId, decision === 'approve' ? 'approved' : 'rejected']);
+  return getEvent(ctx, actor, eventId);
 }
 
 // ---------- settings and availability ----------

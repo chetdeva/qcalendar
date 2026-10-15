@@ -41,11 +41,11 @@ test('each student gets their own invitation file, listing only themselves', asy
   await h.outbox();
   assert.equal(h.mailer.sent.length, 2);
   for (const m of h.mailer.sent) {
-    const ics = m.ics.content.replace(/\r\n /g, '');
+    const ics = m.ics!.content.replace(/\r\n /g, '');
     const other = m.to === a.email ? b.email : a.email;
     assert.ok(ics.includes(`mailto:${m.to}`));
     assert.ok(!ics.includes(other) && !m.text.includes(other), 'no other student leaks');
-    assert.equal(m.ics.method, 'REQUEST');
+    assert.equal(m.ics!.method, 'REQUEST');
     assert.ok(ics.includes(`ORGANIZER;CN=Tess Teacher:mailto:${t.email}`));
     assert.match(m.subject, /^Invitation: Algebra/);
     assert.equal(m.replyTo, t.email);

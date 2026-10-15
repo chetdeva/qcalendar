@@ -5,7 +5,8 @@ export interface MailMessage {
   replyTo?: string;
   subject: string;
   text: string;
-  ics: { method: 'REQUEST' | 'CANCEL'; content: string };
+  /** Invitations carry a calendar file; notes to the teacher do not. */
+  ics?: { method: 'REQUEST' | 'CANCEL'; content: string };
 }
 
 export interface Mailer {
@@ -29,7 +30,7 @@ export class MemoryMailer implements Mailer {
 /** Development default: shows what would be sent instead of sending it. */
 export class ConsoleMailer implements Mailer {
   async send(m: MailMessage) {
-    console.log(`[mail] to=${m.to} subject="${m.subject}" ics=${m.ics.method}`);
+    console.log(`[mail] to=${m.to} subject="${m.subject}" ics=${m.ics?.method ?? 'none'}`);
   }
 }
 
@@ -44,7 +45,7 @@ export function createSmtpMailer(smtpUrl: string, from: string): Mailer {
         replyTo: m.replyTo,
         subject: m.subject,
         text: m.text,
-        icalEvent: { method: m.ics.method, content: m.ics.content, filename: 'invite.ics' },
+        ...(m.ics ? { icalEvent: { method: m.ics.method, content: m.ics.content, filename: 'invite.ics' } } : {}),
       });
     },
   };

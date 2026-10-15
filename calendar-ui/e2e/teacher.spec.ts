@@ -275,7 +275,7 @@ test.describe('a class in the calendar', () => {
     await page.mouse.move(x, e!.y + 4);
     await page.mouse.down();
     await page.mouse.move(x, e!.y + 40, { steps: 5 });
-    await page.mouse.move(x, tg!.y + 4, { steps: 10 });
+    await page.mouse.move(x, tg!.y - 10, { steps: 10 }); // the grab offset (4px) shifts FullCalendar's hit zone up; this lands the event on the 14:00 quarter
     await page.mouse.up();
 
     await expect.poll(async () => (await t.call('GET', `/v1/events/${ev.id}`)).body.start).toBe(`${todayUtc()}T14:00:00.000Z`);
@@ -341,14 +341,14 @@ test.describe('the calendar itself', () => {
 
     const col = page.locator('.fc-timegrid-col.fc-day-today');
     const from = page.locator('.fc-timegrid-slot-lane[data-time="10:00:00"]');
-    const to = page.locator('.fc-timegrid-slot-lane[data-time="10:30:00"]');
     await from.scrollIntoViewIfNeeded();
-    const [c, a, b] = [await col.boundingBox(), await from.boundingBox(), await to.boundingBox()];
+    const [c, a] = [await col.boundingBox(), await from.boundingBox()];
     const x = c!.x + c!.width / 2;
+    // one row is one hour; dragging snaps to 15 minutes, so the bottom edge of the 10:00 row ends the selection at 11:00
     await page.mouse.move(x, a!.y + 3);
     await page.mouse.down();
-    await page.mouse.move(x, (a!.y + b!.y) / 2, { steps: 5 });
-    await page.mouse.move(x, b!.y + 3, { steps: 5 });
+    await page.mouse.move(x, a!.y + a!.height / 2, { steps: 5 });
+    await page.mouse.move(x, a!.y + a!.height - 3, { steps: 5 });
     await page.mouse.up();
     await expect(field.date(page)).toHaveValue(todayUtc());
     await expect(field.start(page)).toHaveValue('10:00');

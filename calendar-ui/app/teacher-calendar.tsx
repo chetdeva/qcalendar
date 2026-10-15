@@ -315,8 +315,8 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
                 selectMirror
                 editable
                 eventDurationEditable
-                slotDuration="00:30:00"
-                slotLabelInterval="01:00"
+                slotDuration="01:00:00"
+                snapDuration="00:15:00"
                 slotLabelContent={slotLabel}
                 scrollTime="08:00:00"
                 eventOverlap

@@ -245,6 +245,13 @@ button:disabled { cursor: default; }
 .cc-actions button { flex: 1; border-radius: 9999px; border: 1px solid var(--field-line); background: var(--surface); padding: 5px 0; font-weight: 600; font-size: 13px; }
 .cc-actions .btn-accept[aria-pressed='true'] { background: var(--green); border-color: var(--green); color: #fff; }
 .cc-actions .btn-decline[aria-pressed='true'] { background: var(--red); border-color: var(--red); color: #fff; }
+.cc-actions { flex-wrap: wrap; }
+.cc-actions button { min-width: 0; padding-left: 8px; padding-right: 8px; }
+.note-form { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.note-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 500; color: var(--ink-2); }
+.note-form textarea, .note-form input { font: inherit; font-weight: 400; color: var(--ink); border: 1px solid var(--field-line); border-radius: 8px; padding: 6px 8px; background: var(--surface); resize: vertical; }
+.req-box { background: var(--surface); border: 1px solid var(--field-line); border-radius: 8px; padding: 8px 10px; margin-top: 4px; display: flex; flex-direction: column; gap: 6px; }
+.req-box p { margin: 0; font-size: 13px; line-height: 18px; }
 .fc .fc-event.my-declined { opacity: .5; }
 .fc .fc-event.my-declined .ec-title { text-decoration: line-through; }
 .boot-error { max-width: 480px; margin: 20vh auto; padding: 24px; background: var(--surface); border-radius: 12px; }

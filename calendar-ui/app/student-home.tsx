@@ -11,6 +11,7 @@ import { STATUS_LABEL } from '@/lib/format';
 import { api } from './api-client';
 import { CalendarToolbar, type ViewType } from './components/calendar-toolbar';
 import { ClassesPanel, fetchUpcoming, upcomingOf } from './components/classes-panel';
+import { InviteActions } from './components/invite-actions';
 import { dayHeader, makeEventContent } from './components/event-content';
 import { UserMenu } from './components/user-menu';
 import { RoleBanner } from './components/role-banner';
@@ -67,11 +68,12 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
   const needsAnswer = upcoming.filter((c) => c.myStatus === 'invited');
   const answered = upcoming.filter((c) => c.myStatus !== 'invited');
 
-  async function answer(c: CalendarEvent, response: 'accepted' | 'declined') {
+  /** Runs one request for a class, swaps the updated class into the list and refreshes the grid. */
+  async function update(c: CalendarEvent, run: () => Promise<CalendarEvent>) {
     setBusyId(c.id);
     setError('');
     try {
-      const updated = await api<CalendarEvent>(`/api/events/${c.id}/respond`, { method: 'POST', body: JSON.stringify({ response }) });
+      const updated = await run();
       setClasses((list) => (list ?? []).map((x) => (x.id === c.id ? updated : x)));
       refetch();
     } catch (e) {
@@ -80,22 +82,16 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
       setBusyId(null);
     }
   }
+  const answer = (c: CalendarEvent, response: 'accepted' | 'declined', note?: string) =>
+    update(c, () => api<CalendarEvent>(`/api/events/${c.id}/respond`, { method: 'POST', body: JSON.stringify({ response, note }) }));
+  const requestChange = (c: CalendarEvent, start: string, note?: string) =>
+    update(c, () => api<CalendarEvent>(`/api/events/${c.id}/change-requests`, { method: 'POST', body: JSON.stringify({ start, note }) }));
 
   const nav = (a: 'prev' | 'next' | 'today') => {
     const c = cal.current?.getApi();
     if (a === 'prev') c?.prev();
     else if (a === 'next') c?.next();
     else c?.today();
-  };
-
-  const actions = (c: CalendarEvent) => {
-    const status = c.myStatus ?? 'invited';
-    return (
-      <div className="cc-actions" role="group" aria-label={`Answer for ${c.title}`}>
-        <button type="button" className="btn-accept" aria-pressed={status === 'accepted'} disabled={busyId === c.id} onClick={() => answer(c, 'accepted')}>Accept</button>
-        <button type="button" className="btn-decline" aria-pressed={status === 'declined'} disabled={busyId === c.id} onClick={() => answer(c, 'declined')}>Decline</button>
-      </div>
-    );
   };
 
   return (
@@ -145,7 +141,7 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
           </div>
         </section>
         <ClassesPanel
-          subtitle="Accept or decline your invitations"
+          subtitle="Accept, decline or ask for another time"
           empty="No upcoming classes. When a teacher invites you, it will show up here and in your email."
           classes={classes}
           error={error}
@@ -154,7 +150,7 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
           onSelect={(c) => setSelected(c.id)}
           who={(c) => `With ${c.ownerName ?? 'your teacher'}${c.participantCount > 1 ? ` · ${c.participantCount} students` : ''}`}
           badge={(c) => { const st = c.myStatus ?? 'invited'; return <span className={`status status-${st}`}>{STATUS_LABEL[st]}</span>; }}
-          actions={actions}
+          actions={(c) => <InviteActions c={c} busy={busyId === c.id} onAnswer={answer} onRequest={requestChange} />}
         />
       </div>
     </div>

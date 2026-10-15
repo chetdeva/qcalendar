@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { calendarAs, inDays, openPage, resetBackend, seed, tokenFor, todayUtc, type User } from './helpers';
+import { calendarAs, chatTexts, inDays, openPage, resetBackend, seed, tokenFor, todayUtc, type User } from './helpers';
 
 test.beforeEach(async ({ request }) => resetBackend(request));
 
@@ -50,6 +50,7 @@ test.describe('My classes', () => {
     expect(await teacherView()).toBe('accepted');
 
     await answer('Decline').click();
+    await card(page, 'Algebra').getByRole('button', { name: 'Confirm decline' }).click(); // declining asks for an optional note first
     await expect(card(page, 'Algebra')).toContainText('Declined');
     await expect(answer('Decline')).toHaveAttribute('aria-pressed', 'true');
     await expect(answer('Accept')).toHaveAttribute('aria-pressed', 'false');
@@ -199,5 +200,93 @@ test.describe('what a student must not see or do', () => {
     await page.getByRole('button', { name: 'Day', exact: true }).click();
     await page.locator('.fc-event', { hasText: 'Algebra' }).click();
     await expect(card(page, 'Algebra')).toHaveClass(/sel/);
+  });
+});
+
+test.describe('declining with a note and asking for another time', () => {
+  test('a decline carries a note: the teacher sees it, is emailed and gets a chat message', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    const me = await seed(request, 'student', 'Mia Student');
+    const ev = await classFor(request, teacher, 'Algebra', [me]);
+    const page = await openPage(context, request, me);
+
+    await card(page, 'Algebra').getByRole('button', { name: 'Decline', exact: true }).click();
+    await card(page, 'Algebra').getByLabel('Note for your teacher (optional)').fill('I have an exam that day');
+    await card(page, 'Algebra').getByRole('button', { name: 'Confirm decline' }).click();
+    await expect(card(page, 'Algebra')).toContainText('Declined');
+    await expect(card(page, 'Algebra')).toContainText('Your note: “I have an exam that day”');
+    await expect(card(page, 'Algebra').getByRole('button', { name: 'Request new time' })).toHaveCount(0); // declined classes cannot be moved
+
+    const seen = (await (await as(request, teacher)).call('GET', `/v1/events/${ev.id}`)).body.participants[0];
+    expect([seen.status, seen.note]).toEqual(['declined', 'I have an exam that day']);
+    await expect.poll(() => chatTexts(request, teacher)).toEqual([expect.stringMatching(/can’t make “Algebra”.*I have an exam that day/)]);
+  });
+
+  test('cancel leaves the invitation unanswered, and a decline needs no note', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    const me = await seed(request, 'student', 'Mia Student');
+    const ev = await classFor(request, teacher, 'Algebra', [me]);
+    const page = await openPage(context, request, me);
+    const algebra = card(page, 'Algebra');
+    await algebra.getByRole('button', { name: 'Decline', exact: true }).click();
+    await algebra.getByRole('button', { name: 'Cancel' }).click();
+    await expect(algebra).toContainText('Waiting');
+    await expect(algebra.getByLabel('Note for your teacher (optional)')).toHaveCount(0);
+    await algebra.getByRole('button', { name: 'Decline', exact: true }).click();
+    await algebra.getByRole('button', { name: 'Confirm decline' }).click();
+    await expect(algebra).toContainText('Declined');
+    expect((await (await as(request, teacher)).call('GET', `/v1/events/${ev.id}`)).body.participants[0].note).toBeNull();
+  });
+
+  test('asking for another time: teacher approves, the class moves and the student sees it', async ({ context, browser, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    const me = await seed(request, 'student', 'Mia Student');
+    await classFor(request, teacher, 'Algebra', [me]);
+    const page = await openPage(context, request, me);
+    const algebra = card(page, 'Algebra');
+
+    await algebra.getByRole('button', { name: 'Request new time' }).click();
+    await algebra.getByLabel('New time').fill(`${inDays(3, 15).slice(0, 10)}T15:00`);
+    await algebra.getByLabel('Note for your teacher (optional)').fill('Could we do after school?');
+    await algebra.getByRole('button', { name: 'Send request' }).click();
+    await expect(algebra).toContainText('Waiting for your teacher');
+    await expect(algebra.getByRole('button', { name: 'Request new time' })).toHaveCount(0); // one open request at a time
+    await expect.poll(() => chatTexts(request, teacher)).toEqual([expect.stringMatching(/Could we move “Algebra”.*to .*3:00 PM – 4:00 PM\? Could we do after school/)]);
+
+    const tPage = await openPage(await browser.newContext({ timezoneId: 'UTC', locale: 'en-US' }), request, teacher);
+    const tCard = tPage.getByRole('complementary', { name: 'My classes' }).getByRole('article', { name: /^Algebra,/ });
+    await expect(tCard).toContainText('Time change requested');
+    await expect(tCard).toContainText('Could we do after school?');
+    await tCard.getByRole('button', { name: 'Approve' }).click();
+    await expect(tCard).not.toContainText('Time change requested');
+    await expect(tCard).toContainText('Sunday'); // the card now shows the new day
+
+    await page.reload();
+    await expect(card(page, 'Algebra')).toContainText('Your request was approved');
+    await expect(card(page, 'Algebra')).toContainText('3:00');
+  });
+
+  test('a rejected request leaves the class where it was and tells the student', async ({ context, browser, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    const me = await seed(request, 'student', 'Mia Student');
+    const ev = await classFor(request, teacher, 'Algebra', [me]);
+    await (await as(request, me)).call('POST', `/v1/events/${ev.id}/change-requests`, { start: inDays(3, 15) });
+
+    const tPage = await openPage(await browser.newContext({ timezoneId: 'UTC', locale: 'en-US' }), request, teacher);
+    await tPage.getByRole('complementary', { name: 'My classes' }).getByRole('article', { name: /^Algebra,/ }).getByRole('button', { name: 'Reject' }).click();
+    await expect(tPage.getByText('Time change requested')).toHaveCount(0);
+
+    const page = await openPage(context, request, me);
+    await expect(card(page, 'Algebra')).toContainText('kept the class at its time');
+    await expect(card(page, 'Algebra').getByRole('button', { name: 'Request new time' })).toBeVisible(); // they may ask again
+  });
+
+  test('there is no "Request new time" in a group class', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    const [me, other] = [await seed(request, 'student', 'Mia Student'), await seed(request, 'student', 'Ben Student')];
+    await classFor(request, teacher, 'Group maths', [me, other]);
+    const page = await openPage(context, request, me);
+    await expect(card(page, 'Group maths').getByRole('button', { name: 'Decline', exact: true })).toBeVisible();
+    await expect(card(page, 'Group maths').getByRole('button', { name: 'Request new time' })).toHaveCount(0);
   });
 });

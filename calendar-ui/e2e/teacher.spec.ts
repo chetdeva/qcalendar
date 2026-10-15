@@ -413,3 +413,32 @@ test.describe('"My classes" for teachers, with New lesson over it', () => {
     await expect(panel(page).getByRole('article', { name: /Planning block/ })).toBeVisible();
   });
 });
+
+test.describe('time-change requests from students', () => {
+  test('approving onto a busy time shows the conflict, keeps the request, and the class does not move', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    const [ann, ben] = [await seed(request, 'student', 'Ann Student'), await seed(request, 'student', 'Ben Student')];
+    const t = await mine(request, teacher);
+    const ev = await t.create({ title: 'Algebra', start: inDays(1, 10), durationMinutes: 60, participants: [{ email: ann.email, userId: ann.id }] });
+    await t.create({ title: 'Busy slot', start: inDays(2, 15), durationMinutes: 60, participants: [{ email: ben.email, userId: ben.id }] });
+    await calendarAs(request, await tokenFor(request, ann)).call('POST', `/v1/events/${ev.id}/change-requests`, { start: inDays(2, 15) });
+
+    const page = await openPage(context, request, teacher);
+    const card = page.getByRole('complementary', { name: 'My classes' }).getByRole('article', { name: /^Algebra,/ });
+    await expect(card).toContainText('Time change requested');
+    await card.getByRole('button', { name: 'Approve' }).click();
+    await expect(page.locator('.err')).toContainText('overlaps');
+    await expect(card).toContainText('Time change requested'); // still waiting for an answer
+    expect((await t.call('GET', `/v1/events/${ev.id}`)).body.start).toBe(ev.start);
+  });
+
+  test('a student\'s decline note shows in the class details', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    const ann = await seed(request, 'student', 'Ann Student');
+    const ev = await (await mine(request, teacher)).create({ title: 'Algebra', start: at(10), durationMinutes: 60, participants: [{ email: ann.email, userId: ann.id, name: ann.name }] });
+    await calendarAs(request, await tokenFor(request, ann)).call('POST', `/v1/events/${ev.id}/respond`, { response: 'declined', note: 'Family trip' });
+    const page = await openPage(context, request, teacher);
+    await page.locator('.fc-event', { hasText: 'Algebra' }).click();
+    await expect(page.getByRole('complementary', { name: 'Lesson details' })).toContainText('Ann Student declined: “Family trip”');
+  });
+});

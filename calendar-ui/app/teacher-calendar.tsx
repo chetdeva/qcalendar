@@ -12,6 +12,7 @@ import { answerSummary, capacityHours, hm, hoursByCategory, mergeSlots, minutesB
 import { api, ApiError } from './api-client';
 import { TopBar } from './components/top-bar';
 import { CalendarToolbar, type ViewType } from './components/calendar-toolbar';
+import { ChangeRequestBox } from './components/change-request-box';
 import { ClassesPanel, fetchUpcoming, upcomingOf } from './components/classes-panel';
 import { conflictMessage, CreateDrawer, DetailsDrawer, type Conflict, type LessonForm } from './components/lesson-drawer';
 import { dayHeader, makeEventContent } from './components/event-content';
@@ -230,6 +231,21 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
     }
   }
 
+  /** Approve (moves the class) or reject a student's time-change request. A busy teacher gets the service's own conflict message. */
+  async function decide(ev: CalendarEvent, requestId: string, decision: 'approve' | 'reject') {
+    setBusy(true);
+    try {
+      const updated = await api<CalendarEvent>(`/api/events/${ev.id}/change-requests/${requestId}/${decision}`, { method: 'POST' });
+      setPicked((p) => (p?.id === ev.id ? updated : p));
+      setError('');
+      refetch();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function cancel(id: string) {
     if (!confirm('Cancel this class and notify the students?')) return;
     try {
@@ -255,6 +271,10 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
     const n = c.participants.length;
     return [admin && (c.ownerName ?? c.ownerEmail ?? 'Teacher'), n === 0 ? 'No students yet' : `${n} ${n === 1 ? 'student' : 'students'}`, answerSummary(c.participants)].filter(Boolean).join(' · ');
   };
+
+  const needsAttention = (c: CalendarEvent) =>
+    c.changeRequest?.status === 'pending' ? <span className="status status-invited">Time change requested</span>
+      : c.participants.some((p) => p.status === 'declined') ? <span className="status status-declined">Declined</span> : null;
 
   const nav = (a: 'prev' | 'next' | 'today') => {
     const c = cal.current?.getApi();
@@ -327,6 +347,7 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
               onClose={() => setPanel(null)}
               onAdd={addStudents}
               onRemove={removeStudent}
+              onDecide={decide}
             />
           ) : (
             <ClassesPanel
@@ -338,6 +359,8 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
               selected={picked?.id ?? null}
               onSelect={open}
               who={whoLine}
+              badge={needsAttention}
+              actions={(c) => <ChangeRequestBox ev={c} busy={busy} onDecide={decide} />}
             />
           )}
           {creating && (

@@ -14,7 +14,7 @@ There is no API key in this app any more. Every request to either service carrie
 
 | Role | View |
 |---|---|
-| **Teacher** | Their own calendar (week, month, day). Create classes with a **student picker** (search by name or email, or invite someone who has not signed up yet), drag to book, drag or resize to reschedule, click a class to see who **accepted, declined or has not answered**, add or remove students, cancel. Free times are shaded from the teacher's own hours. |
+| **Teacher** | Their own calendar (week, month, day). Create classes with a **student picker** (search by name or email, or invite someone who has not signed up yet), drag to book, drag or resize to reschedule, click a class to see who **accepted, declined or has not answered**, add or remove students, cancel. Free times are shaded from the teacher's own hours. The right-hand side lists **My classes** (their upcoming classes, with student counts and answers); click one for its details. **Quick Add Lesson**, or dragging across the calendar, opens the **New lesson** form over that list. |
 | **Student** | **My classes**: classes waiting for an answer first, then upcoming ones, each with **Accept** and **Decline** (changeable any time), the teacher, time and video link, plus a read-only calendar. Students never see other students, and cannot create or change anything. |
 | **Admin** | Every teacher's classes, with the teacher's name on each. Choose a teacher to create a class on their behalf; add or remove students on, move, or cancel any class. |
 
@@ -73,7 +73,7 @@ proxy.ts                         refreshes the session; signed-out visitors go t
 app/page.tsx                     picks the view for the signed-in role
 app/teacher-calendar.tsx         teachers and admins
 app/student-home.tsx             students: My classes + read-only calendar
-app/components/                  top bar, toolbar, drawers (create, details, roster), student picker, event cards
+app/components/                  top bar, toolbar, My classes panel (shared by students and teachers), drawers (create, details, roster), student picker, event cards
 app/api/                         server routes that forward to the services with the person's token
 lib/bff.ts, lib/supabase/        token forwarding, session handling
 e2e/                             Playwright specs, fake backend, helpers

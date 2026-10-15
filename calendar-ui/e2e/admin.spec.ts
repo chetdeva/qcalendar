@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { at, calendarAs, openPage, resetBackend, seed, tokenFor, todayUtc } from './helpers';
+import { at, calendarAs, openForm, openPage, resetBackend, seed, tokenFor, todayUtc } from './helpers';
 
 test.beforeEach(async ({ request }) => resetBackend(request));
 
@@ -26,6 +26,7 @@ test('creating on a teacher\'s behalf: a teacher must be chosen, and only teache
   await seed(request, 'student', 'Sam Student');
   await seed(request, 'admin', 'Other Admin');
   const page = await openPage(context, request, await seed(request, 'admin', 'Ada Admin'));
+  await openForm(page);
   await expect(page.locator('select option')).toHaveText(['Choose a teacher', 'Tess Teacher', 'Tom Teacher']);
 
   await page.getByRole('button', { name: 'Personal' }).click();
@@ -93,6 +94,7 @@ test('free-time shading follows the teacher chosen in the form', async ({ contex
   const { openAllDay } = await import('./helpers');
   await openAllDay(request, teacher);
   const page = await openPage(context, request, await seed(request, 'admin', 'Ada Admin'));
+  await openForm(page);
   await expect(page.getByLabel('Shade free times for this duration')).toHaveCount(0); // no teacher chosen yet
   await expect(page.locator('.fc-bg-event.free')).toHaveCount(0);
   await teacherSelect(page).selectOption({ label: 'Tess Teacher' });

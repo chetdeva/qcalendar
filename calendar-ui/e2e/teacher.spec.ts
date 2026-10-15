@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { at, calendarAs, openAllDay, openPage, resetBackend, seed, tokenFor, todayUtc, type User } from './helpers';
+import { at, calendarAs, inDays, openAllDay, openForm, openPage, resetBackend, seed, tokenFor, todayUtc, type User } from './helpers';
 
 test.beforeEach(async ({ request }) => resetBackend(request));
 
@@ -30,6 +30,7 @@ test.describe('creating a class', () => {
     const ann = await seed(request, 'student', 'Ann Student');
     await seed(request, 'student', 'Ben Student');
     const page = await openPage(context, request, teacher);
+    await openForm(page);
 
     await field.title(page).fill('AP Calculus group');
     await pickStudent(page, 'ann', /Ann Student/);
@@ -43,8 +44,7 @@ test.describe('creating a class', () => {
     const card = page.locator('.fc-event', { hasText: 'AP Calculus group' });
     await expect(card).toBeVisible();
     await expect(card).toContainText('Ann Student +1');
-    await expect(field.title(page)).toHaveValue('');
-    await expect(chips(page)).toHaveCount(0);
+    await expect(field.title(page)).toHaveCount(0); // the form closes...
 
     const [ev] = await (await mine(request, teacher)).list();
     expect(ev.ownerId).toBe(teacher.id);
@@ -61,6 +61,7 @@ test.describe('creating a class', () => {
     await seed(request, 'teacher', 'Annabel Teacher');
     await seed(request, 'admin', 'Ann Admin');
     const page = await openPage(context, request, teacher);
+    await openForm(page);
 
     await field.students(page).fill('ann');
     await expect(options(page)).toHaveCount(1);
@@ -86,6 +87,7 @@ test.describe('creating a class', () => {
   test('Create stays disabled until the form is valid; students are only required for tutoring', async ({ context, request }) => {
     await seed(request, 'student', 'Ann Student');
     const page = await openPage(context, request, await seed(request, 'teacher', 'Tess Teacher'));
+    await openForm(page);
     const missing = page.getByTestId('missing');
     await expect(field.create(page)).toBeDisabled();
     await expect(missing).toContainText('a title');
@@ -115,6 +117,7 @@ test.describe('creating a class', () => {
   test('office hours and personal blocks can be created with no students, and get their own card style', async ({ context, request }) => {
     const teacher = await seed(request, 'teacher', 'Tess Teacher');
     const page = await openPage(context, request, teacher);
+    await openForm(page);
     await field.title(page).fill('Drop-in help');
     await page.getByRole('button', { name: 'Office Hr' }).click();
     await setWhen(page, '12:00');
@@ -128,12 +131,14 @@ test.describe('creating a class', () => {
   test('the video-meeting switch controls whether the class gets a link', async ({ context, request }) => {
     const teacher = await seed(request, 'teacher', 'Tess Teacher');
     const page = await openPage(context, request, teacher);
+    await openForm(page);
     await page.getByRole('button', { name: 'Personal' }).click();
     await field.title(page).fill('With link');
     await setWhen(page, '09:00');
     await field.create(page).click();
     await expect(page.locator('.fc-event', { hasText: 'With link' })).toBeVisible();
 
+    await openForm(page);
     await page.getByRole('switch', { name: 'Add video meeting' }).click();
     await field.title(page).fill('Without link');
     await setWhen(page, '11:00');
@@ -151,6 +156,7 @@ test.describe('clashes', () => {
     const teacher = await seed(request, 'teacher', 'Tess Teacher');
     await (await mine(request, teacher)).create({ title: 'First', start: at(10), durationMinutes: 60 });
     const page = await openPage(context, request, teacher);
+    await openForm(page);
     await page.getByRole('button', { name: 'Personal' }).click();
     await field.title(page).fill('Second');
     await setWhen(page, '10:30');
@@ -167,6 +173,7 @@ test.describe('clashes', () => {
     const busy = await seed(request, 'student', 'Busy Student');
     await (await mine(request, t2)).create({ title: 'Secret other class', start: at(10), durationMinutes: 60, participants: [{ email: busy.email }] });
     const page = await openPage(context, request, t1);
+    await openForm(page);
     await field.title(page).fill('Mine');
     await pickStudent(page, 'busy', /Busy Student/);
     await setWhen(page, '10:00');
@@ -247,7 +254,8 @@ test.describe('a class in the calendar', () => {
     page.once('dialog', (d) => d.accept());
     await page.getByRole('complementary', { name: 'Lesson details' }).getByRole('button', { name: 'Cancel lesson' }).click();
     await expect(page.locator('.fc-event', { hasText: 'To cancel' })).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'New Lesson' })).toBeVisible();
+    await expect(page.getByRole('complementary', { name: 'My classes' })).toBeVisible(); // back to the list
+    await expect(page.getByRole('complementary', { name: 'My classes' }).getByRole('article', { name: /To cancel/ })).toHaveCount(0);
     expect((await t.call('GET', `/v1/events/${ev.id}`)).body.status).toBe('cancelled');
   });
 
@@ -345,5 +353,63 @@ test.describe('the calendar itself', () => {
     await expect(field.date(page)).toHaveValue(todayUtc());
     await expect(field.start(page)).toHaveValue('10:00');
     await expect(field.duration(page, 60)).toHaveAttribute('aria-pressed', 'true');
+  });
+});
+
+test.describe('"My classes" for teachers, with New lesson over it', () => {
+  const panel = (p: Page) => p.getByRole('complementary', { name: 'My classes' });
+
+  test('lists the teacher\'s own upcoming classes, with their students, and nobody else\'s', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    const other = await seed(request, 'teacher', 'Tom Teacher');
+    const ann = await seed(request, 'student', 'Ann Student');
+    await (await mine(request, teacher)).create({ title: 'Algebra group', start: inDays(1, 10), durationMinutes: 60, participants: [{ email: ann.email }, { email: 'new@example.test' }] });
+    await (await mine(request, other)).create({ title: 'Not mine', start: inDays(1, 12), durationMinutes: 60 });
+    const page = await openPage(context, request, teacher);
+
+    const card = panel(page).getByRole('article', { name: /Algebra group/ });
+    await expect(card).toBeVisible();
+    await expect(card).toContainText('2 students');
+    await expect(card).toContainText('2 waiting');
+    await expect(card.getByRole('button', { name: 'Accept' })).toHaveCount(0); // students answer; teachers only look
+    await expect(panel(page).getByRole('article', { name: /Not mine/ })).toHaveCount(0);
+  });
+
+  test('clicking a class opens its details; closing them returns to the list', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    await (await mine(request, teacher)).create({ title: 'Geometry', start: inDays(1, 10), durationMinutes: 60 });
+    const page = await openPage(context, request, teacher);
+    await panel(page).getByRole('article', { name: /Geometry/ }).click();
+    const details = page.getByRole('complementary', { name: 'Lesson details' });
+    await expect(details).toContainText('Geometry');
+    await details.getByRole('button', { name: 'Close panel' }).click();
+    await expect(panel(page).getByRole('article', { name: /Geometry/ })).toBeVisible();
+  });
+
+  test('Quick Add Lesson opens the form on top of the list, and closing it shows the list again', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    const page = await openPage(context, request, teacher);
+    await expect(page.getByRole('complementary', { name: 'New lesson' })).toHaveCount(0);
+    const list = await panel(page).boundingBox();
+    await openForm(page);
+    const form = await page.getByRole('complementary', { name: 'New lesson' }).boundingBox();
+    expect(Math.abs(form!.x - list!.x)).toBeLessThan(2); // laid over the list...
+    expect(Math.abs(form!.width - list!.width)).toBeLessThan(2); // ...covering the same area
+    await page.getByRole('button', { name: 'Close panel' }).click();
+    await expect(page.getByRole('complementary', { name: 'New lesson' })).toHaveCount(0);
+    await expect(panel(page)).toBeVisible();
+  });
+
+  test('creating a class closes the form and the class appears in the list', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    const page = await openPage(context, request, teacher);
+    await openForm(page);
+    await page.getByRole('button', { name: 'Personal' }).click();
+    await field.title(page).fill('Planning block');
+    await field.date(page).fill(inDays(1, 9).slice(0, 10));
+    await field.start(page).fill('09:00');
+    await field.create(page).click();
+    await expect(page.getByRole('complementary', { name: 'New lesson' })).toHaveCount(0);
+    await expect(panel(page).getByRole('article', { name: /Planning block/ })).toBeVisible();
   });
 });

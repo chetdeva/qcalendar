@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { calendarAs, openPage, resetBackend, seed, signIn, tokenFor, USERS_UI, USERS_URL, WEB_URL } from './helpers';
+import { calendarAs, openForm, openPage, resetBackend, seed, signIn, tokenFor, USERS_UI, USERS_URL, WEB_URL } from './helpers';
 
 test.beforeEach(async ({ request }) => resetBackend(request));
 
@@ -53,10 +53,13 @@ test.describe('signing in', () => {
 });
 
 test.describe('each role gets its own view', () => {
-  test('a teacher gets the full calendar with the New Lesson form', async ({ context, request }) => {
+  test('a teacher gets the full calendar and "My classes"; New lesson opens over it', async ({ context, request }) => {
     const page = await openPage(context, request, await seed(request, 'teacher', 'Tess Teacher'));
     await expect(page.getByRole('button', { name: 'Quick Add Lesson' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'New Lesson' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'My classes' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'New Lesson' })).toHaveCount(0);
+    await expect(page.getByTestId('no-classes')).toBeVisible();
+    await openForm(page);
     await expect(page.locator('.fc-timeGridWeek-view')).toBeVisible();
     await expect(page.locator('.sync-label')).toHaveText('My calendar');
     await expect(page.getByText('Utilization:')).toBeVisible();
@@ -78,6 +81,7 @@ test.describe('each role gets its own view', () => {
     await seed(request, 'teacher', 'Tess Teacher');
     const page = await openPage(context, request, await seed(request, 'admin', 'Ada Admin'));
     await expect(page.locator('.sync-label')).toHaveText('All classes');
+    await openForm(page);
     await expect(page.getByLabel('Teacher *')).toBeVisible();
     await expect(page.getByText('Utilization:')).toHaveCount(0);
   });
@@ -93,7 +97,8 @@ test.describe('a role changed after signing in', () => {
 
     const page = await context.newPage();
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'New Lesson' })).toBeVisible(); // the database says teacher
+    await expect(page.getByRole('heading', { name: 'My classes' })).toBeVisible(); // the database says teacher
+    await openForm(page);
     await expect(page.locator('.stale-banner')).toContainText('Your role was changed to teacher');
     await expect(page.locator('.stale-banner form')).toHaveAttribute('action', `${USERS_UI}/auth/signout`);
 
@@ -108,6 +113,7 @@ test.describe('a role changed after signing in', () => {
     await signIn(context, request, person);
     await page.reload();
     await expect(page.locator('.stale-banner')).toHaveCount(0);
+    await openForm(page);
     await page.getByRole('button', { name: 'Personal' }).click();
     await page.getByLabel('Event Title *').fill('On time');
     await page.getByRole('button', { name: 'Create & Send Invites' }).click();

@@ -8,10 +8,11 @@ import interactionPlugin from '@fullcalendar/interaction';
 import type { DateSelectArg, DatesSetArg, EventClickArg, EventDropArg, EventInput } from '@fullcalendar/core';
 import type { EventResizeDoneArg } from '@fullcalendar/interaction';
 import type { CalendarEvent, CalendarSettings, Me, Participant, Person, Student } from '@/lib/calendar';
-import { capacityHours, hm, hoursByCategory, mergeSlots, minutesBetween, ymd } from '@/lib/format';
+import { answerSummary, capacityHours, hm, hoursByCategory, mergeSlots, minutesBetween, ymd } from '@/lib/format';
 import { api, ApiError } from './api-client';
 import { TopBar } from './components/top-bar';
 import { CalendarToolbar, type ViewType } from './components/calendar-toolbar';
+import { ClassesPanel, fetchUpcoming, upcomingOf } from './components/classes-panel';
 import { conflictMessage, CreateDrawer, DetailsDrawer, type Conflict, type LessonForm } from './components/lesson-drawer';
 import { dayHeader, makeEventContent } from './components/event-content';
 import { RoleBanner } from './components/role-banner';
@@ -39,7 +40,10 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [settings, setSettings] = useState<CalendarSettings | null>(null);
   const [teachers, setTeachers] = useState<Person[]>([]);
-  const [panel, setPanel] = useState<'create' | 'details' | null>('create');
+  // The right-hand side shows "My classes" by default, or the details of one class. "New lesson" opens over it.
+  const [panel, setPanel] = useState<'details' | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [classes, setClasses] = useState<CalendarEvent[] | null>(null);
   const [picked, setPicked] = useState<CalendarEvent | null>(null);
   const [form, setForm] = useState<LessonForm>(blankForm);
   const [error, setError] = useState('');
@@ -48,13 +52,17 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
   const [showFree, setShowFree] = useState(true);
   const [tz, setTz] = useState('');
 
-  const refetch = () => cal.current?.getApi().refetchEvents();
+  const loadList = useCallback(() => {
+    fetchUpcoming().then(setClasses, (e) => { setError((e as Error).message); setClasses([]); });
+  }, []);
+  const refetch = () => { cal.current?.getApi().refetchEvents(); loadList(); };
 
   useEffect(() => {
     if (admin) api<{ teachers: Person[] }>('/api/teachers').then((r) => setTeachers(r.teachers), () => {});
     else api<CalendarSettings>('/api/settings').then(setSettings, () => {});
     setTz(new Intl.DateTimeFormat('en-US', { timeZoneName: 'shortOffset' }).formatToParts(new Date()).find((p) => p.type === 'timeZoneName')?.value ?? '');
-  }, [admin]);
+    loadList();
+  }, [admin, loadList]);
 
   // The loader reads these through refs so its identity never changes; a new function would make
   // FullCalendar treat it as a new event source and refetch on every keystroke or click.
@@ -118,8 +126,7 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
   if (form.category === 'tutoring' && form.students.length === 0) missing.push('at least one student');
 
   const openCreate = () => {
-    setPanel('create');
-    setPicked(null);
+    setCreating(true);
     setError('');
     setConflict(null);
   };
@@ -155,7 +162,7 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
     }
     refetch();
     setPicked((cur) => (cur && cur.id === ev.id ? null : cur));
-    setPanel((p) => (p === 'details' ? 'create' : p));
+    setPanel((p) => (p === 'details' ? null : p));
   }
 
   async function create(force = false) {
@@ -178,6 +185,7 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
         }),
       });
       setForm({ ...form, title: '', students: [] });
+      setCreating(false);
       cal.current?.getApi().unselect();
       refetch();
     } catch (e) {
@@ -227,13 +235,26 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
     try {
       await api(`/api/events/${id}`, { method: 'DELETE' });
       setPicked(null);
-      setPanel('create');
+      setPanel(null);
       setError('');
       refetch();
     } catch (e) {
       setError((e as Error).message);
     }
   }
+
+  const open = (c: CalendarEvent) => {
+    setPicked(c);
+    setPanel('details');
+    setCreating(false);
+    setError('');
+    setConflict(null);
+  };
+
+  const whoLine = (c: CalendarEvent) => {
+    const n = c.participants.length;
+    return [admin && (c.ownerName ?? c.ownerEmail ?? 'Teacher'), n === 0 ? 'No students yet' : `${n} ${n === 1 ? 'student' : 'students'}`, answerSummary(c.participants)].filter(Boolean).join(' · ');
+  };
 
   const nav = (a: 'prev' | 'next' | 'today') => {
     const c = cal.current?.getApi();
@@ -285,42 +306,57 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
                 events={eventSource}
                 datesSet={onDates}
                 select={onSelect}
-                eventClick={(a: EventClickArg) => { setPicked(a.event.extendedProps.ev as CalendarEvent); setPanel('details'); setError(''); setConflict(null); }}
+                eventClick={(a: EventClickArg) => { open(a.event.extendedProps.ev as CalendarEvent); }}
                 eventDrop={move}
                 eventResize={move}
               />
             </div>
           </div>
         </section>
-        {panel === 'create' && (
-          <CreateDrawer
-            form={form}
-            setForm={(f) => { if (f.teacher?.id !== form.teacher?.id) setTimeout(refetch, 0); setForm(f); }}
-            role={role}
-            teachers={teachers}
-            missing={missing}
-            busy={busy}
-            error={error}
-            conflict={conflict}
-            onCreate={create}
-            onClose={() => setPanel(null)}
-          />
-        )}
-        {panel === 'details' && picked && (
-          <DetailsDrawer
-            key={picked.id}
-            ev={picked}
-            role={role}
-            error={error}
-            conflict={conflict}
-            busy={busy}
-            onCancel={() => cancel(picked.id)}
-            onNew={openCreate}
-            onClose={() => setPanel(null)}
-            onAdd={addStudents}
-            onRemove={removeStudent}
-          />
-        )}
+        <div className="side">
+          {panel === 'details' && picked ? (
+            <DetailsDrawer
+              key={picked.id}
+              ev={picked}
+              role={role}
+              error={creating ? '' : error}
+              conflict={conflict}
+              busy={busy}
+              onCancel={() => cancel(picked.id)}
+              onNew={openCreate}
+              onClose={() => setPanel(null)}
+              onAdd={addStudents}
+              onRemove={removeStudent}
+            />
+          ) : (
+            <ClassesPanel
+              subtitle={admin ? 'Every teacher’s scheduled classes' : 'Your scheduled classes'}
+              empty="No upcoming classes. Use Quick Add Lesson, or drag across the calendar, to schedule one."
+              classes={classes}
+              error={creating ? '' : error}
+              sections={[{ label: 'Upcoming', items: upcomingOf(classes) }]}
+              selected={picked?.id ?? null}
+              onSelect={open}
+              who={whoLine}
+            />
+          )}
+          {creating && (
+            <div className="over">
+              <CreateDrawer
+                form={form}
+                setForm={(f) => { if (f.teacher?.id !== form.teacher?.id) setTimeout(refetch, 0); setForm(f); }}
+                role={role}
+                teachers={teachers}
+                missing={missing}
+                busy={busy}
+                error={error}
+                conflict={conflict}
+                onCreate={create}
+                onClose={() => setCreating(false)}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

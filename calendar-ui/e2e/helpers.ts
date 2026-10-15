@@ -76,6 +76,12 @@ export async function openPage(context: BrowserContext, request: APIRequestConte
   return page;
 }
 
+/** Open the "New lesson" form. It opens over "My classes" from Quick Add Lesson (or by dragging across the calendar). */
+export async function openForm(page: Page) {
+  await page.getByRole('button', { name: 'Quick Add Lesson' }).click();
+  await expect(page.getByRole('complementary', { name: 'New lesson' })).toBeVisible();
+}
+
 /** Make a teacher bookable all day, every day, so tests do not depend on the time they run. */
 export async function openAllDay(request: APIRequestContext, teacher: User) {
   const allDay = [['00:00', '23:59']];

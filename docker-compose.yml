@@ -4,8 +4,8 @@
 #   docker compose up -d --build         same, in the background; then `docker compose logs -f`
 #   docker compose down                  stop (keeps the calendar data)   |   down -v  also wipes the calendar data
 #
-# Open http://localhost:3004 (home), http://localhost:3002 (calendar) or http://localhost:3003 (accounts). Ports: home-ui 3004, calendar-service 3000,
-# calendar-ui 3002, users-ui 3003, users-service 3010. Stop any `npm run dev` servers on those ports first.
+# Open http://localhost:3004 (home), http://localhost:3002 (calendar), http://localhost:3005 (chat) or http://localhost:3003 (accounts).
+# Ports: home-ui 3004, calendar-service 3000, calendar-ui 3002, users-ui 3003, users-service 3010, chat-ui 3005 (chat-service 3001, internal). Stop any `npm run dev` servers on those ports first.
 #
 # Needs: .env at the repo root (SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY, see .env.example) and users-service/.env
 # (it holds the Supabase SECRET key, which stays out of the images). Login still goes through your real Supabase
@@ -48,7 +48,7 @@ services:
       args:
         <<: *supabase-public
         APP: users-ui
-        NEXT_PUBLIC_ALLOWED_RETURN_ORIGINS: http://localhost:3002
+        NEXT_PUBLIC_ALLOWED_RETURN_ORIGINS: http://localhost:3002,http://localhost:3005
         NEXT_PUBLIC_CALENDAR_URL: http://localhost:3002
     environment:
       USERS_SERVICE_URL: http://users-service:3010 # server to server, over the compose network
@@ -63,11 +63,38 @@ services:
         <<: *supabase-public
         APP: calendar-ui
         NEXT_PUBLIC_USERS_UI_URL: http://localhost:3003
+        NEXT_PUBLIC_CHAT_URL: http://localhost:3005
     environment:
       CALENDAR_API_URL: http://calendar-service:3000
       USERS_SERVICE_URL: http://users-service:3010
     depends_on: [calendar-service, users-service]
     ports: ["3002:3002"]
+
+  chat-service:
+    build: { context: ., dockerfile: docker/service.Dockerfile, args: { APP: chat-service } }
+    environment:
+      PORT: "3001"
+      SUPABASE_URL: ${SUPABASE_URL}
+      DATABASE_URL: ${DATABASE_URL:-} # empty = an embedded Postgres in the chat-data volume
+      PGLITE_DIR: /data/pglite
+      CHAT_POLICY_URL: http://calendar-service:3000/v1/chat-policy # who may talk is decided by calendar-service (a shared class)
+    volumes: [chat-data:/data]
+    depends_on: [calendar-service]
+
+  chat-ui:
+    build:
+      context: .
+      dockerfile: docker/next.Dockerfile
+      args:
+        <<: *supabase-public
+        APP: chat-ui
+        NEXT_PUBLIC_USERS_UI_URL: http://localhost:3003
+    environment:
+      CHAT_API_URL: http://chat-service:3001
+      CALENDAR_API_URL: http://calendar-service:3000
+      USERS_SERVICE_URL: http://users-service:3010
+    depends_on: [chat-service, calendar-service, users-service]
+    ports: ["3005:3005"]
 
   home-ui:
     build:
@@ -81,3 +108,4 @@ services:
 
 volumes:
   calendar-data:
+  chat-data:

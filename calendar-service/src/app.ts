@@ -60,7 +60,9 @@ const PatchSchema = z.object({
 });
 
 const AddParticipants = z.object({ participants: z.array(ParticipantSchema).min(1).max(50), force: z.boolean().optional() });
-const RespondBody = z.object({ response: z.enum(['accepted', 'declined']) }).strict();
+const note = z.string().max(500);
+const RespondBody = z.object({ response: z.enum(['accepted', 'declined']), note: note.optional() }).strict();
+const ChangeBody = z.object({ start: iso, note: note.optional() }).strict();
 
 const ListQuery = z.object({
   from: iso.optional(), to: iso.optional(), ownerId: uuid.optional(), participant: email.optional(),
@@ -149,8 +151,17 @@ export function createApp(deps: { ctx: svc.Ctx; authenticator: Authenticator }) 
 
   app.post('/v1/events/:id/respond', async (c) => {
     const b = parse(RespondBody, await body(c));
-    return c.json(await svc.respond(ctx, c.get('actor'), id(c.req.param('id')), b.response));
+    return c.json(await svc.respond(ctx, c.get('actor'), id(c.req.param('id')), b.response, b.note));
   });
+
+  app.post('/v1/events/:id/change-requests', async (c) => {
+    const b = parse(ChangeBody, await body(c));
+    return c.json(await svc.requestChange(ctx, c.get('actor'), id(c.req.param('id')), b), 201);
+  });
+  for (const decision of ['approve', 'reject'] as const) {
+    app.post(`/v1/events/:id/change-requests/:rid/${decision}`, async (c) =>
+      c.json(await svc.decideChange(ctx, c.get('actor'), id(c.req.param('id')), id(c.req.param('rid')), decision)));
+  }
 
   app.get('/v1/availability', async (c) => {
     const q = parse(AvailabilityQuery, c.req.query());

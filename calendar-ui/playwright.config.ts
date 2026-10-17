@@ -1,9 +1,10 @@
 import path from 'node:path';
 import { defineConfig } from '@playwright/test';
-import { AUTH_URL, CAL_URL, SERVICE_KEY, USERS_UI, USERS_URL, WEB_URL } from './e2e/helpers';
+import { AUTH_URL, CAL_URL, CHAT_URL, SERVICE_KEY, USERS_UI, USERS_URL, WEB_URL } from './e2e/helpers';
 
-// The suite runs the UI against REAL calendar-service and users-service code. Override to test another checkout.
+// The suite runs the UI against REAL calendar-service, chat-service and users-service code. Override to test another checkout.
 const CAL_DIR = process.env.CALENDAR_SERVICE_DIR ?? '../calendar-service';
+const CHAT_DIR = process.env.CHAT_SERVICE_DIR ?? '../chat-service';
 
 export default defineConfig({
   testDir: './e2e',
@@ -39,6 +40,16 @@ export default defineConfig({
       },
     },
     {
+      // The real chat-service: when a student declines or asks for another time, the teacher also gets a chat message.
+      command: `cd ${CHAT_DIR} && node --disable-warning=ExperimentalWarning src/index.ts`,
+      url: `${CHAT_URL}/health`,
+      reuseExistingServer: false,
+      env: {
+        PORT: String(new URL(CHAT_URL).port), PGLITE_DIR: path.resolve(__dirname, '.e2e-data/chat'), SUPABASE_URL: AUTH_URL,
+        API_KEY: SERVICE_KEY, CHAT_POLICY_URL: `${CAL_URL}/v1/chat-policy`,
+      },
+    },
+    {
       command: `npx next dev -p ${new URL(WEB_URL).port}`,
       url: `${WEB_URL}/api/me`, // answers 401 when signed out; the front page redirects away
       reuseExistingServer: false,
@@ -50,6 +61,7 @@ export default defineConfig({
         NEXT_PUBLIC_USERS_UI_URL: USERS_UI,
         NEXT_PUBLIC_COOKIE_DOMAIN: '',
         CALENDAR_API_URL: CAL_URL,
+        CHAT_API_URL: CHAT_URL,
         USERS_SERVICE_URL: USERS_URL,
       },
     },

@@ -67,7 +67,8 @@ services:
     environment:
       CALENDAR_API_URL: http://calendar-service:3000
       USERS_SERVICE_URL: http://users-service:3010
-    depends_on: [calendar-service, users-service]
+      CHAT_API_URL: http://chat-service:3001 # a decline or a time-change request also messages the teacher
+    depends_on: [calendar-service, users-service, chat-service]
     ports: ["3002:3002"]
 
   chat-service:

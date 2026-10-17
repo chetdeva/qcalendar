@@ -14,8 +14,8 @@ const mk = async (teacher: Person, students: Person[], over: Record<string, unkn
   return json(res);
 };
 const mails = async () => { await h.outbox(); const m = [...h.mailer.sent]; h.mailer.sent.length = 0; return m; };
-const ics = (m: { ics: { content: string } }) => m.ics.content.replace(/\r\n /g, '');
-const seq = (m: { ics: { content: string } }) => Number(/SEQUENCE:(\d+)/.exec(m.ics.content)![1]);
+const ics = (m: { ics?: { content: string } }) => m.ics!.content.replace(/\r\n /g, '');
+const seq = (m: { ics?: { content: string } }) => Number(/SEQUENCE:(\d+)/.exec(m.ics!.content)![1]);
 
 test('rescheduling: new time, everyone must answer again, everyone is emailed with a higher sequence', async () => {
   const t = await h.person('teacher'); const [a, b] = [await h.person('student'), await h.person('student')];
@@ -31,7 +31,7 @@ test('rescheduling: new time, everyone must answer again, everyone is emailed wi
   assert.ok(moved.participants.every((p: any) => p.status === 'invited'), 'accepted answers are reset');
   const sent = await mails();
   assert.equal(sent.length, 2);
-  assert.ok(sent.every((m) => m.subject.startsWith('Updated:') && m.ics.method === 'REQUEST' && seq(m) === 1));
+  assert.ok(sent.every((m) => m.subject.startsWith('Updated:') && m.ics!.method === 'REQUEST' && seq(m) === 1));
   assert.ok(sent.every((m) => ics(m).includes('DTSTART:20300107T140000Z') && ics(m).includes(`UID:${ev.id}@syncschedule`)), 'same UID, so calendars update the existing entry');
 });
 
@@ -105,7 +105,7 @@ test('cancelling: students are emailed a CANCEL for the same entry, once; it fre
   const sent = await mails();
   assert.equal(sent.length, 2);
   for (const m of sent) {
-    assert.equal(m.ics.method, 'CANCEL');
+    assert.equal(m.ics!.method, 'CANCEL');
     assert.ok(ics(m).includes('STATUS:CANCELLED') && ics(m).includes(`UID:${ev.id}@syncschedule`));
     assert.equal(seq(m), 1);
     assert.match(m.subject, /^Cancelled: Algebra/);
@@ -147,7 +147,7 @@ test('removing a student: they get a cancellation, others are untouched, and the
   assert.equal(res.status, 200);
   assert.equal((await json(res)).participantCount, 1);
   const sent = await mails();
-  assert.deepEqual(sent.map((m) => [m.to, m.ics.method]), [[a.email, 'CANCEL']]);
+  assert.deepEqual(sent.map((m) => [m.to, m.ics!.method]), [[a.email, 'CANCEL']]);
   assert.ok(seq(sent[0]) >= 1, 'a higher sequence than the invitation they received');
   assert.equal((await a.call('GET', `/v1/events/${ev.id}`)).status, 404);
   assert.equal((await b.call('GET', `/v1/events/${ev.id}`)).status, 200);

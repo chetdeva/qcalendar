@@ -5,6 +5,13 @@ export type Role = 'student' | 'teacher' | 'admin';
 
 export interface Participant {
   id: string; userId: string | null; email: string; name: string | null; status: ParticipantStatus; respondedAt: string | null;
+  /** The student's note when they declined. */
+  note: string | null;
+}
+
+/** A student's request to move a one-to-one class. The teacher sees every request; a student only their own. */
+export interface ChangeRequest {
+  id: string; start: string; end: string; note: string | null; status: 'pending' | 'approved' | 'rejected' | 'withdrawn'; createdAt: string;
 }
 
 export interface CalendarEvent {
@@ -17,6 +24,8 @@ export interface CalendarEvent {
   participantCount: number;
   /** Present when you are looking at the class as an invited student. */
   myStatus?: ParticipantStatus | null;
+  /** The latest time-change request, when the list or the class was loaded with it. */
+  changeRequest?: ChangeRequest | null;
   createdAt: string; updatedAt: string;
 }
 

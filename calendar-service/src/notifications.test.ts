@@ -88,7 +88,7 @@ test('webhooks: every change is queued with the full class, and nothing is queue
   const created = JSON.parse(q[0].payload);
   assert.equal(created.data.ownerId, t.id);
   assert.equal(created.data.participants[0].email, s.email, 'integrations get the full roster');
-  assert.deepEqual(JSON.parse(q[2].payload).data.responder, { email: s.email, status: 'accepted' });
+  assert.deepEqual(JSON.parse(q[2].payload).data.responder, { email: s.email, status: 'accepted', note: null });
 
   const t2 = await h.person('teacher');
   await t2.call('POST', '/v1/events', { title: 'x', ...slot(10) });

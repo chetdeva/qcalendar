@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { CalendarEvent, EventCategory, Participant, Person, Student } from '@/lib/calendar';
 import { answerSummary, CATEGORIES, CATEGORY_ORDER, initials, personName, rangeLabel, STATUS_LABEL } from '@/lib/format';
+import { ChangeRequestBox } from './change-request-box';
 import { StudentPicker } from './student-picker';
 import { Icon } from './ui-icon';
 
@@ -150,6 +151,7 @@ export function CreateDrawer(p: CreateProps) {
 
 interface DetailsProps {
   ev: CalendarEvent;
+  onDecide: (ev: CalendarEvent, requestId: string, decision: 'approve' | 'reject') => void;
   role: 'teacher' | 'admin';
   error: string;
   conflict: Conflict | null;
@@ -161,7 +163,7 @@ interface DetailsProps {
   onRemove: (p: Participant) => void;
 }
 
-export function DetailsDrawer({ ev, role, error, conflict, busy, onCancel, onNew, onClose, onAdd, onRemove }: DetailsProps) {
+export function DetailsDrawer({ ev, role, error, conflict, busy, onCancel, onNew, onClose, onAdd, onRemove, onDecide }: DetailsProps) {
   const cat = CATEGORIES[ev.category];
   const [adding, setAdding] = useState<Student[]>([]);
   const summary = answerSummary(ev.participants);
@@ -194,6 +196,8 @@ export function DetailsDrawer({ ev, role, error, conflict, busy, onCancel, onNew
             <Icon name="video" color="#005bbf" /> Join video meeting
           </a>
         )}
+
+        <ChangeRequestBox ev={ev} busy={busy} onDecide={onDecide} />
 
         <div className="field">
           <span>Students{ev.participants.length ? ` (${ev.participants.length})` : ''}</span>

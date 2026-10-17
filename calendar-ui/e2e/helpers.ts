@@ -8,6 +8,7 @@ export const CAL_URL = 'http://localhost:58743';
 export const WEB_URL = 'http://localhost:58744';
 /** Pretend users-ui. Never actually served; tests intercept requests to it. */
 export const USERS_UI = 'http://localhost:58745';
+export const CHAT_URL = 'http://localhost:58746';
 export const SERVICE_KEY = 'e2e-service-key-e2e-service-key-0123456789';
 
 export type Role = 'student' | 'teacher' | 'admin';
@@ -100,3 +101,15 @@ export const inDays = (days: number, hour: number, minute = 0) => {
   const d = new Date(Date.now() + days * 86_400_000);
   return `${d.toISOString().slice(0, 10)}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00Z`;
 };
+
+/** Everything a person can read in chat, as one list of message texts (the teacher's inbox after a student writes). */
+export async function chatTexts(request: APIRequestContext, u: User): Promise<string[]> {
+  const headers = { authorization: `Bearer ${await tokenFor(request, u)}` };
+  const { conversations } = (await (await request.get(`${CHAT_URL}/v1/conversations`, { headers })).json()) as { conversations: { id: string }[] };
+  const texts: string[] = [];
+  for (const c of conversations) {
+    const { messages } = (await (await request.get(`${CHAT_URL}/v1/conversations/${c.id}/messages`, { headers })).json()) as { messages: { body: string }[] };
+    texts.push(...messages.map((m) => m.body));
+  }
+  return texts;
+}

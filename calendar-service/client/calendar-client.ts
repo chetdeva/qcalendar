@@ -4,7 +4,7 @@
 export type EventCategory = 'tutoring' | 'office_hours' | 'personal';
 export type ParticipantStatus = 'invited' | 'accepted' | 'declined';
 
-export interface Participant { id: string; userId: string | null; email: string; name: string | null; status: ParticipantStatus; respondedAt: string | null }
+export interface Participant { id: string; userId: string | null; email: string; name: string | null; status: ParticipantStatus; respondedAt: string | null; note: string | null }
 
 export interface CalendarEvent {
   id: string; ownerId: string; ownerName: string | null; ownerEmail: string | null;
@@ -67,7 +67,7 @@ export function calendarClient(token: string, baseUrl = process.env.CALENDAR_API
     cancelEvent: (id: string) => request<CalendarEvent>('DELETE', `/v1/events/${id}`),
     addParticipants: (id: string, participants: ParticipantInput[], force = false) => request<CalendarEvent>('POST', `/v1/events/${id}/participants`, { participants, force }),
     removeParticipant: (id: string, participantId: string) => request<CalendarEvent>('DELETE', `/v1/events/${id}/participants/${participantId}`),
-    respond: (id: string, response: 'accepted' | 'declined') => request<CalendarEvent>('POST', `/v1/events/${id}/respond`, { response }),
+    respond: (id: string, response: 'accepted' | 'declined', note?: string) => request<CalendarEvent>('POST', `/v1/events/${id}/respond`, { response, note }),
     availability: (q: { from: string; to: string; duration?: number; teacherId?: string }) =>
       request<{ teacherId: string; timezone: string; slots: { start: string; end: string }[] }>('GET', `/v1/availability?${qs({ from: q.from, to: q.to, duration: q.duration ? String(q.duration) : undefined, teacherId: q.teacherId })}`),
     settings: (teacherId?: string) => request<CalendarSettings>('GET', `/v1/settings?${qs({ teacherId })}`),

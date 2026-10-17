@@ -126,8 +126,7 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
                 nowIndicator
                 selectable={false}
                 editable={false}
-                slotDuration="00:30:00"
-                slotLabelInterval="01:00"
+                slotDuration="01:00:00"
                 slotLabelContent={slotLabel}
                 scrollTime="08:00:00"
                 eventOverlap

@@ -84,7 +84,7 @@ test('an admin can drag any teacher\'s class to a new time', async ({ context, r
   await page.mouse.move(x, e!.y + 4);
   await page.mouse.down();
   await page.mouse.move(x, e!.y + 40, { steps: 5 });
-  await page.mouse.move(x, tg!.y + 4, { steps: 10 });
+  await page.mouse.move(x, tg!.y - 10, { steps: 10 }); // the grab offset (4px) shifts FullCalendar's hit zone up; this lands the event on the 14:00 quarter
   await page.mouse.up();
   await expect.poll(async () => (await t.call('GET', `/v1/events/${ev.id}`)).body.start).toBe(`${todayUtc()}T14:00:00.000Z`);
 });

@@ -20,3 +20,8 @@ calendar.{$DOMAIN} {
 	encode zstd gzip
 	reverse_proxy calendar-ui:3002
 }
+
+chat.{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy chat-ui:3005
+}

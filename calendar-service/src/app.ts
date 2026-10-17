@@ -116,6 +116,19 @@ export function createApp(deps: { ctx: svc.Ctx; authenticator: Authenticator }) 
     return c.json({ events: await svc.listEvents(ctx, c.get('actor'), { ...q, includeCancelled: q.includeCancelled === 'true' }) });
   });
 
+  // Who the caller shares a class with. chat-service uses it as its "may these two talk" rule.
+  app.get('/v1/contacts', async (c) => c.json({ contacts: (await svc.contactIds(ctx, c.get('actor'))).map((id) => ({ id })) }));
+
+  app.post('/v1/chat-policy', async (c) => {
+    const { memberIds } = parse(z.object({ memberIds: z.array(uuid).length(2) }).strict(), await body(c));
+    const actor = c.get('actor');
+    const contacts = await svc.contactIds(ctx, actor);
+    const [a, b] = memberIds;
+    const other = actor.kind === 'user' && actor.id === a ? b : actor.kind === 'user' && actor.id === b ? a : null;
+    if (!other || !contacts.includes(other)) throw new HttpError(403, 'forbidden', 'You can only chat with people you share a class with');
+    return c.body(null, 204);
+  });
+
   app.get('/v1/events/:id', async (c) => c.json(await svc.getEvent(ctx, c.get('actor'), id(c.req.param('id')))));
 
   app.patch('/v1/events/:id', async (c) => {

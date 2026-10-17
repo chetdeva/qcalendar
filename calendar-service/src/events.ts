@@ -254,6 +254,25 @@ export async function listEvents(ctx: Ctx, actor: Actor, f: ListFilters) {
   return out;
 }
 
+/**
+ * The people this user has (or had) a confirmed class with, teacher to student or student to teacher; students are not
+ * contacts of each other. Chat asks this to decide who may talk. Participants who have not signed in yet have no user_id
+ * and are skipped; the row is linked the first time they use the calendar.
+ */
+export async function contactIds(ctx: Ctx, actor: Actor): Promise<string[]> {
+  if (actor.kind !== 'user') throw new HttpError(403, 'forbidden', 'Only signed-in users have contacts');
+  await linkAccount(ctx.db, actor);
+  const rows = await ctx.db.query<{ id: string }>(
+    `select e.owner_id as id from calendar.events e join calendar.event_participants p on p.event_id = e.id
+      where e.status = 'confirmed' and p.user_id = $1 and e.owner_id <> $1
+     union
+     select p.user_id from calendar.events e join calendar.event_participants p on p.event_id = e.id
+      where e.status = 'confirmed' and e.owner_id = $1 and p.user_id is not null and p.user_id <> $1`,
+    [actor.id],
+  );
+  return rows.map((r) => r.id);
+}
+
 export async function getEvent(ctx: Ctx, actor: Actor, id: string) {
   await linkAccount(ctx.db, actor);
   const { e, rel, mine } = await loadVisible(ctx.db, actor, id);

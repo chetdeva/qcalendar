@@ -5,12 +5,22 @@ const WA = '919119571369';
 test('renders every section, the real content and the header links', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/Quanttoria/);
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Math no fear');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Confidence\s+unlocked\./);
   await expect(page.getByText('MathExcellence')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: /tailored approach/ })).toBeVisible();
   await expect(page.locator('#how-it-works ol > li')).toHaveCount(4);
   await expect(page.getByRole('heading', { name: 'Pprincy Sugandhh' })).toBeVisible();
   await expect(page.getByRole('heading', { name: /our family is part of the journey/ })).toBeVisible();
+  // The sections of the Figma design, each with its own content.
+  await expect(page.locator('#why .vs')).toHaveCount(2); // old rote way vs the Quanttoria way
+  await expect(page.locator('#why .pillar')).toHaveCount(3);
+  await expect(page.getByRole('heading', { name: /The Live Classroom/ })).toBeVisible();
+  await expect(page.locator('#classroom .board')).toBeVisible();
+  await expect(page.locator('#classroom .features li')).toHaveCount(3);
+  await expect(page.getByRole('heading', { name: /Experience the Magic/ })).toBeVisible();
+  await expect(page.locator('#book .tile')).toHaveCount(4);
+  // Figures that were only in the mock-up must not appear as facts.
+  for (const invented of ['1,240', '+42%', '89%', '3.4x', 'Top 2%', 'Elena Rostova', 'GeoGebra']) await expect(page.getByText(invented)).toHaveCount(0);
   await expect(page.getByText('Sarah Lin')).toHaveCount(0);
   await expect(page.getByText('Marcus Vance')).toHaveCount(0);
   await expect(page.locator('#reviews .review')).toHaveCount(6);
@@ -44,6 +54,14 @@ test('Trustpilot links use the Quanttoria review URL', async ({ page }) => {
   await expect(page.getByRole('link', { name: /Read all reviews/ })).toHaveAttribute('href', /trustpilot\.com\/review\/byjusfutureschool\.com\?search=princy/);
 });
 
+test('the founder\'s "Rated 5 stars on Trustpilot" links to the Trustpilot reviews', async ({ page }) => {
+  await page.goto('/');
+  const link = page.locator('#tutor').getByRole('link', { name: 'Rated 5 stars on Trustpilot' });
+  await expect(link).toHaveAttribute('href', /trustpilot\.com\/review\/byjusfutureschool\.com\?search=princy&stars=5#search-reviews$/);
+  await expect(link).toHaveAttribute('target', '_blank');
+  await expect(link).toHaveAttribute('rel', /noopener/);
+});
+
 test('header anchors scroll to their section', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'How it works' }).click();
@@ -51,72 +69,90 @@ test('header anchors scroll to their section', async ({ page }) => {
   await expect(page.locator('#how-it-works')).toBeInViewport();
 });
 
-test('no inline plan form; the floating "Book a free demo" button opens it in a dialog', async ({ page }) => {
+test('every "book" button scrolls to the inline booking form; there is no pop-up any more', async ({ page }) => {
   await page.goto('/');
-  const dialog = page.getByRole('dialog', { name: /plan that fits your child/ });
-  await expect(dialog).toBeHidden();
-  await expect(page.locator('main form')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Connect on WhatsApp' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Book a free demo' }).click();
-  await expect(dialog).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(dialog).toBeHidden();
-  await page.getByRole('button', { name: 'Customize your plan' }).click(); // hero button opens the same dialog
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole('button', { name: 'Close' }).click();
-  await expect(dialog).toBeHidden();
-  await page.getByRole('button', { name: 'Book your free demo' }).click(); // free-demo banner too
-  await expect(dialog).toBeVisible();
-  await page.mouse.click(5, 5); // backdrop
-  await expect(dialog).toBeHidden();
+  await expect(page.locator('dialog')).toHaveCount(0);
+  for (const name of ['Book your free 1:1 class', 'Book a free demo']) {
+    await expect(page.getByRole('link', { name: new RegExp(name) })).toHaveAttribute('href', '#book');
+  }
+  await page.getByRole('link', { name: 'Book a free demo' }).click();
+  await expect(page).toHaveURL(/#book$/);
+  await expect(page.locator('#book')).toBeInViewport();
+  await expect(page.getByRole('button', { name: /Claim your child/ })).toBeVisible();
 });
 
-test('dialog form opens WhatsApp with the details filled in', async ({ page, context }) => {
+test('booking form opens WhatsApp with the details filled in', async ({ page, context }) => {
   await context.route('https://wa.me/**', (r) => r.fulfill({ body: 'ok' }));
   await page.goto('/');
-  await page.getByRole('button', { name: 'Book a free demo' }).click();
-  const form = page.getByRole('dialog');
-  await form.getByRole('button', { name: /Customize my child/ }).click();
-  await expect(form.getByLabel('Parent/Guardian name')).toBeFocused(); // blocked by the browser: fields are required
-  await form.getByLabel('Parent/Guardian name').fill('Jessica Miller');
-  await form.getByLabel('Child’s name').fill('Leo');
-  await form.getByLabel('Grade').selectOption('Grade 7');
-  // The goals field is optional: send without it first.
+  const form = page.locator('#book form');
+  await form.getByRole('button', { name: /Claim your child/ }).click();
+  await expect(form.getByRole('radio', { name: /Grades 1–2/ })).toBeFocused(); // blocked by the browser: a grade is required
+  await form.locator('.tile', { hasText: 'Grades 3–5' }).click();
+  await form.getByLabel('Parent Full Name').fill('Jessica Miller');
+  await form.getByLabel('Parent Email').fill('jessica@example.com');
   const send = async () => {
-    const [popup] = await Promise.all([context.waitForEvent('page'), form.getByRole('button', { name: /Customize my child/ }).click()]);
+    const [popup] = await Promise.all([context.waitForEvent('page'), form.getByRole('button', { name: /Claim your child/ }).click()]);
     await popup.waitForLoadState();
     const url = new URL(popup.url());
     expect(url.host).toBe('wa.me');
     expect(url.pathname).toBe(`/${WA}`);
-    await expect(form).toBeHidden(); // closes after sending
+    await popup.close();
     return url.searchParams.get('text')!;
   };
+  // Goal and phone are optional: send without them first.
   const without = await send();
   expect(without).toContain('Parent: Jessica Miller');
-  expect(without).toContain('Child: Leo');
-  expect(without).toContain('Grade: Grade 7');
-  expect(without).not.toContain('Learning goals');
+  expect(without).toContain('Email: jessica@example.com');
+  expect(without).toContain('Grade: Grades 3–5 (Fractions & Logic)');
+  expect(without).not.toContain('Phone');
+  expect(without).not.toContain('Biggest goal');
 
-  await page.getByRole('button', { name: 'Book a free demo' }).click();
-  await form.getByLabel('Learning goals or challenges').fill('Fractions');
-  expect(await send()).toContain('Learning goals or challenges: Fractions');
+  await form.locator('.goal', { hasText: 'Building Confidence' }).click();
+  await form.getByLabel('Phone Number').fill('(555) 123-4567');
+  const withAll = await send();
+  expect(withAll).toContain('Phone: (555) 123-4567');
+  expect(withAll).toContain('Biggest goal: Building Confidence');
 });
 
-test('mobile: no horizontal scroll and the dialog fits the screen', async ({ page }) => {
+test('picking a grade or a goal selects exactly one, and a selected tile looks selected', async ({ page }) => {
+  await page.goto('/');
+  const tile = (name: string) => page.locator('#book .tile', { hasText: name });
+  await tile('Grades 6–8').click();
+  await tile('Grades 9–10').click();
+  await expect(page.getByRole('radio', { name: /Grades 9–10/ })).toBeChecked();
+  await expect(page.getByRole('radio', { name: /Grades 6–8/ })).not.toBeChecked();
+  await expect(tile('Grades 9–10').locator('.tile-in')).toHaveCSS('border-color', 'rgb(2, 132, 199)'); // looks selected (after its short transition)
+  await page.locator('#book .goal', { hasText: 'School Homework' }).click();
+  await expect(page.getByRole('radio', { name: 'School Homework' })).toBeChecked();
+});
+
+test('mobile: no horizontal scroll, and the booking form fits the screen with comfortable inputs', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('/');
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.getByRole('button', { name: 'Book a free demo' }).click();
-  const dialog = page.getByRole('dialog');
-  await expect(dialog).toBeInViewport({ ratio: 0.99 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  const fits = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+  expect(await fits()).toBe(true);
+  await page.locator('#book').scrollIntoViewIfNeeded();
+  await expect(page.locator('#book form')).toBeInViewport();
+  const box = await page.locator('#book form').boundingBox();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+  expect(await page.getByLabel('Parent Email').evaluate((e) => parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(16); // no iOS zoom on focus
+  expect(await fits()).toBe(true);
+});
+
+test('every section fits at tablet and phone widths without sideways scrolling', async ({ page }) => {
+  for (const width of [320, 414, 768, 1024]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `width ${width}`).toBe(true);
+  }
 });
 
 test('buttons work when the dev site is opened as 127.0.0.1 (not only localhost)', async ({ page }) => {
   await page.goto('http://127.0.0.1:58741/');
   await page.waitForLoadState('networkidle');
-  await page.getByRole('button', { name: 'Book a free demo' }).click();
-  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.locator('#book .tile', { hasText: 'Grades 3–5' }).click(); // proves the page hydrated
+  await expect(page.getByRole('radio', { name: /Grades 3–5/ })).toBeChecked();
 });
 
 test('footer: both emails, and the links and contact rows share one left edge', async ({ page }) => {
@@ -139,7 +175,7 @@ test('mobile: section links move into a menu that opens, navigates and closes', 
   const menu = page.getByRole('navigation', { name: 'Mobile' });
   await expect(menu).toHaveCount(0);
   await header.getByRole('button', { name: 'Open menu' }).click();
-  for (const l of ['Why Quanttoria', 'How it works', 'Meet our founder', 'Why parents trust us', 'Contact']) await expect(menu.getByRole('link', { name: l })).toBeVisible();
+  for (const l of ['Why Quanttoria', 'How it works', 'Live classroom', 'Meet our founder', 'Why parents trust us', 'Contact']) await expect(menu.getByRole('link', { name: l })).toBeVisible();
   await menu.getByRole('link', { name: 'How it works' }).click();
   await expect(menu).toHaveCount(0); // closes after choosing
   await expect(page).toHaveURL(/#how-it-works$/);
@@ -167,27 +203,26 @@ test('tablet 768: menu button shown, no horizontal scroll', async ({ page }) => 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
-test('why section has no intro or bullets, and the how-it-works intro sits under its title with the same 760px measure as the why subtitle', async ({ page }) => {
+test('why section keeps the subtitle, and every section intro shares one measure under its title', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#why .bullets')).toHaveCount(0);
   await expect(page.getByText(/Here’s how we help every child/)).toHaveCount(0);
-  await expect(page.locator('#why .why-sub')).toHaveText('We meet children where they are, bridge their foundational gaps, and equip them with strategies to stay persistent and analyze challenging problems with confidence.');
-  const head = page.locator('#how-it-works .sec-head');
-  const [box, title, intro] = await Promise.all([head.boundingBox(), head.locator('h2').boundingBox(), head.locator(':scope > p').boundingBox()]);
+  await expect(page.locator('#why .head .intro')).toHaveText('We meet children where they are, bridge their foundational gaps, and equip them with strategies to stay persistent and analyze challenging problems with confidence.');
+  const head = page.locator('#how-it-works .head');
+  const [box, title, intro] = await Promise.all([head.boundingBox(), head.locator('h2').boundingBox(), head.locator('.intro').boundingBox()]);
   expect(intro!.y).toBeGreaterThanOrEqual(title!.y + title!.height - 1); // under the title
-  expect(Math.round(intro!.x)).toBe(Math.round(box!.x));
-  expect(intro!.width).toBeLessThanOrEqual(760);
-  expect(intro!.width).toBeLessThan(box!.width); // leaves a right margin instead of spanning the row
-  const why = await page.locator('#why .why-sub').boundingBox();
-  expect(Math.round(intro!.width)).toBe(Math.round(why!.width)); // same line length as the why subtitle
+  expect(intro!.width).toBeLessThanOrEqual(768);
+  expect(intro!.width).toBeLessThanOrEqual(box!.width);
+  const why = await page.locator('#why .head .intro').boundingBox();
+  expect(Math.round(intro!.width)).toBe(Math.round(why!.width)); // same line length in both sections
 });
 
 test('"Book a free demo" animates on hover and press like the other primary buttons', async ({ page }) => {
   await page.goto('/');
   await page.waitForLoadState('networkidle');
-  const state = (name: string) => page.getByRole(name === 'Login' ? 'link' : 'button', { name }).first().evaluate((e) => { const c = getComputedStyle(e); return { t: c.transform, s: c.boxShadow }; });
-  for (const name of ['Login', 'Customize your plan', 'Book a free demo']) {
-    const loc = page.getByRole(name === 'Login' ? 'link' : 'button', { name }).first();
+  const state = (name: string) => page.getByRole('link', { name }).first().evaluate((e) => { const c = getComputedStyle(e); return { t: c.transform, s: c.boxShadow }; });
+  for (const name of ['Login', 'Book your free 1:1 class', 'Book a free demo']) {
+    const loc = page.getByRole('link', { name }).first();
     const rest = await state(name);
     await loc.hover();
     await page.waitForTimeout(300);

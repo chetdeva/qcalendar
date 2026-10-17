@@ -1,11 +1,24 @@
 import Image from 'next/image';
-import { ArrowRight, CalendarCheck, CheckCircle2, ExternalLink, Quote, Star } from 'lucide-react';
+import { CalendarCheck, ExternalLink } from 'lucide-react';
 import MobileNav from './MobileNav';
-import { PlanButton } from './PlanDialog';
-import { ACCOUNTS_URL, BRAND, fill, footer, founder, framework, hero, nav, reviews, site, whatsappLink, why } from '@/content/site';
+import { ACCOUNTS_URL, BRAND, footer, founder, framework, hero, nav, reviews, site, whatsappLink, why } from '@/content/site';
 
 function WhatsApp({ className = 'wa' }: { className?: string }) {
   return <Image src="/images/whatsapp-glyph-white.png" alt="" width={20} height={20} className={className} />;
+}
+
+/** "Visual proofs show the *why* before…": the starred word is italic. */
+const withEmphasis = (s: string) => s.split('*').map((part, i) => (i % 2 ? <em key={i}>{part}</em> : part));
+
+/** Section opener used by every centred section: pill, heading, intro. */
+function Head({ id, pill, title, intro, tone = 'sun' }: { id?: string; pill: string; title: string; intro?: string; tone?: 'sun' | 'sky' | 'white' }) {
+  return (
+    <div className="head" id={id}>
+      <p className={`pill pill-${tone}`}>{pill}</p>
+      <h2>{title}</h2>
+      {intro && <p className="intro">{intro}</p>}
+    </div>
+  );
 }
 
 export function Header() {
@@ -27,33 +40,46 @@ export function Header() {
 }
 
 export function Hero() {
+  const b = hero.banner;
   return (
     <div className="hero-bg">
       <div className="doodles" aria-hidden>
-        <span style={{ top: 40, left: '6%', rotate: '12deg' }}>➕</span><span style={{ top: 150, left: '2%' }}>✨</span>
-        <span style={{ top: 70, right: '6%', rotate: '40deg' }}>📐</span><span style={{ bottom: 60, right: '3%' }}>🌟</span>
-        <span style={{ bottom: 90, left: '48%' }}>➗</span>
+        <span style={{ top: 58, left: 98, rotate: '12deg', fontSize: 30 }}>➕</span><span style={{ top: 163, left: 33, rotate: '-15deg', fontSize: 36 }}>✨</span>
+        <span style={{ bottom: 64, left: 153, fontSize: 24 }}>✖️</span><span style={{ top: 44, right: 92, rotate: '45deg', fontSize: 36 }}>📐</span>
+        <span style={{ bottom: 77, right: 60, rotate: '12deg', fontSize: 36 }}>🌟</span><span style={{ top: 345, right: 25, fontSize: 30 }}>➗</span>
       </div>
       <section className="wrap hero">
-        <div>
-          <p className="chip chip-blue badge"><Star size={14} aria-hidden /> {hero.badge}</p>
-          <h1>{hero.title[0]}<br /><em>{hero.title[1]}<svg viewBox="0 0 250 14" preserveAspectRatio="none" aria-hidden><path d="M3 9 Q 70 1, 130 8 T 247 6" fill="none" stroke="#f59e0b" strokeWidth="5" strokeLinecap="round" /></svg></em></h1>
-          <p className="lede">{fill(hero.body)}</p>
-          <div className="cta-row">
-            <PlanButton className="btn btn-primary btn-lg">Customize your plan</PlanButton>
-            <a className="btn btn-outline btn-lg" href="#how-it-works">See how we teach <ArrowRight size={18} aria-hidden /></a>
+        <p className="banner">
+          <span aria-hidden>🎒</span><b className="banner-lead">{b.lead}</b><i aria-hidden>•</i><span>{b.range}</span><i aria-hidden>•</i><span className="banner-free">{b.free}</span>
+        </p>
+        <div className="hero-grid">
+          <div className="hero-left">
+            <p className="chip chip-sky"><span aria-hidden>🚀</span> {hero.eyebrow}</p>
+            <h1>{hero.title[0]} <em>{hero.title[1]}<img src="/figma/underline.svg" alt="" width={283} height={11} /></em></h1>
+            <p className="lede">No kid is <b>“bad at math”</b> — they just need their <mark>aha! moment 💡</mark>. We turn math anxiety and frustration into unstoppable, joyful superpowers.</p>
+            <ul className="trust">
+              {hero.pills.map((p) => <li key={p.text} className={`tpill tpill-${p.tone}`}><span aria-hidden>{p.icon}</span>{p.text}</li>)}
+            </ul>
+            <div className="cta">
+              <div className="cta-row">
+                <a className="btn btn-3d" href="#book">{hero.primary}</a>
+                <a className="btn btn-white" href="#how-it-works">{hero.secondary}</a>
+              </div>
+              <p className="reassure"><img src="/figma/check-circle.svg" alt="" width={13} height={13} /> {hero.reassurance}</p>
+            </div>
           </div>
-          <ul className="stats">
-            {hero.stats.map((s) => (
-              <li key={s.label}><b>{s.value}<small>{s.unit}</small></b><span>{s.label}</span></li>
-            ))}
-          </ul>
-        </div>
-        <div className="hero-right">
-          <div className="photo">
-            <Image src="/images/hero-kid-math-realistic.png" alt={hero.imageAlt} width={800} height={800} priority sizes="(max-width: 1000px) 100vw, 560px" style={{ transform: 'scaleX(-1)' }} />
-            <span className="sticker s1" aria-hidden>{hero.stickers[0]}</span>
-            <span className="sticker s2" aria-hidden>{hero.stickers[1]}</span>
+          <div className="hero-right">
+            <div className="ring" aria-hidden />
+            <div className="photo">
+              <Image src="/images/hero-kid-math-realistic.png" alt={hero.imageAlt} width={800} height={800} priority sizes="(max-width: 1000px) 100vw, 480px" style={{ transform: 'scaleX(-1)' }} />
+              <span className="float-chip">{hero.chip}</span>
+              <div className="stat-card">
+                <b>{hero.card.value} <img src="/figma/trend.svg" alt="" width={17} height={10} /></b>
+                <span>{hero.card.label}</span>
+                <small>{hero.card.note}</small>
+              </div>
+              <span className="sticker" aria-hidden><i>⚡</i><span><b>{hero.sticker[0]}</b><b className="blue">{hero.sticker[1]}</b></span></span>
+            </div>
           </div>
         </div>
       </section>
@@ -62,25 +88,37 @@ export function Hero() {
 }
 
 export function Why() {
+  const { old, fresh, pillars } = why;
   return (
-    <section id="why" className="band">
-      <div className="wrap">
-        <div className="why-top">
-          <div>
-            <p className="pill">{why.eyebrow}</p>
-            <h2>{why.title}</h2>
-            <p className="muted why-sub">{why.subtitle}</p>
-          </div>
+    <section id="why" className="sec sec-white">
+      <div className="wrap stack">
+        <Head pill={why.eyebrow} title={why.title} intro={why.subtitle} />
+        <div className="versus">
+          <article className="vs vs-old">
+            <header><span className="vs-icon" aria-hidden>{old.icon}</span><div><h3>{old.title}</h3><p>{old.sub}</p></div></header>
+            <ul>{old.items.map((t) => <li key={t}><span aria-hidden>✖</span><span>{t}</span></li>)}</ul>
+          </article>
+          <article className="vs vs-new">
+            <header><span className="vs-icon" aria-hidden>{fresh.icon}</span><div><h3>{fresh.title}</h3><p>{fresh.sub}</p></div></header>
+            <ul>{fresh.items.map((t) => <li key={t}><span aria-hidden>✔</span><span>{withEmphasis(t)}</span></li>)}</ul>
+            <span className="ribbon" aria-hidden>{fresh.ribbon}</span>
+          </article>
         </div>
-        <ul className="grid4">
-          {why.reasons.map((r, i) => (
-            <li key={r.title} className="card stage">
-              <div className="row"><span className="emoji" aria-hidden>{r.icon}</span><span className="num">{i + 1}</span></div>
-              <h3>{r.title}</h3>
-              <p className="muted">{r.text}</p>
-            </li>
-          ))}
-        </ul>
+        <div className="pillars">
+          <div className="pillars-head"><h3>{pillars.title}</h3><p>{pillars.sub}</p></div>
+          <ul className="pillar-list">
+            {pillars.list.map((p) => (
+              <li key={p.title} className={`pillar tone-${p.tone}`}>
+                <span className="icon-box" aria-hidden>{p.icon}</span>
+                <h4>{p.title}</h4>
+                <p>{p.text}</p>
+              </li>
+            ))}
+          </ul>
+          <ul className="proof">
+            {why.proof.map(([v, l]) => <li key={l}><b>{v}</b><span>{l}</span></li>)}
+          </ul>
+        </div>
       </div>
     </section>
   );
@@ -89,48 +127,22 @@ export function Why() {
 export function Framework() {
   const f = framework;
   return (
-    <section id="how-it-works" className="wrap sec">
-      <div className="sec-head">
-        <div><p className="pill">{f.eyebrow}</p><h2>{f.title}</h2></div>
-        <p className="muted">{f.intro}</p>
-      </div>
-      <ol className="grid4">
-        {f.stages.map((s, i) => (
-          <li key={s.title} className="card stage">
-            <div className="row"><span className="emoji" aria-hidden>{s.icon}</span><span className="chip chip-blue">Step {String(i + 1).padStart(2, '0')}</span></div>
-            <h3>{s.title}</h3>
-            <p className="muted">{s.text}</p>
-          </li>
-        ))}
-      </ol>
-
-      <div className="boards">
-        <div>
-          <p className="pill pill-light">US learning support</p>
-          <h3>{f.boardsTitle}</h3>
-          <p>{f.boardsText}</p>
-        </div>
-        <ul>
-          {f.boards.map((b) => <li key={b.name}><span className="chip chip-sun">{b.name}</span><p className="muted small">{b.text}</p></li>)}
-        </ul>
-      </div>
-
-      <div className="free">
-        <div><h3>{f.free.title}</h3><p className="muted">{fill(f.free.text)}</p></div>
-        <PlanButton className="btn btn-primary">{f.free.cta}</PlanButton>
-      </div>
-
-      <div className="outcomes">
-        <div>
-          <h3>{f.outcomesTitle}</h3>
-          <ul>{f.outcomes.map((o) => <li key={o}><CheckCircle2 size={18} aria-hidden /> {o}</li>)}</ul>
-        </div>
-        <div className="card">
-          <h3>{f.whoTitle}</h3>
-          <div className="chips">{f.who.map((g) => <span key={g} className="chip chip-blue">{g}</span>)}</div>
-          <p className="muted small">{f.whoText}</p>
-          <p className="note">{f.whoNote}</p>
-        </div>
+    <section id="how-it-works" className="sec sec-steps">
+      <div className="wrap stack">
+        <Head pill={f.eyebrow} title={f.title} intro={f.intro} tone="white" />
+        <ol className="steps">
+          {f.stages.map((s, i) => (
+            <li key={s.title} className={`step tone-${s.tone}`}>
+              <div>
+                <span className="icon-box icon-lg" aria-hidden>{s.icon}</span>
+                <span className="step-no">Step {String(i + 1).padStart(2, '0')}</span>
+                <h3>{s.title}</h3>
+                <p>{s.text}</p>
+              </div>
+              <p className="step-chip">{s.chip}</p>
+            </li>
+          ))}
+        </ol>
       </div>
     </section>
   );
@@ -138,24 +150,33 @@ export function Framework() {
 
 export function Founder() {
   return (
-    <section id="tutor" className="band band-blue">
-      <div className="wrap founder">
-        <div>
-          <p className="pill">{founder.eyebrow}</p>
-          <Image className="founder-img" src="/images/princy.jpg" alt={`Portrait of ${site.owner.name}`} width={226} height={442} />
-        </div>
-        <div className="founder-body">
-          <h2>{site.owner.name}</h2>
-          <p className="role">{site.owner.role} &amp; {founder.tagline}</p>
-          <div className="founder-links">
-            <a className="btn btn-wa" href={whatsappLink()} target="_blank" rel="noopener noreferrer"><WhatsApp /> Connect on WhatsApp</a>
-            <a className="btn btn-ghost" href={site.owner.linkedinUrl} target="_blank" rel="noopener noreferrer">Connect on LinkedIn <ExternalLink size={14} aria-hidden /></a>
+    <section id="tutor" className="sec sec-coach">
+      <div className="wrap stack">
+        <Head pill={founder.eyebrow} title={founder.title} intro={founder.intro} tone="white" />
+        <div className="coach">
+          <div className="coach-photo">
+            <div className="frame"><Image className="founder-img" src="/images/princy.jpg" alt={`Portrait of ${site.owner.name}`} width={225} height={225} /></div>
+            <a className="rating" href={site.trustpilotUrl} target="_blank" rel="noopener noreferrer"><img src="/figma/star.svg" alt="" width={14} height={13} />{founder.rating}</a>
           </div>
-          <blockquote><Quote size={28} aria-hidden /> {founder.quote}</blockquote>
-          <p>{founder.text}</p>
-          <dl className="creds">
-            {founder.credentials.map((c) => <div key={c.label}><dt>{c.label}</dt><dd>{c.value}</dd></div>)}
-          </dl>
+          <div className="coach-body">
+            <ul className="tags">
+              <li className="tag tag-sky">{founder.tags[0]}</li>
+              <li className="tag tag-sun">{founder.tags[1]}</li>
+              <li className="tag tag-violet">{founder.tags[2]}</li>
+            </ul>
+            <div>
+              <h3 className="coach-name">{site.owner.name}</h3>
+              <p className="coach-role">{founder.role}</p>
+            </div>
+            <blockquote><span className="bubble" aria-hidden>💬</span>{founder.quote}</blockquote>
+            <div className="founder-links">
+              <a className="btn btn-wa" href={whatsappLink()} target="_blank" rel="noopener noreferrer"><WhatsApp /> Connect on WhatsApp</a>
+              <a className="btn btn-white" href={site.owner.linkedinUrl} target="_blank" rel="noopener noreferrer">Connect on LinkedIn <ExternalLink size={14} aria-hidden /></a>
+            </div>
+            <dl className="quick">
+              {founder.stats.map((s, i) => <div key={s.label} className={`quick-${i}`}><dd>{s.value}</dd><dt>{s.label}</dt></div>)}
+            </dl>
+          </div>
         </div>
       </div>
     </section>
@@ -164,28 +185,28 @@ export function Founder() {
 
 export function Reviews() {
   return (
-    <section id="reviews" className="wrap sec">
-      <div className="sec-head">
-        <div><p className="pill">{reviews.eyebrow}</p><h2>{reviews.title}</h2></div>
+    <section id="reviews" className="sec sec-white">
+      <div className="wrap stack">
+        <Head pill={reviews.eyebrow} title={reviews.title} />
+        <div className="banner-rate">
+          <div className="rate-l">
+            <span className="icon-box icon-white" aria-hidden>💛</span>
+            <div><h3>{reviews.banner.title} <span className="stars" role="img" aria-label="5 out of 5 stars">★★★★★</span></h3><p>{reviews.banner.sub}</p></div>
+          </div>
+          <a className="btn btn-white btn-sm" href={site.trustpilotUrl} target="_blank" rel="noopener noreferrer">{reviews.all} <ExternalLink size={14} aria-hidden /></a>
+        </div>
+        <ul className="rev-list" aria-label="Parent testimonials">
+          {reviews.list.map((r, i) => (
+            <li key={r.name + r.text.slice(0, 20)}>
+              <a className={`review tone-${(['sun', 'sky', 'violet'] as const)[i % 3]}`} href={site.trustpilotUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open ${r.name}’s review on Trustpilot`}>
+                <span className="stars" role="img" aria-label="5 out of 5 stars">★★★★★</span>
+                <blockquote>“{r.text}”</blockquote>
+                <span className="who"><b>{r.name}</b><span>{r.where}</span></span>
+              </a>
+            </li>
+          ))}
+        </ul>
       </div>
-      <ul className="stats stats-row">
-        {reviews.stats.map(([v, l]) => <li key={l}><b>{v}</b><span>{l}</span></li>)}
-      </ul>
-      <div className="rev-head">
-        <h3>{reviews.heading}</h3>
-        <a className="link" href={site.trustpilotUrl} target="_blank" rel="noopener noreferrer">{reviews.all} <ExternalLink size={14} aria-hidden /></a>
-      </div>
-      <ul className="rev-list" aria-label="Parent testimonials">
-        {reviews.list.map((r) => (
-          <li key={r.name + r.text.slice(0, 20)}>
-            <a className="card review" href={site.trustpilotUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open ${r.name}’s review on Trustpilot`}>
-              <span className="stars" role="img" aria-label="5 out of 5 stars">★★★★★</span>
-              <blockquote>“{r.text}”</blockquote>
-              <span className="who"><b>{r.name}</b><span>{r.where}</span></span>
-            </a>
-          </li>
-        ))}
-      </ul>
     </section>
   );
 }
@@ -193,12 +214,12 @@ export function Reviews() {
 export function Footer() {
   return (
     <footer id="contact" className="band end">
-      <div className="wrap"><p className="pill">Contact</p></div>
+      <div className="wrap"><p className="pill pill-sun">Contact</p></div>
       <div className="wrap foot">
         <div className="foot-brand">
           <Image src="/images/quanttoria-logo.png" alt={`${BRAND}: Empowering Global Minds with Mathematics`} width={861} height={678} sizes="96px" className="foot-logo" />
           <div>
-            <p className="muted small">{footer.about}</p>
+            <p className="small">{footer.about}</p>
             <p className="legal">© {new Date().getFullYear()} {BRAND}. All rights reserved.</p>
           </div>
         </div>
@@ -212,7 +233,7 @@ export function Footer() {
           </div>
         </div>
       </div>
-      <PlanButton className="float btn btn-primary"><CalendarCheck size={18} aria-hidden /> Book a free demo</PlanButton>
+      <a className="float btn btn-primary" href="#book"><CalendarCheck size={18} aria-hidden /> Book a free demo</a>
     </footer>
   );
 }

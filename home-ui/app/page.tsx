@@ -1,4 +1,5 @@
-import PlanDialog from '@/components/PlanDialog';
+import BookingForm from '@/components/BookingForm';
+import Classroom from '@/components/Classroom';
 import { Footer, Founder, Framework, Header, Hero, Reviews, Why } from '@/components/Sections';
 
 export default function Home() {
@@ -9,11 +10,12 @@ export default function Home() {
         <Hero />
         <Why />
         <Framework />
+        <Classroom />
         <Founder />
         <Reviews />
+        <BookingForm />
       </main>
       <Footer />
-      <PlanDialog />
     </div>
   );
 }

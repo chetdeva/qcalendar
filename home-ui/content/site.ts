@@ -25,89 +25,106 @@ export const whatsappLink = (message: string = site.whatsappMessage) =>
 export const nav = [
   { label: 'Why Quanttoria', href: '#why' },
   { label: 'How it works', href: '#how-it-works' },
+  { label: 'Live classroom', href: '#classroom' },
   { label: 'Meet our founder', href: '#tutor' },
   { label: 'Why parents trust us', href: '#reviews' },
   { label: 'Contact', href: '#contact' },
 ];
 
+// Layout and wording follow the Figma design. Numbers and credentials are only ones the site already stated
+// (20000+ hours, Grades 1 to 10, Trustpilot 5 stars); invented figures from the mock-up are not used.
 export const hero = {
-  badge: 'Personalized 1:1 learning, Grades 1 to 10',
-  title: ['Math no fear,', 'when we’re here.'],
-  body: 'Every child learns differently. {brand} brings together the expert teacher, pace and practice to help your child feel confident, enjoy learning and thrive in maths—from catching up to reaching their next big milestone.',
-  stats: [
-    { value: '20000+', unit: ' hrs', label: 'Teaching experience' },
-    { value: '1 : 1', unit: '', label: 'Live class format' },
-    { value: 'Free', unit: '', label: 'First class' },
+  banner: { lead: 'Personalized 1:1 learning', range: 'Grades 1–10', free: 'First class free! ✨' },
+  eyebrow: 'Premier 1:1 mathematical mentorship',
+  title: ['Confidence', 'unlocked.'],
+  pills: [
+    { icon: '★★★★★', text: 'Rated 5 stars on Trustpilot', tone: 'sun' },
+    { icon: '🇺🇸', text: 'US curriculum support', tone: 'sky' },
+    { icon: '⚡', text: '20,000+ teaching hours', tone: 'mint' },
   ],
-  stickers: ['3/4 + 1/4 = 1', 'Confidence unlocked'],
+  primary: 'Book your free 1:1 class 🚀',
+  secondary: 'See how it works 💡',
+  reassurance: 'Takes 60 seconds • No credit card required • Zero-commitment trial',
+  chip: '🪄 Live interactive whiteboard',
+  card: { value: '20,000+', label: 'Teaching hours', note: '🏆 Your first class is free' },
+  sticker: ['From tears', 'to A’s! 🎓'],
   imageAlt: 'A smiling child learning math on a laptop, surrounded by fractions, shapes and numbers',
 };
 
-export const grades = Array.from({ length: 10 }, (_, i) => `Grade ${i + 1}`);
-
 export const why = {
-  eyebrow: 'Why Quanttoria',
+  eyebrow: '🦸 The secret sauce: math super-resilience',
   title: 'Children are not bad or weak at maths. They just need a tailored approach.',
   subtitle: 'We meet children where they are, bridge their foundational gaps, and equip them with strategies to stay persistent and analyze challenging problems with confidence.',
-  reasons: [
-    { icon: '👀', title: 'Understanding first', text: 'We explain the why behind each method, so your child builds detailed understanding and reasoning instead of relying on memorised steps.' },
-    { icon: '🌎', title: 'US curriculum support', text: 'Personalized support for Common Core, AP pathways and state standards from Grade 1 to 10.' },
-    { icon: '🏆', title: 'Ready for what’s next', text: 'Strong foundations and thoughtful challenges help students feel confident and ready for classroom milestones, competitive exams, AP goals, and their next big step.' },
-    { icon: '✨', title: 'Private and personalised', text: 'Every lesson is shaped around one child: their pace, learning gaps, strengths, goals and confidence.' },
-  ],
+  old: {
+    icon: '😴', title: 'The old rote way', sub: 'Mechanical drills, blind memorization & test panic',
+    items: ['“Just memorize formula #14 for tomorrow’s quiz or fail.”', 'Mistakes feel like personal failure, causing math shutdown and tears.', 'Forgotten 2 days after the test because no mental picture was built.'],
+  },
+  fresh: {
+    icon: '🧠✨', title: 'The Quanttoria visual way', sub: 'Intuitive discovery, spatial geometry & genuine pride', ribbon: 'SUPERCHARGED ⚡',
+    items: ['Visual, interactive proofs show the *why* before the formula.', 'Mistakes are treated like fun detective clues — building a high Adversity Quotient (AQ).', 'Lifelong intuitive mastery that lasts through middle school, high school & beyond.'],
+  },
+  proof: [['20,000+', 'teaching hours'], ['1:1', 'live attention'], ['100%', 'personalized plans']],
+  pillars: {
+    title: 'The 3 pillars of mathematical tenacity 🛡️',
+    sub: 'Equipping your child with emotional grit and cognitive resilience that transfers to school and life.',
+    list: [
+      { icon: '🧩', tone: 'sky', title: '1. The “Why” over rote', text: 'Visual representations and real-world proofs come before every formula, so intuition clicks effortlessly.' },
+      { icon: '🛡️', tone: 'sun', title: '2. AQ & productive struggle', text: 'Tricky steps become stimulating puzzles, shame goes away and students learn how to bounce back.' },
+      { icon: '🌟', tone: 'rose', title: '3. Micro-milestone high fives', text: 'Validation for logical grit and smart questions builds authentic, bulletproof self-belief.' },
+    ],
+  },
 };
 
 export const framework = {
-  eyebrow: 'How Quanttoria works',
-  title: 'A learning plan that grows with your child.',
+  eyebrow: '🗺️ Predictable, tailored growth',
+  title: 'How Quanttoria works 🚀',
   intro: 'Personalized learning is more than a worksheet with a name on it. We combine a thoughtful teacher, the right challenge and regular parent feedback to make every lesson count.',
   stages: [
-    { icon: '💬', title: 'Tell us about your child', text: 'Share their strengths, struggles, interests and goals. We listen before we teach.' },
-    { icon: '📋', title: 'Build your learning plan', text: 'We match your child with a vetted maths coach tailored to their needs with their pace and lesson style.' },
-    { icon: '🎥', title: 'Your first demo lecture is free', text: 'Meet your teacher in a live, personalized session. No obligation.' },
-    { icon: '📈', title: 'Learn, track, and grow', text: 'Parents get clear feedback while children build skills, confidence and independence.' },
+    { icon: '🧭', tone: 'sky', title: 'Tell us about your child', text: 'Share their strengths, struggles, interests and goals. We listen before we teach.', chip: '🎯 Starts from where your child is' },
+    { icon: '🧬', tone: 'sun', title: 'Build your learning plan', text: 'We match your child with a vetted maths coach tailored to their needs with their pace and lesson style.', chip: '✨ A coach matched to your child' },
+    { icon: '🚀', tone: 'violet', title: 'Your first demo lecture is free', text: 'Meet your teacher in a live, personalized session. No obligation.', chip: '🎨 Live and hands-on' },
+    { icon: '🔁', tone: 'mint', title: 'Learn, track, and grow', text: 'Parents get clear feedback while children build skills, confidence and independence.', chip: '💛 Clear feedback for parents' },
   ],
-  boards: [
-    { name: 'Common Core', text: 'Build strong foundations, reasoning and problem-solving habits.' },
-    { name: 'AP Calculus', text: 'Prepare for limits, derivatives, integrals and exam-style thinking.' },
-    { name: 'AP Statistics', text: 'Make data, probability and interpretation feel less intimidating.' },
-    { name: 'State standards', text: 'Stay aligned with your child’s local classroom expectations.' },
+};
+
+export const classroom = {
+  eyebrow: '🎨 The digital atelier',
+  title: 'The Live Classroom: Where Math Becomes Tangible & Fun!',
+  text: 'Standard tutoring is boring video calls with awkward screen sharing. Quanttoria turns the screen into an interactive mathematics playground with live visuals and hands-on manipulatives!',
+  features: [
+    { icon: '📐', tone: 'sky', title: 'Interactive visualizers', text: 'Shapes, coordinate grids, and curves move live so algebra turns into spatial intuition.' },
+    { icon: '✏️', tone: 'sun', title: 'Shared whiteboard', text: 'Student and coach write, draw, and brainstorm together in real time.' },
+    { icon: '🏆', tone: 'mint', title: 'US curriculum alignment', text: 'Common Core, AP Calculus, AP Statistics and state standards, from Grade 1 to 10.' },
   ],
-  boardsTitle: 'A plan that speaks your child’s school language.',
-  boardsText: 'From everyday classroom confidence to ambitious AP goals, we connect the dots between where your child is today and where they want to go next.',
-  outcomesTitle: 'What your child walks away with',
-  outcomes: [
-    'Clear understanding of concepts and the reasons behind each method and formula',
-    'Confidence analysing word problems and unfamiliar questions',
-    'Practical strategies for applying maths beyond worked examples',
-    'Preparation for global curricula, assessments and competitions',
-    'Resilience, independence and logical thinking that lasts',
-  ],
-  whoTitle: 'Who we teach',
-  who: ['Grade 1-2', 'Grade 3-5', 'Grade 6-8', 'Grade 9-10', 'US standards'],
-  whoText: 'Classes run live with a shared interactive whiteboard. Homework and class activities are shared after every session for repractice.',
-  whoNote: 'We develop more than IQ. Every class also builds patience, resilience and the adversity quotient your child needs to keep going when a problem is hard.',
-  free: { title: 'Your first demo lecture is free', text: 'A live, personalized session for your child to meet their teacher and experience the {brand} difference. No obligation.', cta: 'Book your free demo' },
+  board: {
+    title: 'Quanttoria Interactive Sandbox — Lesson: Coordinate Geometry',
+    live: 'Coach Live',
+    challenge: '✨ Challenge: Find the Slope (m) = (y₂ - y₁) / (x₂ - x₁)',
+    tools: ['Pen', 'Graphs', 'Riddles'],
+    foot: '✨ Shared pen • 1:1 live audio',
+    caption: 'Illustration of a live class',
+  },
 };
 
 export const founder = {
-  eyebrow: 'Meet our founder',
-  tagline: 'Personalised Maths Coach',
+  eyebrow: '🍎 Academic rigor & big heart',
+  title: 'Meet our founder',
+  intro: 'Over 20,000 hours of 1:1 teaching across Grades 1 to 10, turning math dread into math triumphs!',
+  tags: ['🍎 Founder & Lead Math Educator', 'Personalised Maths Coach', 'Common Core + AP'],
+  role: 'Private 1:1 maths coaching for Grades 1 to 10 · US Common Core and AP pathways',
   quote: 'As educators, we have to envision the future and work backwards from there. Today, more than ever, students need the ability to think logically, solve problems, and approach challenges with confidence. Throughout my career, I’ve had the privilege of guiding hundreds of students, nurturing their passion for mathematics and inspiring them to reach for advanced learning and bigger goals.',
-  text: 'Together, our coaches create an inclusive, interactive, supportive learning environment where questions are welcome, progress is visible and every student gets the right kind of challenge.',
-  credentials: [
-    { label: 'Teaching hours', value: site.owner.hours },
-    { label: 'Industry', value: 'Ed-Tech' },
-    { label: 'Grades', value: '1 to 10' },
-    { label: 'US pathways', value: 'Common Core + AP' },
+  rating: 'Rated 5 stars on Trustpilot',
+  stats: [
+    { value: '20000+', label: 'Teaching hours' },
+    { value: '1 to 10', label: 'Grades taught' },
+    { value: 'Ed-Tech', label: 'Industry' },
   ],
 };
 
 export const reviews = {
   eyebrow: 'Why parents trust us',
   title: 'Progress feels better when our family is part of the journey.',
-  stats: [['20,000+', 'teaching hours'], ['1:1', 'live attention'], ['100%', 'personalized plans']],
-  heading: 'Clients rated us 5 stars on Trustpilot',
+  banner: { title: 'Rated 5 stars on Trustpilot', sub: 'Real reviews from parents on Trustpilot' },
   all: 'Read all reviews',
   list: [
     { name: 'Chandan Kumar Anjani', where: 'United States', text: 'I started with a demo class with Ms Princy Sugandh. My daughters got so much involved in the first class that she wanted to join because of the demo class only. We are close to completing 1 year with Princy. I felt she pushes my daughter to get the best out of her and sets a pretty high standard in teaching. She puts a lot of effort not only into improving her in the subject she is teaching, but otherwise as well. She appreciates a good job and gives feedback to parents when needed to help improve as well. Thanks for being her teacher.' },
@@ -117,6 +134,22 @@ export const reviews = {
     { name: 'Parent', where: 'United States', text: 'Ms Princy Sugandh was my son’s teacher. She was an excellent teacher, very patient with my son — he is autistic, it was challenging during some classes but she handled it very well. My son loved her classes and she became a trusted advisor for me as well in regards to ways of handling his condition. She is very detailed. Thank you Ms Princy for being a part of his learning!' },
     { name: 'Gaya N.', where: 'Canada', text: 'Princy is an amazing teacher, very assertive and goal oriented with my son. She challenges him to be his best.' },
   ],
+};
+
+export const booking = {
+  eyebrow: '🎁 Your first class is free',
+  title: 'Experience the Magic in Your Free First Class!',
+  sub: 'Zero cost, zero pressure. Meet your teacher in a live, personalized session built around your child.',
+  grades: [
+    { icon: '🐣', label: 'Grades 1–2', note: 'Early Foundations' },
+    { icon: '🧩', label: 'Grades 3–5', note: 'Fractions & Logic' },
+    { icon: '📐', label: 'Grades 6–8', note: 'Pre-Algebra' },
+    { icon: '🚀', label: 'Grades 9–10', note: 'Algebra & Geometry' },
+  ],
+  goals: ['Bridging Gaps', 'Building Confidence', 'Olympiad / Competitions', 'School Homework'],
+  submit: 'Claim your child’s free 1:1 session 🎁',
+  reassure: ['Takes 60 seconds', 'No credit card required', 'Free first class'],
+  note: 'This opens WhatsApp with your details filled in. Nothing is stored on this site.',
 };
 
 export const footer = {

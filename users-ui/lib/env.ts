@@ -3,3 +3,6 @@ export const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 export const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '';
 export const allowedReturnOrigins = process.env.NEXT_PUBLIC_ALLOWED_RETURN_ORIGINS;
 export const calendarUrl = process.env.NEXT_PUBLIC_CALENDAR_URL ?? '';
+/** Where signed-in people land by default. The dashboard when it is configured, otherwise their profile. */
+export const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL ?? '';
+export const landing = dashboardUrl || '/profile';

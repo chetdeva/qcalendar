@@ -47,6 +47,7 @@ test.describe('signing in', () => {
     await expect(page.locator('.who .badge')).toHaveText('teacher');
     await expect(page.getByRole('link', { name: 'Account' })).toHaveAttribute('href', `${USERS_UI}/profile`);
     await expect(page.getByRole('link', { name: 'Chat' })).toHaveAttribute('href', 'http://localhost:3005'); // the chat app (NEXT_PUBLIC_CHAT_URL)
+    await expect(page.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', 'http://localhost:3006'); // the dashboard (NEXT_PUBLIC_DASHBOARD_URL)
     const form = page.locator('.who form');
     await expect(form).toHaveAttribute('action', `${USERS_UI}/auth/signout`);
     await expect(form).toHaveAttribute('method', 'post');

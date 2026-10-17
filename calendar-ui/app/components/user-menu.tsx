@@ -1,5 +1,5 @@
 import type { Me } from '@/lib/calendar';
-import { chatUrl, usersUiUrl } from '@/lib/env';
+import { chatUrl, dashboardUrl, usersUiUrl } from '@/lib/env';
 
 /** Who is signed in, links to chat and their account page, and sign-out. Both live in users-ui, which owns the login. */
 export function UserMenu({ me }: { me: Me }) {
@@ -7,6 +7,7 @@ export function UserMenu({ me }: { me: Me }) {
     <div className="who">
       <span className="who-name">{me.full_name || me.email}</span>
       <span className={`badge badge-${me.role}`}>{me.role}</span>
+      <a className="nav-btn as-link" href={dashboardUrl}>Dashboard</a>
       <a className="nav-btn as-link" href={chatUrl}>Chat</a>
       <a className="nav-btn as-link" href={`${usersUiUrl}/profile`}>Account</a>
       <form action={`${usersUiUrl}/auth/signout`} method="post">

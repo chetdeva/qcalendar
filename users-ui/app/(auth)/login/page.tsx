@@ -1,11 +1,11 @@
 import Link from 'next/link';
-import { allowedReturnOrigins } from '@/lib/env';
+import { allowedReturnOrigins, landing } from '@/lib/env';
 import { parseOrigins, safeNext } from '@/lib/return-to';
 import { LoginForm } from './login-form';
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; error?: string }> }) {
   const sp = await searchParams;
-  const next = safeNext(sp.next, parseOrigins(allowedReturnOrigins));
+  const next = safeNext(sp.next, parseOrigins(allowedReturnOrigins), landing);
   const notice = sp.error === 'link' ? 'That link is invalid or has expired. Log in, or request a new one.' : undefined;
   return (
     <div className="card">

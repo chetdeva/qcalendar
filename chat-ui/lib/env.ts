@@ -3,3 +3,5 @@ export const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 export const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '';
 /** Where people log in, manage their account and sign out (the users-ui app). */
 export const usersUiUrl = (process.env.NEXT_PUBLIC_USERS_UI_URL ?? 'http://localhost:3003').replace(/\/$/, '');
+/** The dashboard, linked from the header. */
+export const dashboardUrl = (process.env.NEXT_PUBLIC_DASHBOARD_URL ?? 'http://localhost:3006').replace(/\/$/, '');

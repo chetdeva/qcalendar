@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { calendarUrl } from '@/lib/env';
+import { calendarUrl, dashboardUrl } from '@/lib/env';
 import { getMe } from '@/lib/me';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -21,6 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <header className="app-header">
         <div className="brand"><span className="brand-mark" aria-hidden="true">S</span>SyncSchedule</div>
         <nav className="app-nav" aria-label="Main">
+          {dashboardUrl && <a href={dashboardUrl}>Dashboard</a>}
           <Link href="/profile">Profile</Link>
           {me.role === 'admin' && <Link href="/admin/users">Users</Link>}
           {calendarUrl && <a href={calendarUrl}>Calendar</a>}

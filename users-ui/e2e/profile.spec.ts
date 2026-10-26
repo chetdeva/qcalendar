@@ -31,7 +31,7 @@ test('saves name, time zone and guardian email, and they persist after a reload'
   await expect(page.getByLabel('Full name')).toHaveValue('Kid Renamed');
   await expect(page.getByLabel('Time zone')).toHaveValue('America/New_York');
   await expect(page.getByLabel('Guardian email (optional)')).toHaveValue('parent@example.test');
-  await expect(page.locator('.app-header')).toContainText('Kid Renamed');
+  await expect(page.locator('.qh')).toContainText('Kid Renamed');
 });
 
 test('the guardian email is optional and can be removed again', async ({ page, request }) => {

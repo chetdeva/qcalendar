@@ -29,6 +29,7 @@ test.describe('who can see the admin page', () => {
     await seedUser(request, { email: 'kid@example.test', name: 'Kid One' });
     await logInAs(page, { email: 'student@example.test', password: 'pass-12345' });
     expect((await page.request.get('/api/admin/users')).status()).toBe(403);
+    await page.locator('.qh-me summary').click();
     await page.getByRole('button', { name: 'Sign out' }).click();
 
     await logInAs(page, { email: 'teacher@example.test', password: 'pass-12345' });
@@ -48,6 +49,7 @@ test.describe('who can see the admin page', () => {
 
   test('an admin sees the Users page', async ({ page }) => {
     await logInAs(page, ADMIN);
+    await page.locator('.qh-me summary').click();
     await page.getByRole('link', { name: 'Users' }).click();
     await expect(page.getByRole('heading', { name: 'All users' })).toBeVisible();
     await expect(row(page, ADMIN.email)).toContainText('admin (you)');
@@ -171,12 +173,13 @@ test.describe('invitations', () => {
 
     await expect(page).toHaveURL(/\/profile\?welcome=1$/);
     await expect(page.locator('.alert-ok, .alert-info')).toContainText('Welcome to SyncSchedule');
-    await expect(page.locator('.app-header .badge')).toHaveText('teacher');
-    await expect(page.locator('.app-header')).toContainText('Nora Newteacher');
+    await expect(page.locator('.qh-role')).toHaveText('Teacher');
+    await expect(page.locator('.qh')).toContainText('Nora Newteacher');
     await expect(page.getByRole('link', { name: 'Users' })).toHaveCount(0); // a teacher, not an admin
     expect(await profileOf(request, 'new.teacher@example.test')).toMatchObject({ role: 'teacher', full_name: 'Nora Newteacher' });
 
     // they can log in normally from now on
+    await page.locator('.qh-me summary').click();
     await page.getByRole('button', { name: 'Sign out' }).click();
     await logInAs(page, { email: 'new.teacher@example.test', password: 'welcome-pass-1' });
   });
@@ -190,7 +193,8 @@ test.describe('invitations', () => {
     await page.getByLabel('Password', { exact: true }).fill('welcome-pass-1');
     await page.getByLabel('Confirm password').fill('welcome-pass-1');
     await page.getByRole('button', { name: 'Set password and continue' }).click();
-    await expect(page.locator('.app-header .badge')).toHaveText('admin');
+    await expect(page.locator('.qh-role')).toHaveText('Admin');
+    await page.locator('.qh-me summary').click();
     await page.getByRole('link', { name: 'Users' }).click();
     await expect(page.getByRole('heading', { name: 'All users' })).toBeVisible();
   });
@@ -221,7 +225,7 @@ test.describe('invitations', () => {
     await page.getByLabel('Password', { exact: true }).fill('welcome-pass-1');
     await page.getByLabel('Confirm password').fill('welcome-pass-1');
     await page.getByRole('button', { name: 'Set password and continue' }).click();
-    await expect(page.locator('.app-header .badge')).toHaveText('student'); // no invitation, so no teacher role
+    await expect(page.locator('.qh-role')).toHaveText('Student'); // no invitation, so no teacher role
   });
 });
 

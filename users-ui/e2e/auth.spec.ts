@@ -26,7 +26,7 @@ test.describe('sign up', () => {
     await page.goto(link!);
     await expect(page).toHaveURL(/\/profile$/);
     await expect(page.getByRole('heading', { name: 'Your profile' })).toBeVisible();
-    await expect(page.locator('.app-header .badge')).toHaveText('student');
+    await expect(page.locator('.qh-role')).toHaveText('Student');
     await expect(page.getByLabel('Full name')).toHaveValue('Mia Chen');
   });
 
@@ -90,8 +90,8 @@ test.describe('log in', () => {
   test('logs in, shows the role, and a signed-in visitor skips /login and /signup', async ({ page, request }) => {
     await seedUser(request, { email: 'tess@example.test', password: 'teacher-pass-1', role: 'teacher', name: 'Tess Teacher' });
     await logInAs(page, { email: 'tess@example.test', password: 'teacher-pass-1' });
-    await expect(page.locator('.app-header .badge')).toHaveText('teacher');
-    await expect(page.locator('.app-header')).toContainText('Tess Teacher');
+    await expect(page.locator('.qh-role')).toHaveText('Teacher');
+    await expect(page.locator('.qh')).toContainText('Tess Teacher');
     await page.goto('/login');
     await expect(page).toHaveURL(/\/profile$/);
     await page.goto('/signup');
@@ -136,8 +136,8 @@ test.describe('log in', () => {
     await page.goto('/login');
     await page.getByRole('button', { name: 'Continue with Google' }).click();
     await expect(page).toHaveURL(/\/profile$/);
-    await expect(page.locator('.app-header')).toContainText('Gina Google');
-    await expect(page.locator('.app-header .badge')).toHaveText('student');
+    await expect(page.locator('.qh')).toContainText('Gina Google');
+    await expect(page.locator('.qh-role')).toHaveText('Student');
     expect((await profileOf(request, 'gina.google@example.test'))?.role).toBe('student');
   });
 
@@ -167,6 +167,7 @@ test.describe('password reset', () => {
     await expect(page).toHaveURL(/\/profile\?updated=password$/);
     await expect(page.locator('.alert-ok, .alert-info')).toContainText('password was updated');
 
+    await page.locator('.qh-me summary').click();
     await page.getByRole('button', { name: 'Sign out' }).click();
     await logIn(page, 'lena@example.test', 'old-password-1');
     await expect(page.locator('.alert-error')).toHaveText('Incorrect email or password.');
@@ -191,6 +192,7 @@ test.describe('password reset', () => {
 test.describe('sign out', () => {
   test('ends the session: protected pages need a new login', async ({ page }) => {
     await logInAs(page, ADMIN);
+    await page.locator('.qh-me summary').click();
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page).toHaveURL(/\/login$/);
     await page.goto('/profile');

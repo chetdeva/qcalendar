@@ -26,11 +26,21 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "react": [
+        "./node_modules/@types/react"
+      ],
+      "react/jsx-runtime": [
+        "./node_modules/@types/react/jsx-runtime"
+      ],
+      "@components/*": [
+        "../components-ui/*"
       ]
     }
   },
   "include": [
     "next-env.d.ts",
+    "../components-ui",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",

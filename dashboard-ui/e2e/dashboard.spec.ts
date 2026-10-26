@@ -100,8 +100,9 @@ test.describe('the whole loop: assign, work, hand in, grade, feedback', () => {
     const student = await seed(request, 'student', 'Mia Student', 'parent@example.test');
     await shareAClass(request, teacher, [student]);
 
-    // The teacher assigns a task from their dashboard.
+    // The teacher assigns a task from their Assignments page.
     const tPage = await openPage(context, teacher);
+    await tPage.goto('/assignments');
     await tPage.getByRole('button', { name: '5-Question Micro-Quest' }).click();
     await expect(tPage.getByLabel('XP reward')).toHaveValue('60');
     await tPage.getByLabel('Coach’s Prompt to Student').fill('Find the missing side of each triangle.');
@@ -148,7 +149,6 @@ test.describe('the whole loop: assign, work, hand in, grade, feedback', () => {
     const card = tPage.getByLabel('Grade Mia Student');
     await expect(card).toContainText('The missing side is 5');
     await expect(card.getByRole('link', { name: 'Open the PDF' })).toHaveAttribute('href', /\/api\/attachments\//);
-    await expect(tPage.locator('.metric', { hasText: 'Pending Grading' })).toContainText('1 Submission');
     await expect(card.getByRole('button', { name: /Publish Grade/ })).toBeDisabled();
     await card.getByLabel('Assessment score').fill('96');
     await card.getByRole('button', { name: 'High Adversity Quotient (AQ)' }).click();
@@ -156,6 +156,7 @@ test.describe('the whole loop: assign, work, hand in, grade, feedback', () => {
     await card.getByRole('button', { name: /Publish Grade/ }).click();
     await expect(tPage.getByRole('status')).toContainText('Grade published for Mia Student. Their parent has been emailed.');
     await expect(tPage.getByLabel('Grade Mia Student')).toHaveCount(0);
+    await tPage.goto('/');
     await expect(tPage.locator('.metric', { hasText: 'Pending Grading' })).toContainText('0 Submissions');
 
     // The student sees the feedback and the numbers moved.
@@ -180,6 +181,7 @@ test.describe('the whole loop: assign, work, hand in, grade, feedback', () => {
     const made = await dashboardAs(request, teacher, 'POST', '/v1/assignments', { studentId: student.id, concept: 'Slopes', dueDate: new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10), xp: 80, prompt: 'Rise over run.' });
     expect((await dashboardAs(request, student, 'POST', `/v1/assignments/${made.body.id}/submit`, { answer: 'm = 2' })).status).toBe(204);
     const page = await openPage(context, teacher);
+    await page.goto('/assignments');
     const card = page.getByLabel('Grade Mia Student');
     await card.getByLabel('Assessment score').fill('88');
     await card.getByRole('button', { name: 'Draft' }).click();
@@ -197,6 +199,7 @@ test.describe('the whole loop: assign, work, hand in, grade, feedback', () => {
     const made = await dashboardAs(request, teacher, 'POST', '/v1/assignments', { studentId: student.id, concept: 'Slopes', dueDate: new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10), xp: 80, prompt: 'Rise over run.' });
     await dashboardAs(request, student, 'POST', `/v1/assignments/${made.body.id}/submit`, { answer: 'm = 2' });
     const page = await openPage(context, teacher);
+    await page.goto('/assignments');
     const publish = page.getByLabel('Grade Mia Student').getByRole('button', { name: /Publish Grade/ });
     await page.getByLabel('Assessment score').fill('150');
     await expect(publish).toBeDisabled();
@@ -213,14 +216,25 @@ test.describe('teacher dashboard', () => {
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Welcome, Coach Tess!');
     await expect(page.locator('.metric')).toHaveCount(4);
     await expect(page.getByText('No classes today.')).toBeVisible();
-    await expect(page.getByText('Students appear here once you have a class with them.')).toBeVisible();
-    await expect(page.getByRole('button', { name: /Dispatch Assignment/ })).toBeDisabled();
-    await expect(page.getByText('The grading queue is clear. Nice work!')).toBeVisible();
     await expect(page.getByText('No students yet.')).toBeVisible();
     await expect(page.getByRole('heading', { name: /My Assignments/ })).toHaveCount(0);
     await expect(page.locator('.qh-role')).toHaveText('Teacher');
-    await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /Assignments/ })).toBeDisabled(); // students' page
-    expect((await page.goto('/assignments'))?.url()).toMatch(/localhost:58764\/$/); // teachers are sent back to their dashboard
+    await expect(page.getByRole('heading', { name: 'Assign Task / Quest' })).toHaveCount(0); // moved to Assignments
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Assignments' }).click();
+    await expect(page).toHaveURL(/\/assignments$/);
+    await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Assignments' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByText('Students appear here once you have a class with them.')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Dispatch Assignment/ })).toBeDisabled();
+    await expect(page.getByText('The grading queue is clear. Nice work!')).toBeVisible();
+  });
+
+  test('"Assign Task" on a student card opens Assignments with that student chosen', async ({ context, request }) => {
+    const [t, a, b] = [await seed(request, 'teacher', 'Tess Teacher'), await seed(request, 'student', 'Ann Student'), await seed(request, 'student', 'Ben Student')];
+    await shareAClass(request, t, [a, b]);
+    const page = await openPage(context, t);
+    await page.getByRole('link', { name: 'Assign task to Ben Student' }).click();
+    await expect(page).toHaveURL(/\/assignments\?student=/);
+    await expect(page.getByLabel('Target Student or Cohort')).toHaveValue(b.id);
   });
 
   test('the directory lists students from classes; a grade can be set and filtered; search works', async ({ context, request }) => {
@@ -245,8 +259,7 @@ test.describe('teacher dashboard', () => {
     await page.getByLabel('Search student name').fill('nobody');
     await expect(page.getByText('No students match.')).toBeVisible();
     await page.getByLabel('Search student name').fill('');
-    await page.getByRole('button', { name: 'Assign task to Ben Student' }).click();
-    await expect(page.getByLabel('Target Student or Cohort')).toHaveValue(b.id);
+    await expect(page.getByRole('link', { name: 'Assign task to Ben Student' })).toHaveAttribute('href', `/assignments?student=${b.id}`);
   });
 
   test('today\'s classes show in the schedule with the student\'s name and a link into the class', async ({ context, request }) => {
@@ -300,6 +313,9 @@ test.describe('admin and layout', () => {
     await switcher.getByRole('link', { name: 'Teacher' }).click();
     await expect(page).toHaveURL(/view=teacher/);
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Welcome, Coach Ada!');
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Assignments' }).click();
+    await expect(page).toHaveURL(/\/assignments\?view=teacher$/);
+    await expect(page.getByRole('heading', { name: 'Assign Task / Quest' })).toBeVisible(); // the teacher page, not the student's list
   });
 
   test('no sideways scrolling from phone to desktop widths, on every page', async ({ context, request }) => {
@@ -308,7 +324,7 @@ test.describe('admin and layout', () => {
     const made = await dashboardAs(request, t, 'POST', '/v1/assignments', { studentId: s.id, concept: 'Right Triangles', dueDate: new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10), xp: 100, prompt: 'Explore.' });
     const student = await openPage(context, s);
     const teacher = await openPage(context, t);
-    for (const [page, path] of [[student, '/'], [student, '/assignments'], [student, `/assignments/${made.body.id}`], [teacher, '/']] as const) {
+    for (const [page, path] of [[student, '/'], [student, '/assignments'], [student, `/assignments/${made.body.id}`], [teacher, '/'], [teacher, '/assignments']] as const) {
       for (const width of [375, 768, 1101, 1280]) {
         await page.setViewportSize({ width, height: 900 });
         await page.goto(path);

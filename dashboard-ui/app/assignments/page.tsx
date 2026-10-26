@@ -1,10 +1,10 @@
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import { callDashboard } from '@/lib/bff';
 import { getMe } from '@/lib/me';
-import type { AssignmentDetail } from '@/lib/types';
+import type { AssignmentDetail, TeacherDashboard as TeacherData, View } from '@/lib/types';
 import { Bar } from '../components/ui';
 import { Footer, Header } from '../components/shell';
+import TeacherAssignments from '../teacher-assignments';
 
 const GROUPS: { title: string; states: AssignmentDetail['state'][]; empty: string }[] = [
   { title: 'To do', states: ['todo', 'in_progress'], empty: 'Nothing to do right now. New tasks from your teacher show up here.' },
@@ -12,17 +12,31 @@ const GROUPS: { title: string; states: AssignmentDetail['state'][]; empty: strin
   { title: 'Graded', states: ['graded'], empty: 'No graded tasks yet.' },
 ];
 
-/** The student's tasks, grouped by where they are. Open one to work on it or to read the feedback. */
-export default async function AssignmentsPage() {
+/** The student's tasks, grouped by where they are (a teacher gets their own page). Open one to work on it or to read the feedback. */
+export default async function AssignmentsPage({ searchParams }: { searchParams: Promise<{ view?: string; student?: string }> }) {
   const result = await getMe();
   if ('error' in result) return <main className="boot-error" role="alert"><h1>Something went wrong</h1><p>{result.error}</p><a href="/assignments">Try again</a></main>;
   const { me } = result;
-  if (me.role !== 'student') redirect('/'); // teachers manage tasks from their dashboard
+  const isAdmin = me.role === 'admin';
+  const sp = await searchParams;
+  const view: View = isAdmin ? (sp.view === 'teacher' ? 'teacher' : 'student') : me.role === 'teacher' ? 'teacher' : 'student';
+  const name = me.full_name || me.email;
+
+  if (view === 'teacher') {
+    const t = await callDashboard<{ teacher?: TeacherData; error?: { message?: string } }>('GET', '/v1/dashboard?view=teacher');
+    return (
+      <div className="shell">
+        <Header name={name} role={me.role} view="teacher" isAdmin={isAdmin} current="assignments" />
+        <main>{t.status === 200 && t.json.teacher ? <TeacherAssignments initial={t.json.teacher} student={sp.student} /> : <p className="err" role="alert">{t.json.error?.message ?? 'Your tasks are unavailable right now.'}</p>}</main>
+        <Footer />
+      </div>
+    );
+  }
   const { status, json } = await callDashboard<{ assignments?: AssignmentDetail[]; error?: { message?: string } }>('GET', '/v1/assignments');
 
   return (
     <div className="shell">
-      <Header name={me.full_name || me.email} role={me.role} view="student" isAdmin={false} current="assignments" />
+      <Header name={name} role={me.role} view="student" isAdmin={isAdmin} current="assignments" />
       <main>
         <div className="page">
           <div className="sec-head"><div><h1 className="page-title">Assignments &amp; Tasks</h1><p className="sub">Everything your teachers have given you, and how it went.</p></div></div>

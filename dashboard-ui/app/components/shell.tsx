@@ -17,6 +17,7 @@ export function Header({ name, role, view, isAdmin, current = 'dashboard' }: { n
   return (
     <AppHeader
       current={current}
+      assignmentsHref={isAdmin ? `/assignments?view=${view}` : undefined}
       name={name}
       role={role}
       left={isAdmin ? <RoleSwitch view={view} /> : undefined}

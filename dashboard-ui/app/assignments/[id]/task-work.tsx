@@ -5,13 +5,13 @@ import { useRef, useState } from 'react';
 import { ImagePlus, Send } from 'lucide-react';
 import type { AssignmentDetail } from '@/lib/types';
 import { api } from '../../api-client';
-import { Bar } from '../../components/ui';
+import { Attachment, Bar } from '../../components/ui';
 
-const MAX_IMAGE = 1_500_000;
-const TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const MAX_FILE = 5_000_000;
+const TYPES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
 const toBase64 = (f: File) => new Promise<string>((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] ?? ''); r.onerror = () => no(r.error); r.readAsDataURL(f); });
 
-/** Work on one task: tick the steps you have finished, write your answer, attach a picture of your working, hand it in. */
+/** Work on one task: tick the steps you have finished, write your answer, attach a picture or PDF of your working, hand it in. */
 export default function TaskWork({ task }: { task: AssignmentDetail }) {
   const router = useRouter();
   const open = task.state === 'todo' || task.state === 'in_progress';
@@ -32,8 +32,8 @@ export default function TaskWork({ task }: { task: AssignmentDetail }) {
   function pick(f: File | undefined) {
     setError('');
     if (!f) return setFile(null);
-    if (!TYPES.includes(f.type)) return setError('Please choose a png, jpeg or webp picture.');
-    if (f.size > MAX_IMAGE) return setError('Pictures can be up to 1.5 MB.');
+    if (!TYPES.includes(f.type)) return setError('Please choose a png, jpeg or webp picture, or a PDF.');
+    if (f.size > MAX_FILE) return setError('Files can be up to 5 MB.');
     setFile(f);
   }
 
@@ -69,8 +69,8 @@ export default function TaskWork({ task }: { task: AssignmentDetail }) {
             <textarea rows={6} required maxLength={5000} value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="Explain how you solved it, step by step." />
           </label>
           <div className="attach">
-            <input ref={input} type="file" accept={TYPES.join(',')} hidden aria-label="Picture of your working" onChange={(e) => pick(e.target.files?.[0])} />
-            <button type="button" className="btn-soft" onClick={() => input.current?.click()}><ImagePlus size={15} aria-hidden /> {file ? 'Change picture' : 'Add a picture of your working'}</button>
+            <input ref={input} type="file" accept={TYPES.join(',')} hidden aria-label="Picture or PDF of your working" onChange={(e) => pick(e.target.files?.[0])} />
+            <button type="button" className="btn-soft" onClick={() => input.current?.click()}><ImagePlus size={15} aria-hidden /> {file ? 'Change file' : 'Add a picture or PDF of your working'}</button>
             {file && <span className="file">{file.name}</span>}
           </div>
           {error && <p className="err" role="alert">{error}</p>}
@@ -80,7 +80,7 @@ export default function TaskWork({ task }: { task: AssignmentDetail }) {
         <section className="handed" aria-label="Your work">
           <h2 className="col-h">Your answer</h2>
           <p className="answer">{task.answer}</p>
-          {task.attachmentId && <img className="shot" src={`/api/attachments/${task.attachmentId}`} alt="Your picture of your working" />}
+          {task.attachmentId && <Attachment id={task.attachmentId} type={task.attachmentType} alt="Your picture of your working" />}
           {task.state === 'submitted' && <p className="empty">Handed in. {task.coach} will send feedback here.</p>}
           {task.state === 'graded' && (
             <div className="feedback" aria-label="Feedback">

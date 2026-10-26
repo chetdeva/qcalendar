@@ -105,6 +105,7 @@ export interface Submission {
   status: 'pending' | 'graded';
   answer: string;
   attachmentId: string | null;
+  attachmentType: string | null;
   score: number | null;
   tags: string[];
   note: string;
@@ -150,6 +151,7 @@ export interface AssignmentDetail extends Assignment {
   dueDate: string;
   answer: string | null;
   attachmentId: string | null;
+  attachmentType: string | null;
   score: number | null;
   grade: string | null;
   tags: string[];

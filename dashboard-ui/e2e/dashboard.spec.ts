@@ -131,20 +131,23 @@ test.describe('the whole loop: assign, work, hand in, grade, feedback', () => {
     // Hand-in is blocked without an answer, refuses non-images, then works with a picture.
     await expect(sPage.getByRole('button', { name: 'Hand in' })).toBeDisabled();
     await sPage.getByLabel('Your answer').fill('The missing side is 5, because 3² + 4² = 25.');
-    await sPage.getByLabel('Picture of your working').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
-    await expect(sPage.locator('.err')).toContainText('png, jpeg or webp');
-    await sPage.getByLabel('Picture of your working').setInputFiles({ name: 'working.png', mimeType: 'image/png', buffer: PNG });
+    await sPage.getByLabel('Picture or PDF of your working').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
+    await expect(sPage.locator('.err')).toContainText('png, jpeg or webp picture, or a PDF');
+    await sPage.getByLabel('Picture or PDF of your working').setInputFiles({ name: 'working.png', mimeType: 'image/png', buffer: PNG });
+    await expect(sPage.locator('.file')).toHaveText('working.png');
+    await sPage.getByLabel('Picture or PDF of your working').setInputFiles({ name: 'working.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n%%EOF') });
+    await expect(sPage.locator('.file')).toHaveText('working.pdf');
     await sPage.getByRole('button', { name: 'Hand in' }).click();
     await expect(sPage.getByText('Handed in.')).toBeVisible();
     await expect(sPage.getByLabel('Your work')).toContainText('The missing side is 5');
-    await expect(sPage.getByRole('img', { name: 'Your picture of your working' })).toBeVisible();
+    await expect(sPage.getByRole('link', { name: 'Open the PDF' })).toBeVisible();
     await expect(sPage.getByRole('button', { name: 'Hand in' })).toHaveCount(0); // once only
 
     // The teacher sees the answer and the picture, and cannot publish without a score.
     await tPage.reload();
     const card = tPage.getByLabel('Grade Mia Student');
     await expect(card).toContainText('The missing side is 5');
-    await expect(card.getByRole('img', { name: /picture of their working/ })).toBeVisible();
+    await expect(card.getByRole('link', { name: 'Open the PDF' })).toHaveAttribute('href', /\/api\/attachments\//);
     await expect(tPage.locator('.metric', { hasText: 'Pending Grading' })).toContainText('1 Submission');
     await expect(card.getByRole('button', { name: /Publish Grade/ })).toBeDisabled();
     await card.getByLabel('Assessment score').fill('96');

@@ -12,7 +12,11 @@ test.describe('student dashboard', () => {
     await expect(page.getByText('No upcoming classes yet')).toBeVisible();
     await expect(page.getByText('No class coming up')).toBeVisible();
     await expect(page.getByText('No mentors have published a profile yet.')).toBeVisible();
+    await page.goto('/assignments');
     await expect(page.getByText('No tasks right now.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: /My Assignments, Practice/ })).toBeVisible();
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: /My Assignments, Practice/ })).toHaveCount(0); // moved to Assignments
     await expect(page.getByRole('region', { name: 'Progress' }).locator('.tile')).toHaveCount(3);
     await expect(page.getByText('sample data')).toHaveCount(0); // the data is real now
     await expect(page.getByRole('heading', { name: /Teaching Schedule/ })).toHaveCount(0);
@@ -42,7 +46,9 @@ test.describe('student dashboard', () => {
     await expect(main.getByRole('link', { name: 'Chat' })).toHaveAttribute('href', 'http://localhost:3005');
     await expect(main.getByRole('link', { name: 'Assignments' })).toHaveAttribute('href', /\/assignments$/); // live for students now
     await expect(page.getByRole('link', { name: 'Full Calendar View' })).toHaveAttribute('href', 'http://localhost:3002');
-    for (const name of ['Launch AI Warm-Up with Sparky', 'Ask Sparky Hint']) {
+    await expect(page.getByRole('button', { name: /Launch AI Warm-Up with Sparky/ })).toBeDisabled();
+    await page.goto('/assignments');
+    for (const name of ['Ask Sparky Hint']) {
       const b = page.getByRole('button', { name: new RegExp(name.replace(/[&]/g, '\\&')) }).first();
       await expect(b).toBeDisabled();
       await expect(b).toHaveAttribute('title', 'Coming soon');
@@ -111,6 +117,7 @@ test.describe('the whole loop: assign, work, hand in, grade, feedback', () => {
 
     // The student sees it, opens it, ticks steps, and the progress is remembered.
     const sPage = await openAs(browser, student);
+    await sPage.goto('/assignments');
     const todo = sPage.getByRole('list', { name: 'Active tasks' }).getByRole('listitem');
     await expect(todo).toHaveCount(1);
     await expect(todo).toContainText('Find the missing side of each triangle.');
@@ -160,16 +167,18 @@ test.describe('the whole loop: assign, work, hand in, grade, feedback', () => {
     await expect(tPage.locator('.metric', { hasText: 'Pending Grading' })).toContainText('0 Submissions');
 
     // The student sees the feedback and the numbers moved.
-    await sPage.goto('/');
+    await sPage.goto('/assignments');
     const fb = sPage.locator('.feedback').first();
     await expect(fb).toContainText('GeoGebra Dynamic Right Triangles Sandbox');
     await expect(fb).toContainText('Score: 96/100 (A)');
     await expect(fb).toContainText('Lovely clear working.');
     await expect(fb).toContainText('Tess Teacher');
     await expect(sPage.getByRole('list', { name: 'Active tasks' })).toHaveCount(0);
+    await sPage.goto('/');
     await expect(sPage.getByRole('region', { name: 'Welcome' })).toContainText('Points: 60');
     await expect(sPage.getByRole('region', { name: 'Welcome' })).toContainText('Current Streak: 1 Day');
     await expect(sPage.getByRole('region', { name: 'Progress' })).toContainText('1 / 5 Tasks Completed');
+    await sPage.goto('/assignments');
     await fb.getByRole('link', { name: 'View Graded Task' }).click();
     await expect(sPage.getByLabel('Feedback')).toContainText('Score: 96/100 (A)');
   });

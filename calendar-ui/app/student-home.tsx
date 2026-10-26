@@ -13,7 +13,7 @@ import { CalendarToolbar, type ViewType } from './components/calendar-toolbar';
 import { ClassesPanel, fetchUpcoming, upcomingOf } from './components/classes-panel';
 import { InviteActions } from './components/invite-actions';
 import { dayHeader, makeEventContent } from './components/event-content';
-import { UserMenu } from './components/user-menu';
+import { AppHeader } from '@components/app-header';
 import { RoleBanner } from './components/role-banner';
 
 const PLUGINS = [dayGridPlugin, timeGridPlugin, interactionPlugin];
@@ -96,6 +96,7 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
 
   return (
     <div className="shell">
+      <AppHeader current="calendar" name={me.full_name || me.email} role={me.role} />
       {staleRole && <RoleBanner me={me} />}
       <header className="utility">
         <div className="u-row">
@@ -104,7 +105,6 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
             <span className="sync-label">My classes</span>
             <span className="sync-meta">• {upcoming.length} upcoming{needsAnswer.length ? ` · ${needsAnswer.length} to answer` : ''}</span>
           </div>
-          <UserMenu me={me} />
         </div>
       </header>
       <div className="work">

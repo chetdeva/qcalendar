@@ -17,6 +17,7 @@ import { ClassesPanel, fetchUpcoming, upcomingOf } from './components/classes-pa
 import { conflictMessage, CreateDrawer, DetailsDrawer, type Conflict, type LessonForm } from './components/lesson-drawer';
 import { dayHeader, makeEventContent } from './components/event-content';
 import { RoleBanner } from './components/role-banner';
+import { AppHeader } from '@components/app-header';
 
 const PLUGINS = [dayGridPlugin, timeGridPlugin, interactionPlugin];
 const slotLabel = (a: { date: Date }) => a.date.toLocaleTimeString('en-US', { hour: 'numeric' });
@@ -285,6 +286,7 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
 
   return (
     <div className="shell">
+      <AppHeader current="calendar" name={me.full_name || me.email} role={me.role} />
       {staleRole && <RoleBanner me={me} />}
       <TopBar
         me={me}

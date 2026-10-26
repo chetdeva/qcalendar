@@ -50,7 +50,7 @@ export default defineConfig({
       },
     },
     {
-      command: `npx next dev -p ${new URL(WEB_URL).port}`,
+      command: `rm -rf .next-e2e && npx next dev -p ${new URL(WEB_URL).port}`,
       url: `${WEB_URL}/api/me`, // answers 401 when signed out; the front page redirects away
       reuseExistingServer: false,
       timeout: 120_000,
@@ -59,6 +59,7 @@ export default defineConfig({
         NEXT_PUBLIC_SUPABASE_URL: AUTH_URL,
         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_e2e_not_a_real_key',
         NEXT_PUBLIC_USERS_UI_URL: USERS_UI,
+        NEXT_PUBLIC_CALENDAR_URL: WEB_URL, // the header's own tab
         NEXT_PUBLIC_COOKIE_DOMAIN: '',
         CALENDAR_API_URL: CAL_URL,
         CHAT_API_URL: CHAT_URL,

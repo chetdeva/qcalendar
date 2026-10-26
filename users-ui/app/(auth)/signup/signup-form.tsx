@@ -2,13 +2,15 @@
 
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/browser';
-import { emailError, nameError, passwordError } from '@/lib/validation';
+import { emailError, passwordError } from '@/lib/validation';
+import { Field } from '../_parts/field';
+import { Submit } from '../_parts/submit';
 import { GoogleButton } from '../google-button';
 
 export function SignupForm({ next }: { next: string }) {
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [sentTo, setSentTo] = useState('');
   const [busy, setBusy] = useState(false);
@@ -17,12 +19,12 @@ export function SignupForm({ next }: { next: string }) {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    const bad = nameError(name) ?? emailError(email) ?? passwordError(password, email);
+    const bad = emailError(email) ?? passwordError(password, email) ?? (password !== confirm ? 'The two passwords do not match.' : null);
     if (bad) return setError(bad);
     setBusy(true);
     const { data, error: err } = await createClient().auth.signUp({
       email: email.trim(), password,
-      options: { data: { full_name: name.trim() }, emailRedirectTo: redirectTo() },
+      options: { emailRedirectTo: redirectTo() },
     });
     setBusy(false);
     if (err) return setError(err.code === 'weak_password' ? 'Choose a stronger password.' : err.message || 'Could not sign up. Try again.');
@@ -37,10 +39,10 @@ export function SignupForm({ next }: { next: string }) {
 
   if (sentTo) {
     return (
-      <div role="status" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div role="status" className="au-form">
         <div className="alert alert-ok"><b>Check your email.</b> We sent a confirmation link to {sentTo}. Open it to finish signing up.</div>
         {error && <div className="alert alert-error" role="alert">{error}</div>}
-        <button type="button" className="btn btn-sm" onClick={resend}>Resend the email</button>
+        <button type="button" className="au-secondary" onClick={resend}>Resend the email</button>
       </div>
     );
   }
@@ -48,23 +50,13 @@ export function SignupForm({ next }: { next: string }) {
   return (
     <>
       <GoogleButton next={next} label="Sign up with Google" />
-      <div className="divider">or</div>
-      <form onSubmit={submit} noValidate>
-        <div className="field">
-          <label htmlFor="name">Full name</label>
-          <input id="name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor="email">Email</label>
-          <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor="password">Password</label>
-          <input id="password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <span className="hint">At least 8 characters.</span>
-        </div>
+      <div className="au-or">or</div>
+      <form className="au-form" onSubmit={submit} noValidate>
+        <Field id="email" label="Email" icon="mail" type="email" autoComplete="email" placeholder="alex@example.com" value={email} onChange={setEmail} />
+        <Field id="password" label="Password" icon="lock" type="password" reveal autoComplete="new-password" hint="At least 8 characters." value={password} onChange={setPassword} />
+        <Field id="confirm" label="Confirm password" icon="lock" type="password" reveal autoComplete="new-password" value={confirm} onChange={setConfirm} />
         {error && <div className="alert alert-error" role="alert">{error}</div>}
-        <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Creating account…' : 'Create account'}</button>
+        <Submit busy={busy}>{busy ? 'Creating account…' : 'Create account'}</Submit>
       </form>
     </>
   );

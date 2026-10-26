@@ -20,7 +20,7 @@ services:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
-    depends_on: [home-ui, users-ui, calendar-ui, chat-ui]
+    depends_on: [home-ui, users-ui, calendar-ui, chat-ui, dashboard-ui]
 
   users-service:
     restart: unless-stopped
@@ -44,6 +44,14 @@ services:
       NODE_ENV: production # makes it refuse to start without DATABASE_URL and SUPABASE_URL
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env (Supabase session pooler string)} # same database as calendar, its own "chat" schema
 
+  dashboard-service:
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production # makes it refuse to start without DATABASE_URL
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env (Supabase session pooler string)} # same database as calendar, its own "dashboard" schema
+      DASHBOARD_URL: https://dashboard.${DOMAIN}
+      MAIL_FROM: ${MAIL_FROM:-Quanttoria <no-reply@quanttoria.com>}
+
   users-ui:
     restart: unless-stopped
     ports: !reset []
@@ -51,8 +59,12 @@ services:
       args:
         NEXT_PUBLIC_COOKIE_DOMAIN: .${DOMAIN}
         NEXT_PUBLIC_APP_URL: https://accounts.${DOMAIN} # behind Caddy the apps only see localhost:<port>, so redirects need this
-        NEXT_PUBLIC_ALLOWED_RETURN_ORIGINS: https://calendar.${DOMAIN},https://chat.${DOMAIN}
+        NEXT_PUBLIC_ALLOWED_RETURN_ORIGINS: https://calendar.${DOMAIN},https://chat.${DOMAIN},https://dashboard.${DOMAIN}
+        NEXT_PUBLIC_DASHBOARD_URL: https://dashboard.${DOMAIN}
         NEXT_PUBLIC_CALENDAR_URL: https://calendar.${DOMAIN}
+        NEXT_PUBLIC_USERS_UI_URL: https://accounts.${DOMAIN}
+        NEXT_PUBLIC_CHAT_URL: https://chat.${DOMAIN}
+        NEXT_PUBLIC_HOME_URL: https://www.${DOMAIN}
 
   calendar-ui:
     restart: unless-stopped
@@ -63,6 +75,8 @@ services:
         NEXT_PUBLIC_APP_URL: https://calendar.${DOMAIN}
         NEXT_PUBLIC_USERS_UI_URL: https://accounts.${DOMAIN}
         NEXT_PUBLIC_CHAT_URL: https://chat.${DOMAIN}
+        NEXT_PUBLIC_DASHBOARD_URL: https://dashboard.${DOMAIN}
+        NEXT_PUBLIC_CALENDAR_URL: https://calendar.${DOMAIN}
 
   chat-ui:
     restart: unless-stopped
@@ -72,6 +86,21 @@ services:
         NEXT_PUBLIC_COOKIE_DOMAIN: .${DOMAIN}
         NEXT_PUBLIC_APP_URL: https://chat.${DOMAIN}
         NEXT_PUBLIC_USERS_UI_URL: https://accounts.${DOMAIN}
+        NEXT_PUBLIC_DASHBOARD_URL: https://dashboard.${DOMAIN}
+        NEXT_PUBLIC_CALENDAR_URL: https://calendar.${DOMAIN}
+        NEXT_PUBLIC_CHAT_URL: https://chat.${DOMAIN}
+
+  dashboard-ui:
+    restart: unless-stopped
+    ports: !reset []
+    build:
+      args:
+        NEXT_PUBLIC_COOKIE_DOMAIN: .${DOMAIN}
+        NEXT_PUBLIC_APP_URL: https://dashboard.${DOMAIN}
+        NEXT_PUBLIC_USERS_UI_URL: https://accounts.${DOMAIN}
+        NEXT_PUBLIC_CALENDAR_URL: https://calendar.${DOMAIN}
+        NEXT_PUBLIC_CHAT_URL: https://chat.${DOMAIN}
+        NEXT_PUBLIC_DASHBOARD_URL: https://dashboard.${DOMAIN}
 
   home-ui:
     restart: unless-stopped

@@ -39,7 +39,7 @@ export default defineConfig({
     { ...service(CAL_DIR, CAL_URL, { PGLITE_DIR: path.resolve(__dirname, '.e2e-data/calendar'), DEFAULT_TIMEZONE: 'UTC' }), command: `rm -rf .e2e-data && mkdir -p .e2e-data && cd ${CAL_DIR} && node --disable-warning=ExperimentalWarning src/index.ts` },
     service(CHAT_DIR, CHAT_URL, { PGLITE_DIR: path.resolve(__dirname, '.e2e-data/chat'), CHAT_POLICY_URL: `${CAL_URL}/v1/chat-policy` }),
     {
-      command: `npx next dev -p ${new URL(WEB_URL).port}`,
+      command: `rm -rf .next-e2e && npx next dev -p ${new URL(WEB_URL).port}`,
       url: `${WEB_URL}/api/me`, // answers 401 when signed out; the front page redirects away
       reuseExistingServer: false,
       timeout: 120_000,
@@ -48,6 +48,7 @@ export default defineConfig({
         NEXT_PUBLIC_SUPABASE_URL: AUTH_URL,
         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_e2e_not_a_real_key',
         NEXT_PUBLIC_USERS_UI_URL: USERS_UI,
+        NEXT_PUBLIC_CHAT_URL: WEB_URL, // the header's own tab
         NEXT_PUBLIC_COOKIE_DOMAIN: '',
         CHAT_API_URL: CHAT_URL,
         CALENDAR_API_URL: CAL_URL,

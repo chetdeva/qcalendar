@@ -2,7 +2,6 @@ import type { EventCategory, Me } from '@/lib/calendar';
 import { CATEGORIES, CATEGORY_ORDER, hoursLabel } from '@/lib/format';
 import { Icon } from './ui-icon';
 import type { ViewType } from './calendar-toolbar';
-import { UserMenu } from './user-menu';
 
 const SCOPE: Record<ViewType, string> = { timeGridWeek: 'this week', timeGridDay: 'today', dayGridMonth: 'this month' };
 
@@ -46,7 +45,6 @@ export function TopBar(p: Props) {
             Shade free times for this duration
           </label>
         )}
-        <UserMenu me={p.me} />
       </div>
       <div className="u-row">
         {chips.length === 0 && <span className="chip muted-chip">No classes in view</span>}

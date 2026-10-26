@@ -13,14 +13,6 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--primary)
 h1, h2 { margin: 0; }
 
 .shell { display: flex; flex-direction: column; height: 100dvh; min-height: 480px; }
-.top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--surface); padding: 8px 16px; border-bottom: 1px solid var(--line); }
-.top h1 { font-size: 18px; line-height: 24px; font-weight: 600; }
-.who { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.who form { display: flex; margin: 0; }
-.who-name { font-size: 13px; font-weight: 500; }
-.badge { display: inline-block; border-radius: 9999px; padding: 1px 10px; font-size: 11px; line-height: 18px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; background: var(--tint-2); color: var(--ink-2); }
-.badge-admin { background: #eaddff; color: #25005a; }
-.badge-teacher { background: #d8e2ff; color: #001a41; }
 .nav-btn { background: var(--tint); border: 0; border-radius: 8px; padding: 2px 10px; font-size: 13px; line-height: 20px; font-weight: 500; text-decoration: none; color: inherit; }
 .nav-btn:hover { background: var(--tint-2); }
 .primary { background: var(--primary); color: #fff; border: 0; border-radius: 9999px; padding: 6px 16px; font-weight: 500; }

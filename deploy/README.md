@@ -4,11 +4,12 @@
 internet ──443──► Caddy (automatic HTTPS) ──► www.<domain>       home-ui
                                           ├─► accounts.<domain>  users-ui   ─┐ private Docker network
                                           ├─► calendar.<domain>  calendar-ui ─┼─► users-service, calendar-service
-                                          └─► chat.<domain>      chat-ui ─────┤   chat-service (asks calendar-service who may talk)
+                                          ├─► chat.<domain>      chat-ui ─────┤   chat-service (asks calendar-service who may talk)
+                                          └─► dashboard.<domain> dashboard-ui ┘   dashboard-service (its own `dashboard` schema)
                                                                               └─► Supabase (Auth + Postgres)
 ```
 
-Only Caddy is reachable from the internet (80/443). The three APIs are called by the web apps over the private network.
+Only Caddy is reachable from the internet (80/443). The APIs are called by the web apps over the private network.
 `<domain>` is `DOMAIN` in `.env`: `quanttoria.com` in production, e.g. `test.quanttoria.com` for a dry run.
 Login is shared across the subdomains through a cookie on `.<domain>`.
 
@@ -31,6 +32,8 @@ SUPABASE_URL=https://<project>.supabase.co
 SUPABASE_PUBLISHABLE_KEY=<publishable key>
 DATABASE_URL=<Supabase session pooler connection string, with the database password>
 # Optional: SMTP_URL=<AWS SES SMTP url>  MAIL_FROM="Quanttoria <no-reply@quanttoria.com>"  DEFAULT_TIMEZONE=America/New_York
+# Optional: USERS_SERVICE_API_KEY=<random secret, openssl rand -hex 32>  lets the dashboard email a student's guardian when a grade is
+#           published (users-service and dashboard-service both read it). Without it grades still publish; parents are not emailed.
 ```
 
 `~/app/users-service/.env` (holds the Supabase **secret** key; never in an image):
@@ -68,15 +71,16 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
 | `accounts` | A | `13.61.93.133` |
 | `calendar` | A | `13.61.93.133` |
 | `chat` | A | `13.61.93.133` |
+| `dashboard` | A | `13.61.93.133` |
 
-**Dry run first:** set `DOMAIN=test.quanttoria.com`, add `test`, `www.test`, `accounts.test`, `calendar.test`, `chat.test` A records the same way,
+**Dry run first:** set `DOMAIN=test.quanttoria.com`, add `test`, `www.test`, `accounts.test`, `calendar.test`, `chat.test`, `dashboard.test` A records the same way,
 rebuild (`--build`) and check the whole flow. Then switch `DOMAIN` to `quanttoria.com`, rebuild, and change the real records.
 Changing the root and `www` replaces the live Vercel site: note their current values first so you can switch back.
 
 ## 5. Dashboard settings you must do
 
 - **Supabase** (Authentication, URL configuration): Site URL `https://accounts.<domain>`; redirect URLs
-  `https://accounts.<domain>/**`, `https://calendar.<domain>/**` and `https://chat.<domain>/**`. Google sign-in: add the same redirect URLs in the Google console.
+  `https://accounts.<domain>/**`, `https://calendar.<domain>/**`, `https://chat.<domain>/**` and `https://dashboard.<domain>/**`. Google sign-in: add the same redirect URLs in the Google console.
 - **Email:** verify `<domain>` in Amazon SES and add its DNS records in Cloudflare; put the SES SMTP URL in `.env`.
 
 ## Operating it

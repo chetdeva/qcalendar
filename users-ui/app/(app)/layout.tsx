@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { calendarUrl } from '@/lib/env';
+import { AppHeader } from '@components/app-header';
 import { getMe } from '@/lib/me';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -18,19 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { me } = result;
   return (
     <>
-      <header className="app-header">
-        <div className="brand"><span className="brand-mark" aria-hidden="true">S</span>SyncSchedule</div>
-        <nav className="app-nav" aria-label="Main">
-          <Link href="/profile">Profile</Link>
-          {me.role === 'admin' && <Link href="/admin/users">Users</Link>}
-          {calendarUrl && <a href={calendarUrl}>Calendar</a>}
-        </nav>
-        <div className="who">
-          <span>{me.full_name || me.email}</span>
-          <span className={`badge badge-${me.role}`}>{me.role}</span>
-          <form action="/auth/signout" method="post"><button type="submit" className="btn btn-sm">Sign out</button></form>
-        </div>
-      </header>
+      <AppHeader current="account" name={me.full_name || me.email} role={me.role} menu={me.role === 'admin' ? <Link href="/admin/users">Users</Link> : undefined} />
       {children}
     </>
   );

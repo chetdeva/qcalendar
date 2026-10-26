@@ -3,35 +3,35 @@ import { ADMIN, CALENDAR_ORIGIN, logIn, logInAs, mailFor, profileOf, resetBacken
 
 test.beforeEach(async ({ request }) => resetBackend(request));
 
-const signupAs = async (page: import('@playwright/test').Page, name: string, email: string, password: string) => {
+const signupAs = async (page: import('@playwright/test').Page, email: string, password: string) => {
   await page.goto('/signup');
-  await page.getByLabel('Full name').fill(name);
   await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Password').fill(password);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByLabel('Confirm password').fill(password);
   await page.getByRole('button', { name: 'Create account' }).click();
 };
 
 test.describe('sign up', () => {
   test('creates a student, asks to confirm the email, and the link signs them in', async ({ page, request }) => {
-    await signupAs(page, 'Mia Chen', 'mia@example.test', 'correct-horse-1');
+    await signupAs(page, 'mia@example.test', 'correct-horse-1');
     await expect(page.getByText('Check your email.')).toBeVisible();
     await expect(page.getByText('mia@example.test')).toBeVisible();
 
     const profile = await profileOf(request, 'mia@example.test');
     expect(profile?.role).toBe('student');
-    expect(profile?.full_name).toBe('Mia Chen');
+    expect(profile?.full_name).toBeFalsy(); // sign-up no longer asks for a name; they can set it on the profile page
 
     const link = await mailFor(request, 'mia@example.test', 'signup');
     expect(link).toBeTruthy();
     await page.goto(link!);
     await expect(page).toHaveURL(/\/profile$/);
     await expect(page.getByRole('heading', { name: 'Your profile' })).toBeVisible();
-    await expect(page.locator('.app-header .badge')).toHaveText('student');
-    await expect(page.getByLabel('Full name')).toHaveValue('Mia Chen');
+    await expect(page.locator('.qh-role')).toHaveText('Student');
+    await expect(page.getByLabel('Full name')).toHaveValue('');
   });
 
   test('cannot log in before confirming, can resend the email, then log in after confirming', async ({ page, request }) => {
-    await signupAs(page, 'Ben Ito', 'ben@example.test', 'correct-horse-1');
+    await signupAs(page, 'ben@example.test', 'correct-horse-1');
     await expect(page.getByText('Check your email.')).toBeVisible();
 
     await logIn(page, 'ben@example.test', 'correct-horse-1');
@@ -47,9 +47,6 @@ test.describe('sign up', () => {
     await page.goto('/signup');
     const create = page.getByRole('button', { name: 'Create account' });
     await create.click();
-    await expect(page.locator('.alert-error')).toContainText('Enter your name');
-    await page.getByLabel('Full name').fill('Zed');
-    await create.click();
     await expect(page.locator('.alert-error')).toContainText('Enter your email');
     await page.getByLabel('Email').fill('zed');
     await create.click();
@@ -57,14 +54,18 @@ test.describe('sign up', () => {
     await page.getByLabel('Email').fill('zed@example.test');
     await create.click();
     await expect(page.locator('.alert-error')).toContainText('at least 8');
-    await page.getByLabel('Password').fill('zed@example.test');
+    await page.getByLabel('Password', { exact: true }).fill('zed@example.test');
     await create.click();
     await expect(page.locator('.alert-error')).toContainText('cannot be your email');
+    await page.getByLabel('Password', { exact: true }).fill('long-enough-1');
+    await page.getByLabel('Confirm password').fill('long-enough-2');
+    await create.click();
+    await expect(page.locator('.alert-error')).toContainText('do not match');
   });
 
   test('signing up with an address that already has an account reveals nothing', async ({ page, request }) => {
     await seedUser(request, { email: 'taken@example.test' });
-    await signupAs(page, 'Imposter', 'taken@example.test', 'correct-horse-1');
+    await signupAs(page, 'taken@example.test', 'correct-horse-1');
     await expect(page.getByText('Check your email.')).toBeVisible(); // same screen as a brand-new address
   });
 });
@@ -90,8 +91,8 @@ test.describe('log in', () => {
   test('logs in, shows the role, and a signed-in visitor skips /login and /signup', async ({ page, request }) => {
     await seedUser(request, { email: 'tess@example.test', password: 'teacher-pass-1', role: 'teacher', name: 'Tess Teacher' });
     await logInAs(page, { email: 'tess@example.test', password: 'teacher-pass-1' });
-    await expect(page.locator('.app-header .badge')).toHaveText('teacher');
-    await expect(page.locator('.app-header')).toContainText('Tess Teacher');
+    await expect(page.locator('.qh-role')).toHaveText('Teacher');
+    await expect(page.locator('.qh')).toContainText('Tess Teacher');
     await page.goto('/login');
     await expect(page).toHaveURL(/\/profile$/);
     await page.goto('/signup');
@@ -136,8 +137,8 @@ test.describe('log in', () => {
     await page.goto('/login');
     await page.getByRole('button', { name: 'Continue with Google' }).click();
     await expect(page).toHaveURL(/\/profile$/);
-    await expect(page.locator('.app-header')).toContainText('Gina Google');
-    await expect(page.locator('.app-header .badge')).toHaveText('student');
+    await expect(page.locator('.qh')).toContainText('Gina Google');
+    await expect(page.locator('.qh-role')).toHaveText('Student');
     expect((await profileOf(request, 'gina.google@example.test'))?.role).toBe('student');
   });
 
@@ -167,6 +168,7 @@ test.describe('password reset', () => {
     await expect(page).toHaveURL(/\/profile\?updated=password$/);
     await expect(page.locator('.alert-ok, .alert-info')).toContainText('password was updated');
 
+    await page.locator('.qh-me summary').click();
     await page.getByRole('button', { name: 'Sign out' }).click();
     await logIn(page, 'lena@example.test', 'old-password-1');
     await expect(page.locator('.alert-error')).toHaveText('Incorrect email or password.');
@@ -191,6 +193,7 @@ test.describe('password reset', () => {
 test.describe('sign out', () => {
   test('ends the session: protected pages need a new login', async ({ page }) => {
     await logInAs(page, ADMIN);
+    await page.locator('.qh-me summary').click();
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page).toHaveURL(/\/login$/);
     await page.goto('/profile');

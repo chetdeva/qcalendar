@@ -1,0 +1,116 @@
+/* Sign-in pages (Figma "Login"). Every class is prefixed au- so the app-wide .card, .btn and .field used by the profile and admin pages are untouched. */
+.au-page { --au-primary: #006194; --au-edge: #004b73; --au-ink: #0d1c2f; --au-muted: #3f4850; --au-tint: #e6eeff; --au-tint-2: #eff4ff; --au-sun: #f4e483; --au-line: rgba(191, 199, 210, .6);
+  min-height: 100vh; display: flex; flex-direction: column; background: #f8f9ff; color: var(--au-ink); font-family: var(--font-jakarta), system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 20px; }
+.au-page *, .au-page *::before, .au-page *::after { box-sizing: border-box; }
+.au-page a { color: inherit; font-weight: inherit; text-decoration: none; }
+.au-page a:hover { text-decoration: none; }
+.au-page img { display: block; max-width: none; }
+.au-page a:focus-visible, .au-page button:focus-visible { outline: 3px solid #007bb9; outline-offset: 2px; }
+.au-page .au-input input:focus, .au-page .au-input input:focus-visible { outline: 0; border-color: #8a96a3; }
+.au-page h1, .au-page h2, .au-page p, .au-page figure, .au-page blockquote { margin: 0; }
+
+/* top bar */
+.au-top { position: sticky; top: 0; z-index: 10; background: rgba(248, 249, 255, .85); backdrop-filter: blur(24px); box-shadow: 0 1px 8px rgba(0, 0, 0, .04); }
+.au-top-in { max-width: 1280px; margin: 0 auto; height: 80px; padding: 0 56px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.au-brand { display: flex; align-items: center; gap: 12px; color: var(--au-primary) !important; font-size: 20px; line-height: 28px; letter-spacing: -.5px; }
+.au-brand b { font-weight: 700; }
+.au-top-nav { display: flex; align-items: center; gap: 20px; }
+.au-top-nav a, .au-link-soon { font-size: 13px; line-height: 16px; font-weight: 700; letter-spacing: .26px; color: var(--au-muted); background: none; border: 0; padding: 0; }
+.au-top-end { display: flex; align-items: center; gap: 12px; }
+.au-page .au-demo { background: var(--au-sun); color: #71650f; border: 0; border-radius: 999px; padding: 6px 20px; font-size: 13px; line-height: 16px; font-weight: 700; letter-spacing: .26px; box-shadow: 0 3px 0 #d7c86a; }
+.au-page .au-demo:hover { background: #efdc6b; }
+.au-soon { cursor: not-allowed; opacity: .62; font: inherit; }
+
+/* background glows and the board */
+.au-main { position: relative; flex: 1; overflow: hidden; }
+.au-glow { position: absolute; border-radius: 50%; pointer-events: none; }
+.au-glow-a { left: -64px; top: -48px; width: 320px; height: 320px; background: rgba(204, 229, 255, .4); filter: blur(64px); }
+.au-glow-b { right: 16px; bottom: 40px; width: 384px; height: 384px; background: rgba(244, 228, 131, .5); filter: blur(64px); }
+.au-glow-c { left: 33%; top: 62%; width: 22%; height: 288px; background: rgba(255, 216, 231, .3); filter: blur(40px); }
+.au-board { position: relative; max-width: 1280px; margin: 0 auto; padding: 48px 56px; }
+.au-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 32px; }
+.au-left { grid-column: 1 / span 6; display: flex; flex-direction: column; justify-content: space-between; gap: 24px; }
+.au-right { grid-column: 7 / span 6; display: flex; flex-direction: column; justify-content: flex-start; }
+
+/* left column */
+.au-story { background: #fff; border-radius: 32px; padding: 32px; box-shadow: 0 1px 2px rgba(0, 0, 0, .05); }
+.au-story-top { padding-bottom: 12px; }
+.au-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--au-sun); color: #201c00; border-radius: 999px; padding: 6px 12px; font-size: 11px; line-height: 14px; font-weight: 800; letter-spacing: .55px; text-transform: uppercase; }
+.au-photo { position: relative; height: 320px; margin: 6px 0; overflow: hidden; }
+.au-photo > img { width: 100%; height: 100%; object-fit: cover; }
+.au-quote { position: absolute; left: 12px; right: 12px; bottom: 12px; display: flex; gap: 12px; align-items: flex-start; padding: 12px; background: rgba(255, 255, 255, .95); backdrop-filter: blur(12px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .1), 0 2px 4px -2px rgba(0, 0, 0, .1); }
+.au-quote-ico { flex: none; width: 34px; height: 34px; border-radius: 50%; background: #d5e3fd; display: grid; place-items: center; }
+.au-quote blockquote { font-size: 20px; line-height: 25px; font-weight: 700; }
+.au-quote figcaption { padding-top: 2px; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--au-muted); }
+.au-streak { display: flex; align-items: center; gap: 12px; background: #dde9ff; border-radius: 32px; padding: 20px; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .05)); }
+.au-streak-ico { flex: none; width: 44px; height: 44px; border-radius: 50%; background: var(--au-sun); display: grid; place-items: center; }
+.au-streak b { display: block; font-size: 13px; line-height: 16px; font-weight: 700; letter-spacing: .26px; }
+.au-streak p { font-size: 14px; line-height: 20px; font-weight: 500; color: var(--au-muted); }
+
+/* the card */
+.au-card { position: relative; background: #fff; border-radius: 48px; padding: 32px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, .1), 0 4px 6px -4px rgba(0, 0, 0, .1); display: flex; flex-direction: column; }
+.au-head { padding-bottom: 20px; display: flex; flex-direction: column; gap: 4px; }
+.au-head h1 { font-size: 40px; line-height: 48px; font-weight: 800; letter-spacing: -1px; text-wrap: balance; }
+.au-head p { font-size: 16px; line-height: 24px; font-weight: 500; color: var(--au-muted); }
+.au-google { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; background: #fff; border: 1px solid var(--au-line); border-radius: 999px; padding: 13px 21px; font: inherit; font-size: 16px; line-height: 20px; font-weight: 700; letter-spacing: .16px; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .05)); }
+.au-google:hover { background: var(--au-tint-2); }
+.au-or { display: flex; align-items: center; padding: 20px 0 12px; font-size: 11px; line-height: 14px; font-weight: 800; letter-spacing: .55px; text-transform: uppercase; color: #707881; }
+.au-or::before, .au-or::after { content: ''; flex: 1; height: 2px; background: var(--au-tint); }
+.au-or::before { margin-right: 16px; }
+.au-or::after { margin-left: 16px; }
+.au-form { display: flex; flex-direction: column; gap: 12px; }
+.au-field { display: flex; flex-direction: column; gap: 4px; }
+.au-field label { font-size: 13px; line-height: 16px; font-weight: 700; letter-spacing: .26px; }
+.au-input { position: relative; }
+.au-input input { width: 100%; background: #fff; border: 1px solid var(--au-line); border-radius: 0; padding: 14px 17px 15px 45px; font: inherit; font-size: 16px; line-height: 20px; font-weight: 500; color: var(--au-ink); box-shadow: inset 0 2px 4px 1px rgba(0, 0, 0, .05); }
+.au-input input::placeholder { color: #9ca3af; }
+.au-input input[readonly] { background: var(--au-tint-2); color: var(--au-muted); }
+.au-ico { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.au-eye { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); border: 0; background: none; padding: 4px; display: grid; place-items: center; }
+.au-input:has(.au-eye) input { padding-right: 52px; }
+.au-hint { padding-top: 2px; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--au-muted); }
+.au-page .au-forgot, .au-switch a { font-size: 13px; line-height: 16px; font-weight: 700; letter-spacing: .26px; color: var(--au-primary) !important; }
+.au-page .au-forgot:hover { text-decoration: underline; }
+.au-forgot { align-self: flex-end; }
+.au-submit { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 12px; padding: 14px 32px; border: 0; border-radius: 999px; background: var(--au-primary); color: #fff; font: inherit; font-size: 20px; line-height: 28px; font-weight: 700; letter-spacing: .5px; box-shadow: 0 4px 0 var(--au-edge); }
+.au-submit:hover:not(:disabled) { background: #00577f; }
+.au-submit:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 2px 0 var(--au-edge); }
+.au-submit:disabled { opacity: .6; cursor: default; }
+.au-secondary { align-self: flex-start; border: 1px solid var(--au-line); background: #fff; border-radius: 999px; padding: 6px 16px; font: inherit; font-size: 13px; font-weight: 700; }
+.au-safe { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--au-tint); }
+.au-safe-ico { flex: none; width: 36px; height: 36px; border-radius: 50%; background: #cce5ff; display: grid; place-items: center; }
+.au-safe b { display: block; font-size: 11px; line-height: 15px; font-weight: 700; letter-spacing: .44px; }
+.au-safe p { font-size: 14px; line-height: 20px; font-weight: 500; color: var(--au-muted); }
+.au-switch { padding-top: 26px; text-align: center; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--au-muted); }
+.au-switch a:hover { text-decoration: underline; }
+.au-card .alert { margin: 0; }
+
+/* parent help banner and footer */
+.au-help { margin-top: 32px; display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; background: var(--au-tint-2); border-radius: 32px; padding: 20px; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .05)); }
+.au-help-text { display: flex; align-items: center; gap: 12px; }
+.au-help h2 { font-size: 16px; line-height: 20px; font-weight: 700; letter-spacing: .16px; }
+.au-help p { font-size: 14px; line-height: 20px; font-weight: 500; color: var(--au-muted); }
+.au-help-btns { display: flex; gap: 6px; }
+.au-page .au-pill { display: inline-flex; align-items: center; background: #fff; border: 0; border-radius: 999px; padding: 8px 20px; font-size: 13px; line-height: 16px; font-weight: 700; letter-spacing: .26px; color: var(--au-ink); filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .05)); }
+.au-page .au-wa { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 22px; border-radius: 999px; background: #1fa855; color: #fff; font-size: 15px; line-height: 20px; font-weight: 700; letter-spacing: 0; }
+.au-page .au-pill-sun { background: var(--au-sun); color: #71650f; }
+
+/* tablet: the card first, the story under it */
+@media (max-width: 1023px) {
+  .au-board { padding: 32px 24px; }
+  .au-top-in { padding: 0 24px; }
+  .au-grid { grid-template-columns: 1fr; }
+  .au-left, .au-right { grid-column: auto; }
+  .au-right { order: -1; }
+  .au-top-nav { display: none; }
+}
+/* phones */
+@media (max-width: 640px) {
+  .au-board { padding: 20px 16px; }
+  .au-top-in { padding: 0 16px; }
+  .au-left, .au-demo { display: none; }
+  .au-card { border-radius: 32px; padding: 20px; }
+  .au-head h1 { font-size: 30px; line-height: 38px; }
+  .au-help { border-radius: 24px; }
+  .au-help-btns { width: 100%; }
+}

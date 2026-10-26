@@ -32,10 +32,12 @@ test.describe('signing in', () => {
 
   test('Account and Sign out go to users-ui, and signing out lands on its login page', async ({ context, request }) => {
     const page = await openPage(context, request, await seed(request, 'teacher', 'Tess Teacher'));
+    await page.locator('.qh-me summary').click();
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page).toHaveURL(`${USERS_UI}/login?signed-out=1`);
     await expect(page.getByRole('heading', { name: 'login page' })).toBeVisible();
     await page.goto('/');
+    await page.locator('.qh-me summary').click();
     await page.getByRole('link', { name: 'Account' }).click();
     await expect(page).toHaveURL(`${USERS_UI}/profile`);
   });
@@ -43,11 +45,15 @@ test.describe('signing in', () => {
   test('header shows who is signed in, with account and sign-out handled by users-ui', async ({ context, request }) => {
     const teacher = await seed(request, 'teacher', 'Tess Teacher');
     const page = await openPage(context, request, teacher);
-    await expect(page.locator('.who-name')).toHaveText('Tess Teacher');
-    await expect(page.locator('.who .badge')).toHaveText('teacher');
+    const main = page.getByRole('navigation', { name: 'Main' });
+    await expect(page.locator('.qh-name')).toHaveText('Tess Teacher');
+    await expect(page.locator('.qh-role')).toHaveText('Teacher');
+    await expect(main.getByRole('link', { name: 'Calendar' })).toHaveAttribute('aria-current', 'page');
+    await expect(main.getByRole('link', { name: 'Chat' })).toHaveAttribute('href', 'http://localhost:3005'); // the chat app (NEXT_PUBLIC_CHAT_URL)
+    await expect(main.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', 'http://localhost:3006'); // the dashboard (NEXT_PUBLIC_DASHBOARD_URL)
+    await page.locator('.qh-me summary').click();
     await expect(page.getByRole('link', { name: 'Account' })).toHaveAttribute('href', `${USERS_UI}/profile`);
-    await expect(page.getByRole('link', { name: 'Chat' })).toHaveAttribute('href', 'http://localhost:3005'); // the chat app (NEXT_PUBLIC_CHAT_URL)
-    const form = page.locator('.who form');
+    const form = page.locator('.qh-menu form');
     await expect(form).toHaveAttribute('action', `${USERS_UI}/auth/signout`);
     await expect(form).toHaveAttribute('method', 'post');
   });
@@ -124,7 +130,7 @@ test.describe('a role changed after signing in', () => {
   test('no banner when the token and the database agree', async ({ context, request }) => {
     for (const role of ['teacher', 'student', 'admin'] as const) {
       const page = await openPage(context, request, await seed(request, role, `Some ${role}`));
-      await expect(page.locator('.who-name')).toBeVisible();
+      await expect(page.locator('.qh-name')).toBeVisible();
       await expect(page.locator('.stale-banner')).toHaveCount(0);
       await context.clearCookies();
       await page.close();

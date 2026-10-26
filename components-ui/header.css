@@ -1,0 +1,46 @@
+/* The shared header. Self-contained: its colours live on .qh, and every class is prefixed so no app's CSS can clash. */
+.qh {
+  --qh-bg: #eff4ff; --qh-tabs: #e6eeff; --qh-hover: #d3e4fe; --qh-ink: #0d1c2f; --qh-ink-2: #404850;
+  --qh-primary: #006194; --qh-primary-2: #007bb9; --qh-sky: #cce5ff; --qh-slate: #cbd4e6;
+  --qh-lift: 0 1px 2px rgba(13, 28, 47, .06), 0 6px 18px rgba(13, 28, 47, .06);
+  background: var(--qh-bg); box-shadow: 0 1px 0 var(--qh-hover); position: sticky; top: 0; z-index: 10;
+  font-family: var(--font-jakarta), system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.45; color: var(--qh-ink);
+}
+.qh *, .qh *::before, .qh *::after { box-sizing: border-box; }
+.qh a { color: inherit; text-decoration: none; }
+.qh button { font: inherit; color: inherit; cursor: pointer; }
+.qh button:disabled { cursor: not-allowed; }
+.qh a:focus-visible, .qh button:focus-visible, .qh summary:focus-visible { outline: 3px solid var(--qh-primary-2); outline-offset: 2px; }
+.qh-in { max-width: 1280px; margin: 0 auto; padding: 0 56px; height: 80px; display: flex; align-items: center; gap: 16px; }
+.qh-brand { display: flex; align-items: center; gap: 8px; font-size: 21px; color: var(--qh-primary) !important; }
+.qh-brand b { font-weight: 800; }
+.qh-role { display: inline-flex; background: #fff; border-radius: 999px; padding: 6px 14px; font-weight: 700; font-size: 12px; color: var(--qh-primary); box-shadow: var(--qh-lift); }
+.qh-tabs { display: flex; align-items: center; gap: 4px; margin: 0 auto; background: var(--qh-tabs); border-radius: 999px; padding: 6px; }
+.qh-tabs a, .qh-tabs .qh-soon { border: 0; background: none; border-radius: 999px; padding: 8px 16px; font-weight: 600; font-size: 13px; line-height: 1.2; color: var(--qh-ink-2); text-align: left; }
+.qh-tabs a[aria-current] { background: var(--qh-primary-2); color: #fff; font-weight: 700; }
+.qh-tabs a:not([aria-current]):hover { background: var(--qh-hover); }
+.qh-soon { opacity: .62; }
+.qh-soon small { margin-left: 4px; padding: 1px 6px; border-radius: 999px; background: var(--qh-slate); color: var(--qh-ink-2); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.qh-me { position: relative; }
+.qh-me summary { list-style: none; display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; font-size: 13px; }
+.qh-me summary::-webkit-details-marker { display: none; }
+.qh-avatar { flex: none; display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--qh-sky); color: var(--qh-primary); font-weight: 800; font-size: 13px; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(13, 28, 47, .15); }
+.qh-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qh-menu { position: absolute; right: 0; top: calc(100% + 10px); min-width: 160px; background: #fff; border-radius: 14px; box-shadow: var(--qh-lift); padding: 6px; display: flex; flex-direction: column; z-index: 20; }
+.qh-menu a, .qh-menu button { display: block; width: 100%; text-align: left; border: 0; background: none; border-radius: 8px; padding: 9px 12px; font-weight: 600; }
+.qh-menu a:hover, .qh-menu button:hover { background: var(--qh-bg); }
+.qh-menu a[aria-current] { color: var(--qh-primary); }
+.qh-menu form { margin: 0; }
+
+/* The header needs the full design width; below it the tabs move to their own scrollable row. */
+@media (max-width: 1279px) {
+  .qh-in { flex-wrap: wrap; height: auto; padding: 12px 24px; gap: 12px; }
+  .qh-tabs { order: 5; width: 100%; margin: 0; overflow-x: auto; border-radius: 16px; }
+  .qh-tabs a, .qh-tabs .qh-soon { white-space: nowrap; }
+  .qh-brand { margin-right: auto; }
+}
+@media (max-width: 640px) {
+  .qh-in { padding: 10px 16px; }
+  .qh-name { display: none; }
+  .qh-tabs a, .qh-tabs .qh-soon { padding: 8px 10px; }
+}

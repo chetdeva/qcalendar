@@ -1,5 +1,5 @@
 import { getMe } from '@/lib/me';
-import { usersUiUrl } from '@/lib/env';
+import { AppHeader } from '@components/app-header';
 import Chat from './chat';
 
 export default async function Page() {
@@ -16,17 +16,7 @@ export default async function Page() {
   const { me } = result;
   return (
     <div className="shell">
-      <header className="top">
-        <h1>Chat</h1>
-        <div className="who">
-          <span className="who-name">{me.full_name || me.email}</span>
-          <span className={`badge badge-${me.role}`}>{me.role}</span>
-          <a className="nav-btn as-link" href={`${usersUiUrl}/profile`}>Account</a>
-          <form action={`${usersUiUrl}/auth/signout`} method="post">
-            <button type="submit" className="nav-btn">Sign out</button>
-          </form>
-        </div>
-      </header>
+      <AppHeader current="chat" name={me.full_name || me.email} role={me.role} />
       <Chat />
     </div>
   );

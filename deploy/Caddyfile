@@ -25,3 +25,8 @@ chat.{$DOMAIN} {
 	encode zstd gzip
 	reverse_proxy chat-ui:3005
 }
+
+dashboard.{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy dashboard-ui:3006
+}

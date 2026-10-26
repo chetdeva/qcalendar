@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/browser';
 import { nameError, passwordError } from '@/lib/validation';
+import { Field } from '../_parts/field';
+import { Submit } from '../_parts/submit';
 
 type State = { kind: 'loading' } | { kind: 'invalid'; reason: string } | { kind: 'ready'; email: string; role: string; name: string };
 
@@ -61,38 +63,28 @@ export function AcceptInvite() {
     window.location.assign('/profile?welcome=1');
   }
 
-  if (state.kind === 'loading') return <p className="muted" role="status">Checking your invitation…</p>;
+  if (state.kind === 'loading') return <p className="au-switch" role="status">Checking your invitation…</p>;
   if (state.kind === 'invalid') {
     return (
       <>
-        <h1>Invitation problem</h1>
+        <div className="au-head"><h1>Invitation problem</h1></div>
         <div className="alert alert-error" role="alert">{state.reason}</div>
-        <p className="muted">Ask an admin to send you a new invitation, or <Link href="/login">log in</Link> if you already have an account.</p>
+        <p className="au-switch">Ask an admin to send you a new invitation, or <Link href="/login">log in</Link> if you already have an account.</p>
       </>
     );
   }
   return (
     <>
-      <div>
-        <h1>Welcome aboard</h1>
-        <p className="muted">You have been invited as a <b>{state.role}</b>. Choose a password to finish setting up {state.email}.</p>
+      <div className="au-head">
+        <h1>Welcome aboard <span aria-hidden>🎉</span></h1>
+        <p>You have been invited as a <b>{state.role}</b>. Choose a password to finish setting up {state.email}.</p>
       </div>
-      <form onSubmit={submit} noValidate>
-        <div className="field">
-          <label htmlFor="name">Full name</label>
-          <input id="name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor="password">Password</label>
-          <input id="password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <span className="hint">At least 8 characters.</span>
-        </div>
-        <div className="field">
-          <label htmlFor="confirm">Confirm password</label>
-          <input id="confirm" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-        </div>
+      <form className="au-form" onSubmit={submit} noValidate>
+        <Field id="name" label="Full name" icon="user" autoComplete="name" placeholder="e.g., Alex Rivera" value={name} onChange={setName} />
+        <Field id="password" label="Password" icon="lock" type="password" reveal autoComplete="new-password" hint="At least 8 characters." value={password} onChange={setPassword} />
+        <Field id="confirm" label="Confirm password" icon="lock" type="password" reveal autoComplete="new-password" value={confirm} onChange={setConfirm} />
         {error && <div className="alert alert-error" role="alert">{error}</div>}
-        <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Set password and continue'}</button>
+        <Submit busy={busy}>{busy ? 'Saving…' : 'Set password and continue'}</Submit>
       </form>
     </>
   );

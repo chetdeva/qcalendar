@@ -52,3 +52,11 @@ test('validation rules', () => {
   assert.ok(nameError('  '));
   assert.ok(nameError('x'.repeat(101)));
 });
+
+test('safeNext falls back to the default landing (the dashboard) when there is no safe destination', () => {
+  const DASHBOARD = 'https://dashboard.example.com';
+  assert.equal(safeNext(undefined, ALLOWED, DASHBOARD), DASHBOARD);
+  assert.equal(safeNext('//evil.test', ALLOWED, DASHBOARD), DASHBOARD);
+  assert.equal(safeNext('https://evil.test/x', ALLOWED, DASHBOARD), DASHBOARD);
+  assert.equal(safeNext('/admin/users', ALLOWED, DASHBOARD), '/admin/users'); // an explicit safe destination still wins
+});

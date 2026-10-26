@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import type { Principal, Role, TokenVerifier } from './auth.ts';
 import { DirectoryError, type Directory, type Profile } from './directory.ts';
@@ -8,6 +9,8 @@ export interface AppDeps {
   verifier: TokenVerifier;
   directory: Directory;
   inviteRedirectTo: string;
+  /** Lets one trusted backend (dashboard-service) read a student's guardian email. Unset: that endpoint does not exist. */
+  serviceApiKey?: string;
 }
 
 type Env = { Variables: { principal: Principal } };
@@ -51,7 +54,13 @@ const LookupBody = z.object({ ids: z.array(z.uuid()).min(1).max(50) }).strict();
 /** What a teacher may know about a student: enough to pick them for a class, nothing more. */
 const studentCard = (p: Profile) => ({ id: p.id, full_name: p.full_name, email: p.email });
 
-export function createApp({ verifier, directory, inviteRedirectTo }: AppDeps) {
+const safeEqual = (a: string, b: string) => {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+};
+
+export function createApp({ verifier, directory, inviteRedirectTo, serviceApiKey }: AppDeps) {
   const app = new Hono<Env>();
 
   app.onError((err, c) => {
@@ -73,6 +82,18 @@ export function createApp({ verifier, directory, inviteRedirectTo }: AppDeps) {
   });
 
   app.get('/health', (c) => c.json({ ok: true }));
+
+  // Backend to backend, with the shared key instead of a person's token. Registered before the person-auth middleware below.
+  // Used so a teacher's grade can be emailed to the student's guardian without teachers ever being able to read that address.
+  if (serviceApiKey) {
+    app.get('/v1/service/students/:id/guardian', async (c) => {
+      const header = c.req.header('authorization') ?? '';
+      if (!header.startsWith('Bearer ') || !safeEqual(header.slice(7), serviceApiKey)) throw new HttpError(401, 'unauthorized', 'Invalid service key');
+      const student = await directory.getProfile(requireId(c.req.param('id')));
+      if (!student || student.role !== 'student') throw new HttpError(404, 'not_found', 'Student not found');
+      return c.json({ name: student.full_name, guardianEmail: student.guardian_email });
+    });
+  }
 
   app.use('/v1/*', async (c, next) => {
     const header = c.req.header('authorization') ?? '';

@@ -1,6 +1,6 @@
 import type { EmailOtpType } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
-import { allowedReturnOrigins } from '@/lib/env';
+import { allowedReturnOrigins, landing } from '@/lib/env';
 import { parseOrigins, safeNext } from '@/lib/return-to';
 import { publicUrl } from '@/lib/public-url';
 import { createClient } from '@/lib/supabase/server';
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const tokenHash = searchParams.get('token_hash');
   const type = searchParams.get('type') as EmailOtpType | null;
-  const fallback = type === 'invite' ? '/accept-invite' : type === 'recovery' ? '/reset-password' : '/profile';
+  const fallback = type === 'invite' ? '/accept-invite' : type === 'recovery' ? '/reset-password' : landing;
   const next = safeNext(searchParams.get('next'), parseOrigins(allowedReturnOrigins), fallback);
   if (tokenHash && type && TYPES.includes(type)) {
     const supabase = await createClient();

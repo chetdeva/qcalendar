@@ -24,7 +24,7 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command: `npx next dev -p ${WEB_PORT}`,
+      command: `rm -rf .next-e2e && npx next dev -p ${WEB_PORT}`,
       url: WEB_URL,
       reuseExistingServer: false,
       timeout: 120_000,
@@ -35,6 +35,7 @@ export default defineConfig({
         USERS_SERVICE_URL: USERS_URL,
         NEXT_PUBLIC_ALLOWED_RETURN_ORIGINS: CALENDAR_ORIGIN,
         NEXT_PUBLIC_CALENDAR_URL: CALENDAR_ORIGIN,
+        NEXT_PUBLIC_USERS_UI_URL: WEB_URL, // the header's Account and Sign out links point at this app
         NEXT_PUBLIC_COOKIE_DOMAIN: '',
       },
     },

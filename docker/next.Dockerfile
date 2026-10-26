@@ -1,4 +1,4 @@
-# users-ui, calendar-ui, chat-ui and home-ui. Built from the repo root by docker-compose.yml (ARG APP picks the folder).
+# users-ui, calendar-ui, chat-ui, dashboard-ui and home-ui. The app sits in /repo/app so ../components-ui (the shared header) resolves as it does in the repo. Built from the repo root by docker-compose.yml (ARG APP picks the folder).
 # NEXT_PUBLIC_* values are baked into the browser bundle at build time, so they arrive as build args.
 FROM node:24-slim
 ARG APP
@@ -8,23 +8,28 @@ ARG NEXT_PUBLIC_COOKIE_DOMAIN=
 ARG NEXT_PUBLIC_USERS_UI_URL=
 ARG NEXT_PUBLIC_CALENDAR_URL=
 ARG NEXT_PUBLIC_CHAT_URL=
+ARG NEXT_PUBLIC_DASHBOARD_URL=
 ARG NEXT_PUBLIC_ALLOWED_RETURN_ORIGINS=
 ARG NEXT_PUBLIC_ACCOUNTS_URL=
 ARG NEXT_PUBLIC_APP_URL=
+ARG NEXT_PUBLIC_HOME_URL=
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY \
     NEXT_PUBLIC_COOKIE_DOMAIN=$NEXT_PUBLIC_COOKIE_DOMAIN \
     NEXT_PUBLIC_USERS_UI_URL=$NEXT_PUBLIC_USERS_UI_URL \
     NEXT_PUBLIC_CALENDAR_URL=$NEXT_PUBLIC_CALENDAR_URL \
     NEXT_PUBLIC_CHAT_URL=$NEXT_PUBLIC_CHAT_URL \
+    NEXT_PUBLIC_DASHBOARD_URL=$NEXT_PUBLIC_DASHBOARD_URL \
     NEXT_PUBLIC_ALLOWED_RETURN_ORIGINS=$NEXT_PUBLIC_ALLOWED_RETURN_ORIGINS \
     NEXT_PUBLIC_ACCOUNTS_URL=$NEXT_PUBLIC_ACCOUNTS_URL \
-    NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
-RUN mkdir /app && chown node:node /app
-WORKDIR /app
+    NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL \
+    NEXT_PUBLIC_HOME_URL=$NEXT_PUBLIC_HOME_URL
+RUN mkdir -p /repo/app && chown -R node:node /repo
+WORKDIR /repo/app
 USER node
 COPY --chown=node:node ${APP}/package*.json ./
 RUN npm ci
+COPY --chown=node:node components-ui ../components-ui
 COPY --chown=node:node ${APP} .
 RUN npm run build
 CMD ["npm", "start"]

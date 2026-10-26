@@ -211,7 +211,6 @@ h1 em img { position: absolute; left: 0; right: 0; bottom: -8px; width: 100%; he
 .board-tools > div { display: flex; gap: 8px; }
 .tool { display: inline-flex; align-items: center; gap: 6px; background: #1e293b; border-radius: 12px; padding: 6px 12px; font-size: 12px; line-height: 16px; font-weight: 700; color: #cbd5e1; }
 .tool.on { color: #fff; }
-.foot-note { font-size: 12px; line-height: 16px; font-weight: 700; color: #94a3b8; }
 .board figcaption { position: absolute; left: 0; right: 0; bottom: -28px; text-align: center; font-size: 12px; color: var(--muted); }
 
 /* coaches */
@@ -287,15 +286,7 @@ h1 em img { position: absolute; left: 0; right: 0; bottom: -8px; width: 100%; he
 .book-note { text-align: center; font-size: 12px; line-height: 16px; color: var(--muted); }
 
 /* footer */
-.end { background: var(--amber-100); padding: 36px 0 84px; border-top: 1px solid var(--amber-200); }
-.end .pill { margin-bottom: 0; }
-.foot { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px 48px; flex-wrap: wrap; padding-top: 16px; }
-.foot-brand { display: flex; align-items: center; gap: 16px; max-width: 440px; }
-.foot-logo { width: 96px; height: auto; flex: none; }
-.foot-links { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding-top: 8px; font-weight: 700; font-size: 14px; color: var(--ink-3); }
-.foot nav, .foot-contact { display: flex; flex-wrap: wrap; gap: 6px 22px; }
-.foot nav a:hover, .foot-contact a:hover { color: var(--blue); }
-.legal { margin-top: 8px; font-size: 13px; color: var(--muted); }
+.foot-clear { background: #eff4ff; padding-bottom: 80px; }
 .float { position: fixed; right: 24px; bottom: 24px; z-index: 20; padding: 12px 22px; }
 
 /* tablet and below */
@@ -358,8 +349,7 @@ h1 em img { position: absolute; left: 0; right: 0; bottom: -8px; width: 100%; he
   .rate-l h3 { font-size: 20px; line-height: 28px; }
   .book { padding: 28px 18px; }
   .field input { font-size: 16px; }
-  .foot { flex-direction: column; }
-  .end { padding-bottom: 96px; }
+  .foot-clear { padding-bottom: 92px; }
   .float { right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); }
 }
 

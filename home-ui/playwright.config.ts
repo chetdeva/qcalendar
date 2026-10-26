@@ -15,7 +15,7 @@ export default defineConfig({
     locale: 'en-US',
   },
   webServer: {
-    command: `npx next dev -p ${PORT}`,
+    command: `rm -rf .next-e2e && npx next dev -p ${PORT}`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: false,
     timeout: 120_000,

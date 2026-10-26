@@ -64,6 +64,7 @@ services:
         NEXT_PUBLIC_CALENDAR_URL: https://calendar.${DOMAIN}
         NEXT_PUBLIC_USERS_UI_URL: https://accounts.${DOMAIN}
         NEXT_PUBLIC_CHAT_URL: https://chat.${DOMAIN}
+        NEXT_PUBLIC_HOME_URL: https://www.${DOMAIN}
 
   calendar-ui:
     restart: unless-stopped

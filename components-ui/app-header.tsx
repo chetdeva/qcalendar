@@ -13,8 +13,8 @@ const label = (role: string) => role.charAt(0).toUpperCase() + role.slice(1);
  * who is signed in and which tab it is. `left` replaces the role chip (the dashboard's admin switch),
  * `right` sits before the avatar (dashboard extras), `menu` adds links to the avatar menu.
  */
-export function AppHeader({ current, name, role, left, right, menu }: {
-  current: HeaderTab; name: string; role: string; left?: ReactNode; right?: ReactNode; menu?: ReactNode;
+export function AppHeader({ current, name, role, left, right, menu, assignmentsHref = `${dashboardUrl}/assignments` }: {
+  current: HeaderTab; name: string; role: string; left?: ReactNode; right?: ReactNode; menu?: ReactNode; assignmentsHref?: string;
 }) {
   const tab = (id: HeaderTab) => (id === current ? 'page' : undefined);
   return (
@@ -28,9 +28,7 @@ export function AppHeader({ current, name, role, left, right, menu }: {
         <nav className="qh-tabs" aria-label="Main">
           <a href={dashboardUrl} aria-current={tab('dashboard')}>Dashboard</a>
           <a href={calendarUrl} aria-current={tab('calendar')}>Calendar</a>
-          {role === 'student'
-            ? <a href={`${dashboardUrl}/assignments`} aria-current={tab('assignments')}>Assignments</a>
-            : <button type="button" className="qh-soon" disabled title="Coming soon" aria-label="Assignments (coming soon)">Assignments <small>Soon</small></button>}
+          <a href={assignmentsHref} aria-current={tab('assignments')}>Assignments</a>
           <a href={chatUrl} aria-current={tab('chat')}>Chat</a>
         </nav>
         {right}

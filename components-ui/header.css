@@ -16,11 +16,9 @@
 .qh-brand b { font-weight: 800; }
 .qh-role { display: inline-flex; background: #fff; border-radius: 999px; padding: 6px 14px; font-weight: 700; font-size: 12px; color: var(--qh-primary); box-shadow: var(--qh-lift); }
 .qh-tabs { display: flex; align-items: center; gap: 4px; margin: 0 auto; background: var(--qh-tabs); border-radius: 999px; padding: 6px; }
-.qh-tabs a, .qh-tabs .qh-soon { border: 0; background: none; border-radius: 999px; padding: 8px 16px; font-weight: 600; font-size: 13px; line-height: 1.2; color: var(--qh-ink-2); text-align: left; }
+.qh-tabs a { border: 0; background: none; border-radius: 999px; padding: 8px 16px; font-weight: 600; font-size: 13px; line-height: 1.2; color: var(--qh-ink-2); text-align: left; }
 .qh-tabs a[aria-current] { background: var(--qh-primary-2); color: #fff; font-weight: 700; }
 .qh-tabs a:not([aria-current]):hover { background: var(--qh-hover); }
-.qh-soon { opacity: .62; }
-.qh-soon small { margin-left: 4px; padding: 1px 6px; border-radius: 999px; background: var(--qh-slate); color: var(--qh-ink-2); font-size: 10px; font-weight: 700; text-transform: uppercase; }
 .qh-me { position: relative; }
 .qh-me summary { list-style: none; display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; font-size: 13px; }
 .qh-me summary::-webkit-details-marker { display: none; }
@@ -36,11 +34,11 @@
 @media (max-width: 1279px) {
   .qh-in { flex-wrap: wrap; height: auto; padding: 12px 24px; gap: 12px; }
   .qh-tabs { order: 5; width: 100%; margin: 0; overflow-x: auto; border-radius: 16px; }
-  .qh-tabs a, .qh-tabs .qh-soon { white-space: nowrap; }
+  .qh-tabs a { white-space: nowrap; }
   .qh-brand { margin-right: auto; }
 }
 @media (max-width: 640px) {
   .qh-in { padding: 10px 16px; }
   .qh-name { display: none; }
-  .qh-tabs a, .qh-tabs .qh-soon { padding: 8px 10px; }
+  .qh-tabs a { padding: 8px 10px; }
 }

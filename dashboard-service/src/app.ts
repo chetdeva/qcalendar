@@ -213,13 +213,15 @@ export function createApp({ ctx, authenticator }: AppDeps) {
     const bytes = Buffer.from(b.data, 'base64');
     if (bytes.length === 0 || bytes.length > MAX_FILE) throw new HttpError(413, 'too_large', 'Files can be up to 5 MB');
     if (!MAGIC[b.contentType](bytes)) throw new HttpError(400, 'invalid_request', 'That file is not a valid file of that type');
-    return c.json({ id: await st.saveAttachment(db, a.id, b.contentType, bytes) }, 201);
+    return c.json({ id: await st.saveAttachment(db, a.id, b.contentType, bytes, ctx.files) }, 201);
   });
 
   app.get('/v1/attachments/:id', async (c) => {
     const row = await st.attachmentFor(db, idParam(c.req.param('id')), c.get('actor').id);
     if (!row) throw new HttpError(404, 'not_found', 'Not found');
-    return new Response(row.bytes as Uint8Array<ArrayBuffer>, { headers: { 'content-type': row.content_type, 'content-disposition': row.content_type === 'application/pdf' ? 'inline; filename="work.pdf"' : 'inline', 'x-content-type-options': 'nosniff', 'cache-control': 'private, max-age=300', 'content-security-policy': "default-src 'none'" } });
+    const bytes = row.storage_key ? await ctx.files?.get(row.storage_key) : row.bytes;
+    if (!bytes) throw new HttpError(404, 'not_found', 'Not found');
+    return new Response(bytes as Uint8Array<ArrayBuffer>, { headers: { 'content-type': row.content_type, 'content-disposition': row.content_type === 'application/pdf' ? 'inline; filename="work.pdf"' : 'inline', 'x-content-type-options': 'nosniff', 'cache-control': 'private, max-age=300', 'content-security-policy': "default-src 'none'" } });
   });
 
   return app;

@@ -4,6 +4,7 @@ import { createAuthenticator, supabaseKeys } from './auth.ts';
 import { createPgDb, createPgliteDb, migrate, type SslMode } from './db.ts';
 import { ConsoleMailer, createSmtpMailer } from './mail.ts';
 import { processOutbox } from './outbox.ts';
+import { s3Files } from './files.ts';
 import { httpSources } from './sources.ts';
 
 const env = process.env;
@@ -20,10 +21,14 @@ const db = env.DATABASE_URL
 const applied = await migrate(db);
 if (applied.length) console.log(`applied migrations: ${applied.join(', ')}`);
 
+const files = env.FILES_BUCKET
+  ? s3Files({ bucket: env.FILES_BUCKET, endpoint: env.FILES_ENDPOINT || undefined, region: env.FILES_REGION || undefined, accessKeyId: env.FILES_ACCESS_KEY_ID ?? fail('FILES_ACCESS_KEY_ID is required with FILES_BUCKET'), secretAccessKey: env.FILES_SECRET_ACCESS_KEY ?? fail('FILES_SECRET_ACCESS_KEY is required with FILES_BUCKET') })
+  : undefined; // unset = uploads are stored in the database
+if (production && !files) console.warn('FILES_BUCKET is not set: uploaded work is stored in the database.');
 const sources = httpSources({ calendarUrl: env.CALENDAR_API_URL ?? 'http://localhost:3000', usersUrl: env.USERS_SERVICE_URL ?? 'http://localhost:3010', usersKey: env.USERS_SERVICE_API_KEY });
 if (!env.USERS_SERVICE_API_KEY) console.warn('USERS_SERVICE_API_KEY is not set: grades are published but parents are not emailed.');
 const app = createApp({
-  ctx: { db, sources, now: () => new Date(), dashboardUrl: env.DASHBOARD_URL ?? 'http://localhost:3006' },
+  ctx: { db, sources, files, now: () => new Date(), dashboardUrl: env.DASHBOARD_URL ?? 'http://localhost:3006' },
   authenticator: createAuthenticator(supabaseKeys(supabaseUrl)),
 });
 

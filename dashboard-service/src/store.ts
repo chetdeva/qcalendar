@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import type { FileStore } from './files.ts';
 import { HttpError } from './errors.ts';
 import type { Db, Queryable } from './db.ts';
 import type { Level, MentorProfile } from './types.ts';
@@ -72,13 +74,16 @@ export async function submit(db: Db, studentId: string, assignmentId: string, an
   });
 }
 
-export async function saveAttachment(q: Queryable, ownerId: string, contentType: string, bytes: Buffer) {
-  return (await q.query<{ id: string }>('insert into dashboard.attachments (owner_id, content_type, bytes) values ($1,$2,$3) returning id', [ownerId, contentType, bytes]))[0].id;
+export async function saveAttachment(q: Queryable, ownerId: string, contentType: string, bytes: Buffer, files?: FileStore) {
+  if (!files) return (await q.query<{ id: string }>('insert into dashboard.attachments (owner_id, content_type, bytes) values ($1,$2,$3) returning id', [ownerId, contentType, bytes]))[0].id;
+  const key = `attachments/${randomUUID()}`;
+  await files.put(key, contentType, bytes); // ponytail: if the insert then fails the object is orphaned; a cleanup job if that ever matters
+  return (await q.query<{ id: string }>('insert into dashboard.attachments (owner_id, content_type, storage_key) values ($1,$2,$3) returning id', [ownerId, contentType, key]))[0].id;
 }
 /** An attachment, only for its owner or the teacher who assigned the task it was handed in for. */
 export async function attachmentFor(q: Queryable, id: string, personId: string) {
-  return (await q.query<{ content_type: string; bytes: Uint8Array }>(
-    `select at.content_type, at.bytes from dashboard.attachments at
+  return (await q.query<{ content_type: string; bytes: Uint8Array | null; storage_key: string | null }>(
+    `select at.content_type, at.bytes, at.storage_key from dashboard.attachments at
       where at.id = $1 and (at.owner_id = $2 or exists (select 1 from dashboard.submissions s join dashboard.assignments a on a.id = s.assignment_id where s.attachment_id = at.id and a.teacher_id = $2))`, [id, personId]))[0] ?? null;
 }
 

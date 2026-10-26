@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { generateKeyPair, SignJWT } from 'jose';
+import type { FileStore } from '../src/files.ts';
 import { createApp } from '../src/app.ts';
 import { createAuthenticator, type Role } from '../src/auth.ts';
 import { createPgliteDb, migrate } from '../src/db.ts';
@@ -38,13 +39,13 @@ export function stubSources() {
   return { state, sources, ids };
 }
 
-export async function createHarness(opts: { now?: Date } = {}) {
+export async function createHarness(opts: { now?: Date; files?: FileStore } = {}) {
   const db = createPgliteDb();
   await migrate(db);
   const stub = stubSources();
   const clock = { now: opts.now ?? new Date('2030-03-15T10:00:00Z') };
   const app = createApp({
-    ctx: { db, sources: stub.sources, now: () => clock.now, dashboardUrl: 'https://dashboard.example.test' },
+    ctx: { db, sources: stub.sources, now: () => clock.now, dashboardUrl: 'https://dashboard.example.test', files: opts.files },
     authenticator: createAuthenticator({ getKey: async () => publicKey, issuer: ISS }),
   });
   const caller = (token: string): Call => (method, path, body) =>

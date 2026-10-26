@@ -215,3 +215,23 @@ test('the outbox retries a failing email with backoff and gives up after eight t
   }
   assert.equal(broken.sent.length, 0);
 });
+
+test('with a file store the bytes live there, not in the database, and the same people can still read them', async () => {
+  const objects = new Map<string, Buffer>();
+  const files = { put: async (k: string, _t: string, b: Buffer) => void objects.set(k, b), get: async (k: string) => objects.get(k) ?? null };
+  const h2 = await createHarness({ files });
+  const s = await h2.person('student');
+  const other = await h2.person('student');
+  const res = await s.call('POST', '/v1/attachments', { contentType: 'image/png', data: PNG });
+  assert.equal(res.status, 201);
+  const id = (await json(res)).id;
+  const row = (await h2.db.query<{ bytes: unknown; storage_key: string }>('select bytes, storage_key from dashboard.attachments where id = $1', [id]))[0];
+  assert.equal(row.bytes, null);
+  assert.ok(objects.has(row.storage_key));
+  const own = await s.call('GET', `/v1/attachments/${id}`);
+  assert.equal(own.status, 200);
+  assert.equal(Buffer.from(await own.arrayBuffer()).toString('base64'), PNG);
+  assert.equal((await other.call('GET', `/v1/attachments/${id}`)).status, 404);
+  objects.clear(); // the object is gone: not found, not a crash
+  assert.equal((await s.call('GET', `/v1/attachments/${id}`)).status, 404);
+});

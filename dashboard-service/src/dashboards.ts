@@ -1,3 +1,4 @@
+import type { FileStore } from './files.ts';
 import type { Actor } from './auth.ts';
 import type { Db } from './db.ts';
 import * as m from './metrics.ts';
@@ -7,7 +8,7 @@ import type { CalEvent, Sources } from './sources.ts';
 import { LEVELS } from './types.ts';
 import type { Assignment, DirectoryStudent, Feedback, Level, Mentor, Session, StudentDashboard, Submission, TeacherDashboard, TeacherSession, Tone } from './types.ts';
 
-export interface Ctx { db: Db; sources: Sources; now: () => Date; dashboardUrl: string }
+export interface Ctx { db: Db; sources: Sources; now: () => Date; dashboardUrl: string; files?: FileStore } // no files = uploads stay in the database
 
 export const MENTOR_FILTERS = [
   { id: 'all', label: 'All Mentors' },

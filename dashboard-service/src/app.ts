@@ -27,18 +27,19 @@ const AssignBody = z.object({
 const GradeBody = z.object({ score: z.number().int().min(0).max(100), tags: z.array(z.enum(st.TAGS as [string, ...string[]])).max(5), note: text(1000) }).strict();
 const ProgressBody = z.object({ stepsDone: z.number().int().min(0).max(20) }).strict();
 const SubmitBody = z.object({ answer: text(5000).min(1), attachmentId: uuid.nullish() }).strict();
-const AttachmentBody = z.object({ contentType: z.enum(['image/png', 'image/jpeg', 'image/webp']), data: z.string().min(1) }).strict();
+const AttachmentBody = z.object({ contentType: z.enum(['image/png', 'image/jpeg', 'image/webp', 'application/pdf']), data: z.string().min(1) }).strict();
 const ProfileBody = z.object({
   headline: text(120), specialties: z.array(text(40).min(1)).max(8), levels: z.array(z.enum(LEVELS)).max(4), quote: text(400), published: z.boolean(),
 }).strict();
 const SettingsBody = z.object({ grade: z.enum(GRADES as [string, ...string[]]).nullable() }).strict();
 
-const MAX_IMAGE = 1_572_864;
-/** The first bytes of a real image of that type: the declared type alone is not trusted. */
+const MAX_FILE = 5_242_880;
+/** The first bytes of a real file of that type: the declared type alone is not trusted. */
 const MAGIC: Record<string, (b: Buffer) => boolean> = {
   'image/png': (b) => b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
   'image/jpeg': (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
   'image/webp': (b) => b.subarray(0, 4).toString('latin1') === 'RIFF' && b.subarray(8, 12).toString('latin1') === 'WEBP',
+  'application/pdf': (b) => b.subarray(0, 5).toString('latin1') === '%PDF-',
 };
 
 export interface AppDeps { ctx: Ctx; authenticator: Authenticator }
@@ -207,18 +208,18 @@ export function createApp({ ctx, authenticator }: AppDeps) {
   app.post('/v1/attachments', async (c) => {
     const a = c.get('actor');
     must(a, 'student');
-    if (Number(c.req.header('content-length') ?? 0) > MAX_IMAGE * 1.4 + 1024) throw new HttpError(413, 'too_large', 'Images can be up to 1.5 MB');
+    if (Number(c.req.header('content-length') ?? 0) > MAX_FILE * 1.4 + 1024) throw new HttpError(413, 'too_large', 'Files can be up to 5 MB');
     const b = parse(AttachmentBody, await body(c));
     const bytes = Buffer.from(b.data, 'base64');
-    if (bytes.length === 0 || bytes.length > MAX_IMAGE) throw new HttpError(413, 'too_large', 'Images can be up to 1.5 MB');
-    if (!MAGIC[b.contentType](bytes)) throw new HttpError(400, 'invalid_request', 'That file is not a valid image of that type');
+    if (bytes.length === 0 || bytes.length > MAX_FILE) throw new HttpError(413, 'too_large', 'Files can be up to 5 MB');
+    if (!MAGIC[b.contentType](bytes)) throw new HttpError(400, 'invalid_request', 'That file is not a valid file of that type');
     return c.json({ id: await st.saveAttachment(db, a.id, b.contentType, bytes) }, 201);
   });
 
   app.get('/v1/attachments/:id', async (c) => {
     const row = await st.attachmentFor(db, idParam(c.req.param('id')), c.get('actor').id);
     if (!row) throw new HttpError(404, 'not_found', 'Not found');
-    return new Response(row.bytes as Uint8Array<ArrayBuffer>, { headers: { 'content-type': row.content_type, 'x-content-type-options': 'nosniff', 'cache-control': 'private, max-age=300', 'content-security-policy': "default-src 'none'" } });
+    return new Response(row.bytes as Uint8Array<ArrayBuffer>, { headers: { 'content-type': row.content_type, 'content-disposition': row.content_type === 'application/pdf' ? 'inline; filename="work.pdf"' : 'inline', 'x-content-type-options': 'nosniff', 'cache-control': 'private, max-age=300', 'content-security-policy': "default-src 'none'" } });
   });
 
   return app;

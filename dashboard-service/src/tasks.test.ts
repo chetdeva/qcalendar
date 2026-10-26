@@ -72,7 +72,7 @@ test('handing in: needs an answer, completes the task, works once, and moves it 
   assert.equal(other.length, 0); // another teacher's queue is separate
 });
 
-test('images: real png, jpeg or webp up to 1.5 MB; the owner and the assigning teacher can see them, nobody else', async () => {
+test('files: real png, jpeg, webp or pdf up to 5 MB; the owner and the assigning teacher can see them, nobody else', async () => {
   const { t, s, otherT, otherS } = await world();
   const up = (who: any, contentType: string, data: string) => who.call('POST', '/v1/attachments', { contentType, data });
   const ok = await up(s, 'image/png', PNG);
@@ -81,7 +81,14 @@ test('images: real png, jpeg or webp up to 1.5 MB; the owner and the assigning t
   assert.equal((await up(s, 'image/jpeg', PNG)).status, 400); // says jpeg, is a png
   assert.equal((await up(s, 'image/png', Buffer.from('<script>alert(1)</script>').toString('base64'))).status, 400); // not an image at all
   assert.equal((await up(s, 'image/gif', PNG)).status, 400);
-  assert.equal((await up(s, 'image/png', Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(1_600_000)]).toString('base64'))).status, 413);
+  const PDF = Buffer.from('%PDF-1.4\n%%EOF').toString('base64');
+  const pdf = await up(s, 'application/pdf', PDF);
+  assert.equal(pdf.status, 201);
+  assert.equal((await up(s, 'application/pdf', PNG)).status, 400); // says pdf, is a png
+  const pdfView = await s.call('GET', `/v1/attachments/${(await json(pdf)).id}`);
+  assert.equal(pdfView.headers.get('content-type'), 'application/pdf');
+  assert.equal(pdfView.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal((await up(s, 'image/png', Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(5_300_000)]).toString('base64'))).status, 413);
   assert.equal((await up(t, 'image/png', PNG)).status, 403); // teachers do not upload work
 
   const id = await assign(t, s.id);

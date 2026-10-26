@@ -190,7 +190,7 @@ export async function buildTeacher(ctx: Ctx, actor: Actor, auth: string): Promis
   const queue: Submission[] = pendingRows.map((r) => ({
     id: r.sub_id!, assignmentId: r.id, studentId: r.student_id, student: nameOf(r.student_id), initials: initials(nameOf(r.student_id)), task: r.title,
     submitted: `Submitted ${r.submitted_at!.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'UTC' })} UTC`,
-    status: 'pending', answer: r.answer ?? '', attachmentId: r.attachment_id, score: r.draft_score, tags: r.draft_tags ?? [], note: r.draft_note ?? '', draft: r.draft_score !== null,
+    status: 'pending', answer: r.answer ?? '', attachmentId: r.attachment_id, attachmentType: r.attachment_type, score: r.draft_score, tags: r.draft_tags ?? [], note: r.draft_note ?? '', draft: r.draft_score !== null,
   }));
   const drafts = queue.filter((s) => s.draft).length;
   const tools = TOOLS;
@@ -226,6 +226,7 @@ export interface AssignmentDetail extends Assignment {
   dueDate: string;
   answer: string | null;
   attachmentId: string | null;
+  attachmentType: string | null;
   score: number | null;
   grade: string | null;
   tags: string[];
@@ -235,7 +236,7 @@ export interface AssignmentDetail extends Assignment {
 }
 export function toDetail(r: AssignmentRow, now: Date, coach: string): AssignmentDetail {
   return {
-    ...toAssignment(r, now), prompt: r.prompt, dueDate: r.due_date, answer: r.answer, attachmentId: r.attachment_id, score: r.score, grade: r.score === null ? null : m.letter(r.score),
+    ...toAssignment(r, now), prompt: r.prompt, dueDate: r.due_date, answer: r.answer, attachmentId: r.attachment_id, attachmentType: r.attachment_type, score: r.score, grade: r.score === null ? null : m.letter(r.score),
     tags: r.tags ?? [], note: r.note ?? '', gradedLabel: r.graded_at ? m.gradedLabel(r.graded_at, now) : null, coach,
   };
 }

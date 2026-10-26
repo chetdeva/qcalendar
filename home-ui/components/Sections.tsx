@@ -1,7 +1,8 @@
 import Image from 'next/image';
 import { CalendarCheck, ExternalLink } from 'lucide-react';
 import MobileNav from './MobileNav';
-import { ACCOUNTS_URL, BRAND, footer, founder, framework, hero, nav, reviews, site, whatsappLink, why } from '@/content/site';
+import { SiteFooter } from '@components/site-footer';
+import { ACCOUNTS_URL, BRAND, founder, framework, hero, nav, reviews, site, whatsappLink, why } from '@/content/site';
 
 function WhatsApp({ className = 'wa' }: { className?: string }) {
   return <Image src="/images/whatsapp-glyph-white.png" alt="" width={20} height={20} className={className} />;
@@ -213,27 +214,11 @@ export function Reviews() {
 
 export function Footer() {
   return (
-    <footer id="contact" className="band end">
-      <div className="wrap"><p className="pill pill-sun">Contact</p></div>
-      <div className="wrap foot">
-        <div className="foot-brand">
-          <Image src="/images/quanttoria-logo.png" alt={`${BRAND}: Empowering Global Minds with Mathematics`} width={861} height={678} sizes="96px" className="foot-logo" />
-          <div>
-            <p className="small">{footer.about}</p>
-            <p className="legal">© {new Date().getFullYear()} {BRAND}. All rights reserved.</p>
-          </div>
-        </div>
-        <div className="foot-links">
-          <nav aria-label="Footer">
-            {nav.map((n) => <a key={n.href} href={n.href}>{n.label}</a>)}
-          </nav>
-          <div className="foot-contact">
-            <a href={whatsappLink()} target="_blank" rel="noopener noreferrer">WhatsApp {site.whatsappDisplay}</a>
-            {site.emails.map((e) => <a key={e} href={`mailto:${e}`}>{e}</a>)}
-          </div>
-        </div>
+    <>
+      <div className="foot-clear"> {/* room under the footer so the floating Book button never covers it */}
+        <SiteFooter id="contact" />
       </div>
       <a className="float btn btn-primary" href="#book"><CalendarCheck size={18} aria-hidden /> Book a free demo</a>
-    </footer>
+    </>
   );
 }

@@ -155,14 +155,15 @@ test('buttons work when the dev site is opened as 127.0.0.1 (not only localhost)
   await expect(page.getByRole('radio', { name: /Grades 3–5/ })).toBeChecked();
 });
 
-test('footer: both emails, and the links and contact rows share one left edge', async ({ page }) => {
+test('footer: the shared site footer, with the contact row kept under its legal links', async ({ page }) => {
   await page.goto('/');
   const f = page.getByRole('contentinfo');
+  await expect(f).toContainText('COPPA & FERPA Compliant Security');
+  for (const l of ['Privacy Policy', 'Parental Consent & Rights', 'Student Data Safety']) await expect(f.getByRole('button', { name: l })).toBeDisabled();
+  await expect(f).toContainText('For support, mail us at pprincyaaghaww@quanttoria.com');
   await expect(f.getByRole('link', { name: 'pprincyaaghaww@quanttoria.com' })).toHaveAttribute('href', 'mailto:pprincyaaghaww@quanttoria.com');
-  await expect(f.getByRole('link', { name: 'pprincyaaghaww@gmail.com' })).toHaveAttribute('href', 'mailto:pprincyaaghaww@gmail.com');
-  await expect(f.locator('.pill', { hasText: /^Contact$/ })).toBeVisible(); // same pill style as the other section titles
-  const x = async (name: string | RegExp) => Math.round((await f.getByRole('link', { name }).first().boundingBox())!.x);
-  expect(await x('Why Quanttoria')).toBe(await x(/^WhatsApp/));
+  await expect(f).not.toContainText('gmail.com');
+  await expect(page.locator('footer#contact')).toHaveCount(1); // the Contact nav link lands here
 });
 
 test('mobile: section links move into a menu that opens, navigates and closes', async ({ page }) => {

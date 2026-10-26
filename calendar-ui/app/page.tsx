@@ -1,4 +1,5 @@
 import { getMe, tokenRole } from '@/lib/me';
+import { SiteFooter } from '@components/site-footer';
 import StudentHome from './student-home';
 import TeacherCalendar from './teacher-calendar';
 
@@ -16,5 +17,10 @@ export default async function Page() {
   const { me } = result;
   const stale = (await tokenRole()) !== me.role;
   // Students get "My classes"; teachers get their calendar; admins get every class.
-  return me.role === 'student' ? <StudentHome me={me} staleRole={stale} /> : <TeacherCalendar me={me} staleRole={stale} />;
+  return (
+    <>
+      {me.role === 'student' ? <StudentHome me={me} staleRole={stale} /> : <TeacherCalendar me={me} staleRole={stale} />}
+      <SiteFooter /> {/* under the full-height calendar: scroll down to see it */}
+    </>
+  );
 }

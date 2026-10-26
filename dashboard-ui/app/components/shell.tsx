@@ -1,5 +1,6 @@
 import { Bell } from 'lucide-react';
 import { AppHeader } from '@components/app-header';
+import { SiteFooter } from '@components/site-footer';
 import type { View } from '@/lib/types';
 import { Soon } from './ui';
 
@@ -26,16 +27,4 @@ export function Header({ name, role, view, isAdmin, current = 'dashboard' }: { n
   );
 }
 
-export function Footer() {
-  return (
-    <footer className="foot">
-      <p><span aria-hidden>✔</span> Quanttoria Safe Learning Cloud • Compliant K-10 Environment</p>
-      <nav aria-label="Footer">
-        <span title="Coming soon">Student Code of Conduct</span>
-        <span title="Coming soon">Parent Safety Portal</span>
-        <span title="Coming soon">Help Center</span>
-        <small>© {new Date().getFullYear()} Quanttoria Inc.</small>
-      </nav>
-    </footer>
-  );
-}
+export const Footer = SiteFooter; // the shared site footer, as on every other screen

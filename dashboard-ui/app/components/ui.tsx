@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import { FileText } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { Tone } from '@/lib/types';
 
@@ -12,6 +13,14 @@ export function Avatar({ name, initials, photo, size = 48 }: { name: string; ini
 }
 
 /** Something that is designed but not built yet: shown, clearly marked, and not clickable. */
+/** An uploaded file: a picture is shown, a PDF is a link that opens it in a new tab. */
+export function Attachment({ id, type, alt }: { id: string; type: string | null; alt: string }) {
+  const src = `/api/attachments/${id}`;
+  return type === 'application/pdf'
+    ? <a className="btn-soft pdf" href={src} target="_blank" rel="noopener noreferrer"><FileText size={15} aria-hidden /> Open the PDF</a>
+    : <img className="shot" src={src} alt={alt} />;
+}
+
 export function Soon({ children, className = '', label }: { children: ReactNode; className?: string; label?: string }) {
   return <button type="button" className={`${className} soon`} disabled title="Coming soon" aria-label={label ? `${label} (coming soon)` : undefined}>{children}</button>;
 }

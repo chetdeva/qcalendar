@@ -34,6 +34,9 @@ DATABASE_URL=<Supabase session pooler connection string, with the database passw
 # Optional: SMTP_URL=<AWS SES SMTP url>  MAIL_FROM="Quanttoria <no-reply@quanttoria.com>"  DEFAULT_TIMEZONE=America/New_York
 # Optional: USERS_SERVICE_API_KEY=<random secret, openssl rand -hex 32>  lets the dashboard email a student's guardian when a grade is
 #           published (users-service and dashboard-service both read it). Without it grades still publish; parents are not emailed.
+# Optional: FILES_BUCKET=<bucket>  FILES_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com  FILES_ACCESS_KEY_ID=...  FILES_SECRET_ACCESS_KEY=...
+#   keeps students' uploaded work (pictures, PDFs) in a private Cloudflare R2 bucket instead of the database. For Amazon S3 leave FILES_ENDPOINT
+#   empty and set FILES_REGION=eu-north-1. Existing uploads stay in the database and keep working.
 ```
 
 `~/app/users-service/.env` (holds the Supabase **secret** key; never in an image):

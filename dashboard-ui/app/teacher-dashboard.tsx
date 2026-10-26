@@ -5,7 +5,7 @@ import { BookOpen, CalendarClock, ClipboardCheck, Coins, Eye, IdCard, LineChart,
 import { LEVELS, type DirectoryStudent, type Level, type MentorProfile, type Submission, type TeacherDashboard as Data, type TeacherSession } from '@/lib/types';
 import { calendarUrl, chatUrl } from '@/lib/env';
 import { api } from './api-client';
-import { Avatar, Bar, Soon } from './components/ui';
+import { Attachment, Avatar, Bar, Soon } from './components/ui';
 
 const GRADES = Array.from({ length: 10 }, (_, i) => `Grade ${i + 1}`);
 const LEVEL_LABEL: Record<Level, string> = { elementary: 'Elementary (1–5)', middle: 'Middle (6–8)', high: 'High (9–10)', olympiad: 'Olympiad / Competitions' };
@@ -208,7 +208,7 @@ function GradeCard({ s, tags, refresh, say }: { s: Submission; tags: string[]; r
         <div className="scratch">
           <span className="tag tag-white">Student’s answer</span>
           <p className="answer">{s.answer}</p>
-          {s.attachmentId && <img className="shot" src={`/api/attachments/${s.attachmentId}`} alt={`${s.student}’s picture of their working`} />}
+          {s.attachmentId && <Attachment id={s.attachmentId} type={s.attachmentType} alt={`${s.student}’s picture of their working`} />}
         </div>
       </div>
       <div className="g-right">

@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import type { FileStore } from './files.ts';
 import { HttpError } from './errors.ts';
 import type { Db, Queryable } from './db.ts';
 import type { Level, MentorProfile } from './types.ts';
@@ -12,11 +14,11 @@ export interface AssignmentRow {
   id: string; teacher_id: string; student_id: string; title: string; preset: string | null; prompt: string; due_date: string; xp: number;
   steps_total: number; steps_done: number; created_at: Date;
   sub_id: string | null; sub_status: 'pending' | 'graded' | null; score: number | null; tags: string[] | null; note: string | null; graded_at: Date | null; submitted_at: Date | null;
-  answer: string | null; attachment_id: string | null; draft_score: number | null; draft_tags: string[] | null; draft_note: string | null;
+  answer: string | null; attachment_id: string | null; attachment_type: string | null; draft_score: number | null; draft_tags: string[] | null; draft_note: string | null;
 }
 
 const JOINED = `select a.id, a.teacher_id, a.student_id, a.title, a.preset, a.prompt, a.due_date::text as due_date, a.xp, a.steps_total, a.steps_done, a.created_at,
-  s.id as sub_id, s.status as sub_status, s.score, s.tags, s.note, s.graded_at, s.submitted_at, s.answer, s.attachment_id, s.draft_score, s.draft_tags, s.draft_note
+  s.id as sub_id, s.status as sub_status, s.score, s.tags, s.note, s.graded_at, s.submitted_at, s.answer, s.attachment_id, (select content_type from dashboard.attachments where id = s.attachment_id) as attachment_type, s.draft_score, s.draft_tags, s.draft_note
   from dashboard.assignments a left join dashboard.submissions s on s.assignment_id = a.id`;
 
 export const assignmentsOfStudent = (q: Queryable, studentId: string) => q.query<AssignmentRow>(`${JOINED} where a.student_id = $1 order by a.created_at desc, a.id`, [studentId]);
@@ -72,13 +74,16 @@ export async function submit(db: Db, studentId: string, assignmentId: string, an
   });
 }
 
-export async function saveAttachment(q: Queryable, ownerId: string, contentType: string, bytes: Buffer) {
-  return (await q.query<{ id: string }>('insert into dashboard.attachments (owner_id, content_type, bytes) values ($1,$2,$3) returning id', [ownerId, contentType, bytes]))[0].id;
+export async function saveAttachment(q: Queryable, ownerId: string, contentType: string, bytes: Buffer, files?: FileStore) {
+  if (!files) return (await q.query<{ id: string }>('insert into dashboard.attachments (owner_id, content_type, bytes) values ($1,$2,$3) returning id', [ownerId, contentType, bytes]))[0].id;
+  const key = `attachments/${randomUUID()}`;
+  await files.put(key, contentType, bytes); // ponytail: if the insert then fails the object is orphaned; a cleanup job if that ever matters
+  return (await q.query<{ id: string }>('insert into dashboard.attachments (owner_id, content_type, storage_key) values ($1,$2,$3) returning id', [ownerId, contentType, key]))[0].id;
 }
 /** An attachment, only for its owner or the teacher who assigned the task it was handed in for. */
 export async function attachmentFor(q: Queryable, id: string, personId: string) {
-  return (await q.query<{ content_type: string; bytes: Uint8Array }>(
-    `select at.content_type, at.bytes from dashboard.attachments at
+  return (await q.query<{ content_type: string; bytes: Uint8Array | null; storage_key: string | null }>(
+    `select at.content_type, at.bytes, at.storage_key from dashboard.attachments at
       where at.id = $1 and (at.owner_id = $2 or exists (select 1 from dashboard.submissions s join dashboard.assignments a on a.id = s.assignment_id where s.attachment_id = at.id and a.teacher_id = $2))`, [id, personId]))[0] ?? null;
 }
 

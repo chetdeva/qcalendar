@@ -105,6 +105,7 @@ export interface Submission {
   status: 'pending' | 'graded';
   answer: string;
   attachmentId: string | null;
+  attachmentType: string | null;
   score: number | null;
   tags: string[];
   note: string;

@@ -120,6 +120,11 @@ services:
       SMTP_URL: ${SMTP_URL:-} # empty = parent emails are only logged
       MAIL_FROM: ${MAIL_FROM:-Quanttoria <no-reply@localhost>}
       DASHBOARD_URL: http://localhost:3006
+      FILES_BUCKET: ${FILES_BUCKET:-} # empty = uploaded work is stored in the database; set these four to use Cloudflare R2 or S3 (see deploy/README.md)
+      FILES_ENDPOINT: ${FILES_ENDPOINT:-}
+      FILES_REGION: ${FILES_REGION:-}
+      FILES_ACCESS_KEY_ID: ${FILES_ACCESS_KEY_ID:-}
+      FILES_SECRET_ACCESS_KEY: ${FILES_SECRET_ACCESS_KEY:-}
     volumes: [dashboard-data:/data]
     depends_on: [calendar-service, users-service]
 

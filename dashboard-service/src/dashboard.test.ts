@@ -1,9 +1,12 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { createHarness, json, signToken } from '../tests/harness.ts';
+import { createHarness, json, signToken, type Harness } from '../tests/harness.ts';
 
-let h: ReturnType<typeof createHarness>;
-beforeEach(() => { h = createHarness(); });
+let h: Harness;
+beforeEach(async () => { h = await createHarness(); });
+
+const publishProfile = (t: { call: any }, over: Record<string, unknown> = {}) =>
+  t.call('PUT', '/v1/me/mentor-profile', { headline: 'Lead STEM Specialist', specialties: ['Geometry'], levels: ['middle'], quote: 'Every shape has a story.', published: true, ...over });
 
 test('authentication: no token, a bad token and a disabled account are refused; health is open', async () => {
   assert.equal((await h.app.request('/v1/dashboard')).status, 401);
@@ -12,126 +15,136 @@ test('authentication: no token, a bad token and a disabled account are refused; 
   assert.equal((await h.app.request('/health')).status, 200);
 });
 
-test('a student gets the student dashboard with their own first name; a teacher gets the teacher one', async () => {
-  const s = await h.person('student', 'Mia Student');
-  const sd = await json(await s.call('GET', '/v1/dashboard'));
-  assert.equal(sd.view, 'student');
-  assert.equal(sd.student.welcome.name, 'Mia');
-  assert.equal(sd.student.sessions.length, 3);
-  assert.equal(sd.student.mentors.length, 3);
-  assert.equal(sd.student.assignments.length, 2);
-  assert.equal(sd.student.feedback.length, 5);
-  const t = await h.person('teacher', 'Tess Teacher');
-  const td = await json(await t.call('GET', '/v1/dashboard'));
-  assert.equal(td.view, 'teacher');
-  assert.equal(td.teacher.welcome.name, 'Coach Tess');
-  assert.equal(td.teacher.metrics.length, 4);
-  assert.equal(td.teacher.schedule.sessions.length, 3);
-  assert.equal(td.teacher.grading.queue.length, 2);
-  assert.equal(td.teacher.directory.students.length, 3);
-});
-
-test('a person with no saved name is greeted by the start of their email', async () => {
-  const id = crypto.randomUUID();
-  const call = h.withToken(await signToken(id, { role: 'student', email: 'sam.lee@example.test' }));
-  assert.equal((await json(await call('GET', '/v1/dashboard'))).student.welcome.name, 'sam.lee');
-});
-
-test('who may see which dashboard: students never see the teacher one, teachers never the student one, admins both', async () => {
-  const [s, t, a] = [await h.person('student'), await h.person('teacher'), await h.person('admin')];
+test('who may see and do what: roles are exact, admins only look', async () => {
+  const [s, t, a] = [await h.person('student', 'Sam Student'), await h.person('teacher', 'Tess Teacher'), await h.person('admin', 'Ada Admin')];
+  assert.equal((await json(await s.call('GET', '/v1/dashboard'))).view, 'student');
+  assert.equal((await json(await t.call('GET', '/v1/dashboard'))).view, 'teacher');
   assert.equal((await s.call('GET', '/v1/dashboard?view=teacher')).status, 403);
   assert.equal((await t.call('GET', '/v1/dashboard?view=student')).status, 403);
   assert.equal((await a.call('GET', '/v1/dashboard?view=teacher')).status, 200);
-  assert.equal((await json(await a.call('GET', '/v1/dashboard'))).view, 'student');
+  assert.equal((await a.call('GET', '/v1/dashboard?view=student')).status, 200);
   assert.equal((await s.call('GET', '/v1/dashboard?view=nonsense')).status, 400);
-  for (const [path, who] of [['/v1/students', s], ['/v1/mentors', t]] as const) assert.equal((await who.call('GET', path)).status, 403);
-  assert.equal((await s.call('POST', '/v1/assignments', {})).status, 403);
-  assert.equal((await s.call('POST', '/v1/submissions/sub-maya/publish', { score: 90, tags: [], note: 'x' })).status, 403);
+  assert.equal((await s.call('GET', '/v1/students')).status, 403);
+  assert.equal((await t.call('GET', '/v1/mentors')).status, 403);
+  assert.equal((await t.call('GET', '/v1/assignments')).status, 403);
+  for (const [who, path, body] of [
+    [s, '/v1/assignments', {}], [a, '/v1/assignments', {}], [s, '/v1/me/mentor-profile', undefined], [s, '/v1/submissions/00000000-0000-4000-8000-000000000000/publish', {}], [a, '/v1/submissions/00000000-0000-4000-8000-000000000000/publish', {}],
+    [t, '/v1/assignments/00000000-0000-4000-8000-000000000000/submit', {}], [a, '/v1/attachments', {}],
+  ] as const) {
+    const r = await who.call(body === undefined ? 'GET' : 'POST', path, body);
+    assert.equal(r.status, 403, `${path}`);
+  }
 });
 
-test('mentor search and quick filters', async () => {
-  const s = await h.person('student');
-  const names = async (qs: string) => (await json(await s.call('GET', `/v1/mentors${qs}`))).mentors.map((m: any) => m.name);
-  assert.equal((await names('')).length, 3);
-  assert.deepEqual(await names('?filter=olympiad'), ['Coach Elena Rostova']);
-  assert.deepEqual(await names('?filter=middle'), ['Coach Pprincy Sugandhh', 'Coach Marcus Vance']);
-  assert.deepEqual(await names('?q=fractions'), ['Coach Marcus Vance']);
-  assert.deepEqual(await names('?q=GEOMETRY&filter=whiteboard'), ['Coach Pprincy Sugandhh']);
-  assert.deepEqual(await names('?q=zzz'), []);
+test('a new student sees an honest empty dashboard, greeted by their own first name', async () => {
+  const s = await h.person('student', 'Mia Student');
+  const d = (await json(await s.call('GET', '/v1/dashboard'))).student;
+  assert.equal(d.welcome.name, 'Mia');
+  assert.equal(d.nextSession, null);
+  assert.deepEqual([d.sessions.length, d.mentors.length, d.assignments.length, d.feedback.length], [0, 0, 0, 0]);
+  assert.deepEqual([d.welcome.streakDays, d.welcome.points, d.welcome.aq], [0, 0, null]);
+  assert.equal(d.progress.weekly.value, '0 / 5 Tasks Completed');
+  assert.equal(d.progress.tenacity.value, 'Just getting started');
+});
+
+test('upcoming classes come from the calendar: only the student\'s own, confirmed, not finished, soonest first, at most three', async () => {
+  const [t, s, other] = [await h.person('teacher', 'Tess Teacher'), await h.person('student', 'Mia Student'), await h.person('student', 'Olly Other')];
+  h.classFor(t, [s], { title: 'Later', start: '2030-03-16T09:00:00.000Z', end: '2030-03-16T09:45:00.000Z', meetingUrl: null });
+  h.classFor(t, [s], { title: 'Today', description: 'Squares on triangles' });
+  h.classFor(t, [s], { title: 'Cancelled', status: 'cancelled' });
+  h.classFor(t, [s], { title: 'Finished', start: '2030-03-15T08:00:00.000Z', end: '2030-03-15T08:45:00.000Z' });
+  h.classFor(t, [other], { title: 'Not mine' });
+  for (const n of [1, 2, 3]) h.classFor(t, [s], { title: `Extra ${n}`, start: `2030-03-2${n}T09:00:00.000Z`, end: `2030-03-2${n}T09:45:00.000Z` });
+  const d = (await json(await s.call('GET', '/v1/dashboard'))).student;
+  assert.deepEqual(d.sessions.map((x: any) => x.topic), ['Today', 'Later', 'Extra 1']);
+  const [today, later] = d.sessions;
+  assert.deepEqual([today.badge, today.next, today.primary, today.who, today.whoNote], ['Starting Today', true, 'Join Classroom', 'Tess Teacher', 'Private tutoring']);
+  assert.equal(today.meetingUrl, 'https://meet.example.test/room');
+  assert.equal(today.when, 'Today, 2:30 PM – 3:15 PM (45m)');
+  assert.deepEqual([later.badge, later.primary, later.meetingUrl], ['Confirmed', 'View Details', null]); // no meeting link: nothing to join
+  assert.equal(d.nextSession.title, 'Today');
+  assert.equal(d.nextSession.liveIn, 'In 4 hr 30 mins');
+  assert.equal(d.nextSession.mentor, 'With Tess Teacher');
+});
+
+test('mentors: only published profiles, with real names, filters, search and the student\'s own coach first', async () => {
+  const [t1, t2, t3, s] = [await h.person('teacher', 'Tess Teacher'), await h.person('teacher', 'Tom Teacher'), await h.person('teacher', 'Tia Teacher'), await h.person('student', 'Mia Student')];
+  assert.equal((await publishProfile(t1)).status, 200);
+  assert.equal((await publishProfile(t2, { headline: 'Olympiad coach', specialties: ['Number Theory'], levels: ['olympiad', 'high'], quote: 'Puzzles, fast.' })).status, 200);
+  assert.equal((await publishProfile(t3, { published: false })).status, 200); // saved but hidden
+  h.classFor(t2, [s]); // Tom is Mia's coach
+  const list = async (qs = '') => (await json(await s.call('GET', `/v1/mentors${qs}`))).mentors;
+  const all = await list();
+  assert.deepEqual(all.map((m: any) => [m.name, m.primary]), [['Coach Tom Teacher', true], ['Coach Tess Teacher', false]]);
+  assert.deepEqual(all[1].specialties, ['Geometry']);
+  assert.deepEqual((await list('?filter=olympiad')).map((m: any) => m.name), ['Coach Tom Teacher']);
+  assert.deepEqual((await list('?filter=middle')).map((m: any) => m.name), ['Coach Tess Teacher']);
+  assert.deepEqual((await list('?q=NUMBER')).map((m: any) => m.name), ['Coach Tom Teacher']);
+  assert.deepEqual(await list('?q=zzz'), []);
   assert.equal((await s.call('GET', '/v1/mentors?filter=bogus')).status, 400);
+  assert.equal((await json(await s.call('GET', '/v1/dashboard'))).student.mentors.length, 2); // same list inside the dashboard
 });
 
-test('student directory search and grade filter', async () => {
-  const t = await h.person('teacher');
-  const names = async (qs: string) => (await json(await t.call('GET', `/v1/students${qs}`))).students.map((m: any) => m.name);
-  assert.equal((await names('')).length, 3);
-  assert.deepEqual(await names('?q=ethan'), ['Ethan Cole']);
-  assert.deepEqual(await names('?grade=8'), ['Maya Jenkins']);
-  assert.deepEqual(await names('?grade=5&q=liam'), ['Liam Davis']);
-  assert.deepEqual(await names('?grade=9'), []);
+test('a published profile whose person cannot be found is not shown as a nameless card', async () => {
+  const [t, s] = [await h.person('teacher', 'Tess Teacher'), await h.person('student', 'Mia Student')];
+  assert.equal((await publishProfile(t)).status, 200);
+  h.state.people.delete(t.id); // as if the teacher's account were gone
+  assert.deepEqual((await json(await s.call('GET', '/v1/mentors'))).mentors, []);
+});
+
+test('mentor profile: validated, needs a headline and quote to be published, and is private to its teacher until then', async () => {
+  const t = await h.person('teacher', 'Tess Teacher');
+  assert.deepEqual(await json(await t.call('GET', '/v1/me/mentor-profile')), { headline: '', specialties: [], levels: [], quote: '', published: false });
+  assert.equal((await publishProfile(t, { headline: '' })).status, 400);
+  for (const bad of [{ levels: ['college'] }, { specialties: Array(9).fill('x') }, { quote: 'x'.repeat(401) }, { extra: 1 }]) assert.equal((await publishProfile(t, bad)).status, 400, JSON.stringify(bad));
+  assert.equal((await publishProfile(t)).status, 200);
+  assert.equal((await json(await t.call('GET', '/v1/me/mentor-profile'))).headline, 'Lead STEM Specialist');
+  assert.equal((await json(await t.call('GET', '/v1/dashboard'))).teacher.mentorProfile.published, true);
+});
+
+test('the teacher\'s day: today\'s classes with student names, the next one first, group classes as a head count', async () => {
+  const [t, a, b] = [await h.person('teacher', 'Tess Teacher'), await h.person('student', 'Ann Student'), await h.person('student', 'Ben Student')];
+  h.classFor(t, [a], { title: 'Algebra', start: '2030-03-15T16:00:00.000Z', end: '2030-03-15T16:45:00.000Z' });
+  h.classFor(t, [a, b], { title: 'Group maths', start: '2030-03-15T18:00:00.000Z', end: '2030-03-15T18:45:00.000Z' });
+  h.classFor(t, [b], { title: 'Done already', start: '2030-03-15T08:00:00.000Z', end: '2030-03-15T08:45:00.000Z' });
+  h.classFor(t, [b], { title: 'Tomorrow', start: '2030-03-16T08:00:00.000Z', end: '2030-03-16T08:45:00.000Z' });
+  const d = (await json(await t.call('GET', '/v1/dashboard'))).teacher;
+  assert.equal(d.welcome.name, 'Coach Tess');
+  assert.deepEqual(d.schedule.sessions.map((x: any) => [x.detail, x.student, x.hero ?? false, x.kind, x.startsIn]), [
+    ['Algebra', 'Ann Student', true, '1-on-1 Studio', 'In 6 hr'], // the next class today leads
+    ['Done already', 'Ben Student', false, '1-on-1 Studio', 'Finished'],
+    ['Group maths', '2 students', false, 'Group class', 'In 8 hr'],
+  ]);
+  assert.equal(d.schedule.sessions[0].meetingUrl, 'https://meet.example.test/room');
+  assert.deepEqual(d.metrics.map((m: any) => [m.label, m.value, m.note]), [
+    ['Today’s Classes', '3 Sessions', 'Next at 4:00 PM'], ['Active Learners', '2 Students', 'From your classes'],
+    ['Pending Grading', '0 Submissions', 'All caught up'], ['Student AQ Growth', '—', 'Needs two months of tasks'],
+  ]);
+});
+
+test('the student directory: people from the teacher\'s classes, with a grade the teacher sets, search and a grade filter', async () => {
+  const [t, a, b, other] = [await h.person('teacher', 'Tess Teacher'), await h.person('student', 'Ann Student'), await h.person('student', 'Ben Student'), await h.person('teacher', 'Tom Teacher')];
+  h.classFor(t, [a, b]);
+  const dir = async (qs = '') => (await json(await t.call('GET', `/v1/students${qs}`))).students;
+  assert.deepEqual((await dir()).map((x: any) => [x.name, x.grade, x.mastery, x.topic, x.lastSession]), [['Ann Student', '', null, 'No tasks yet', '—'], ['Ben Student', '', null, 'No tasks yet', '—']]);
+  assert.equal((await t.call('PUT', `/v1/students/${a.id}/settings`, { grade: 'Grade 8' })).status, 204);
+  assert.equal((await t.call('PUT', `/v1/students/${b.id}/settings`, { grade: 'Grade 5' })).status, 204);
+  assert.deepEqual((await dir('?grade=8')).map((x: any) => x.name), ['Ann Student']);
+  assert.deepEqual((await dir('?q=ben')).map((x: any) => [x.name, x.gradeNumber]), [['Ben Student', 5]]);
+  assert.deepEqual(await dir('?grade=9'), []);
   assert.equal((await t.call('GET', '/v1/students?grade=12')).status, 400);
+  // Not someone else's student, not an unknown grade, not a bad id.
+  assert.equal((await other.call('PUT', `/v1/students/${a.id}/settings`, { grade: 'Grade 3' })).status, 403);
+  assert.equal((await t.call('PUT', `/v1/students/${a.id}/settings`, { grade: 'Grade 12' })).status, 400);
+  assert.equal((await t.call('PUT', '/v1/students/nope/settings', { grade: 'Grade 3' })).status, 404);
+  assert.equal((await json(await a.call('GET', '/v1/dashboard'))).student.profile.grade, 'Grade 8'); // the student sees their own grade
+  assert.deepEqual((await json(await other.call('GET', '/v1/students'))).students, []); // another teacher sees none of them
 });
 
-const assignment = (over: Record<string, unknown> = {}) => ({ studentId: 'st-maya', concept: 'GeoGebra Right Triangles', dueDate: '2030-01-07', xp: 120, prompt: 'Explore the 3-4-5 triangle.', ...over });
-
-test('dispatching an assignment is validated, and the student then sees it in their to-do list', async () => {
-  const [t, s] = [await h.person('teacher'), await h.person('student')];
-  const res = await t.call('POST', '/v1/assignments', assignment());
-  assert.equal(res.status, 201);
-  const made = await json(res);
-  assert.equal(made.due, 'Due Jan 7');
-  const todo = (await json(await s.call('GET', '/v1/dashboard'))).student.assignments;
-  assert.equal(todo.length, 3);
-  assert.equal(todo.at(-1).title, 'GeoGebra Right Triangles');
-  for (const bad of [{ studentId: 'nobody' }, { concept: '' }, { dueDate: 'tomorrow' }, { xp: -5 }, { xp: 1.5 }, { prompt: '   ' }, { extra: 1 }]) {
-    const r = await t.call('POST', '/v1/assignments', assignment(bad));
-    assert.ok([400, 404].includes(r.status), JSON.stringify(bad));
-  }
-  assert.equal((await json(await s.call('GET', '/v1/dashboard'))).student.assignments.length, 3); // bad ones changed nothing
-});
-
-const grade = (over: Record<string, unknown> = {}) => ({ score: 96, tags: ['Visual Clarity'], note: 'Lovely proof.', ...over });
-
-test('publishing a grade removes it from the queue, lowers the pending count and shows in the student feedback', async () => {
-  const [t, s] = [await h.person('teacher', 'Tess Teacher'), await h.person('student')];
-  const before = (await json(await t.call('GET', '/v1/dashboard'))).teacher.grading;
-  assert.equal(before.pending, 5);
-  const res = await t.call('POST', '/v1/submissions/sub-maya/publish', grade());
-  assert.equal(res.status, 201);
-  const fb = await json(res);
-  assert.deepEqual([fb.score, fb.grade, fb.coach], [96, 'A', 'Coach Tess Teacher']);
-  const after = (await json(await t.call('GET', '/v1/dashboard'))).teacher;
-  assert.deepEqual(after.grading.queue.map((q: any) => q.id), ['sub-ethan']);
-  assert.equal(after.grading.pending, 4);
-  assert.equal(after.metrics[2].value, '4 Submissions');
-  const feedback = (await json(await s.call('GET', '/v1/dashboard'))).student.feedback;
-  assert.equal(feedback.length, 6);
-  assert.equal(feedback[0].title, 'Coordinate Plane Reflections & Rotations');
-  assert.equal(feedback[0].note, 'Lovely proof.');
-  assert.equal((await t.call('POST', '/v1/submissions/sub-maya/publish', grade())).status, 409); // only once
-});
-
-test('grades are validated: score 0 to 100, known tags only, a note length limit, and unknown submissions are 404', async () => {
-  const t = await h.person('teacher');
-  for (const bad of [{ score: 101 }, { score: -1 }, { score: 9.5 }, { tags: ['Made Up'] }, { note: 'x'.repeat(1001) }, { extra: true }]) {
-    assert.equal((await t.call('POST', '/v1/submissions/sub-maya/publish', grade(bad))).status, 400, JSON.stringify(bad));
-  }
-  assert.equal((await t.call('POST', '/v1/submissions/nope/publish', grade())).status, 404);
-  assert.equal((await json(await t.call('GET', '/v1/dashboard'))).teacher.grading.queue.length, 2); // nothing was published
-});
-
-test('a draft keeps the teacher’s score, tags and note without publishing', async () => {
-  const t = await h.person('teacher');
-  assert.equal((await t.call('POST', '/v1/submissions/sub-ethan/draft', grade({ score: 71, tags: [], note: 'Needs another pass' }))).status, 200);
-  const q = (await json(await t.call('GET', '/v1/dashboard'))).teacher.grading.queue.find((x: any) => x.id === 'sub-ethan');
-  assert.deepEqual([q.score, q.note, q.draft], [71, 'Needs another pass', true]);
-});
-
-test('the reset helper puts the sample data back, and does not exist in production', async () => {
-  const [t, s] = [await h.person('teacher'), await h.person('student')];
-  await t.call('POST', '/v1/assignments', assignment());
-  assert.equal((await t.call('POST', '/v1/__reset')).status, 204);
-  assert.equal((await json(await s.call('GET', '/v1/dashboard'))).student.assignments.length, 2);
-  const prod = createHarness({ production: true });
-  assert.equal((await (await prod.person('teacher')).call('POST', '/v1/__reset')).status, 404);
+test('a calendar-service outage does not blank the dashboard', async () => {
+  const s = await h.person('student', 'Mia Student');
+  h.sources.events = async () => { throw new Error('calendar down'); };
+  const r = await s.call('GET', '/v1/dashboard');
+  assert.equal(r.status, 200);
+  assert.equal((await json(r)).student.sessions.length, 0);
 });

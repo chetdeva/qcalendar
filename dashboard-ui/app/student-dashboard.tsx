@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { CalendarDays, CalendarPlus, Check, ChevronRight, Eye, FileText, Flame, GraduationCap, MessageSquare, MonitorPlay, NotebookPen, Play, Search, SlidersHorizontal, Sparkles, Star, Target, TrendingUp, Trophy, Users, Video, Zap } from 'lucide-react';
+import { CalendarDays, CalendarPlus, Check, ChevronRight, Eye, FileText, Flame, GraduationCap, MessageSquare, MonitorPlay, NotebookPen, Search, SlidersHorizontal, Sparkles, Star, Target, TrendingUp, Trophy, Users, Video, Zap } from 'lucide-react';
 import type { Assignment, Feedback, Mentor, Session, StudentDashboard as Data } from '@/lib/types';
 import { calendarUrl, chatUrl } from '@/lib/env';
 import { api } from './api-client';
@@ -32,16 +33,28 @@ function Welcome({ d }: { d: Data }) {
         <p className="blurb">{w.blurb}</p>
         <ul className="chips">
           <li><Flame size={14} aria-hidden /> Current Streak: <b>{w.streakDays} Days</b></li>
-          <li><Target size={14} aria-hidden /> AQ Score: <b className="blue">{w.aq}/100</b> (Tenacity)</li>
+          <li><Target size={14} aria-hidden /> AQ Score: <b className="blue">{w.aq === null ? '—' : `${w.aq}/100`}</b> (Tenacity)</li>
           <li><Star size={14} aria-hidden /> Points: <b>{w.points.toLocaleString('en-US')}</b></li>
           <li className="chip-quiet"><GraduationCap size={14} aria-hidden /> {d.profile.grade}</li>
         </ul>
       </div>
       <aside className="next-card" aria-label="Next session">
-        <div className="next-top"><span className="live"><i />{d.nextSession.liveIn}</span><small>Classroom ID: {d.nextSession.classroomId}</small></div>
-        <h2>{d.nextSession.title}</h2>
-        <p className="who"><Users size={14} aria-hidden /> {d.nextSession.mentor}</p>
-        <Soon className="btn-primary btn-block"><Video size={18} aria-hidden /> Join Live Classroom <span className="ready">Ready</span></Soon>
+        {d.nextSession ? (
+          <>
+            <div className="next-top"><span className="live"><i />{d.nextSession.liveIn}</span><small>Classroom ID: {d.nextSession.classroomId}</small></div>
+            <h2>{d.nextSession.title}</h2>
+            <p className="who"><Users size={14} aria-hidden /> {d.nextSession.mentor}</p>
+            {d.nextSession.meetingUrl
+              ? <a className="btn-primary btn-block" href={d.nextSession.meetingUrl} target="_blank" rel="noopener noreferrer"><Video size={18} aria-hidden /> Join Live Classroom</a>
+              : <a className="btn-primary btn-block" href={calendarUrl}><CalendarDays size={18} aria-hidden /> View in Calendar</a>}
+          </>
+        ) : (
+          <>
+            <h2>No class coming up</h2>
+            <p className="who">Book a session with a mentor to get started.</p>
+            <a className="btn-primary btn-block" href={calendarUrl}><CalendarPlus size={18} aria-hidden /> Open Calendar</a>
+          </>
+        )}
         <Soon className="btn-ghost btn-block"><Sparkles size={16} aria-hidden /> Launch AI Warm-Up with Sparky</Soon>
       </aside>
     </section>
@@ -80,32 +93,31 @@ function Sessions({ sessions }: { sessions: Session[] }) {
         <h2 id="sessions-h">Upcoming Scheduled Classes &amp; Sessions</h2>
         <a className="link-end" href={calendarUrl}>Full Calendar View <ChevronRight size={14} aria-hidden /></a>
       </div>
-      <div className="cards3">
-        {sessions.map((s) => (
-          <article key={s.id} className={`session ${s.next ? 'session-next' : ''}`} aria-label={`${s.who}, ${s.when}`}>
-            <div className="session-top"><span className="when">{s.when}</span><span className={`badge badge-${s.tone}`}>{s.badge}</span></div>
-            <div className="who-row">
-              <Avatar name={s.who} initials={initialsOf(s.who)} photo={s.who.includes('Pprincy') ? '/images/princy.jpg' : undefined} size={44} />
-              <div><h3>{s.who}</h3><small>{s.whoNote}</small></div>
-            </div>
-            <div className="topic"><small>{s.topicLabel}</small><h4>{s.topic}</h4><p>{s.blurb}</p></div>
-            {s.next ? (
+      {sessions.length === 0 ? <p className="empty">No upcoming classes yet. When a teacher invites you, it shows up here.</p> : (
+        <div className="cards3">
+          {sessions.map((s) => (
+            <article key={s.id} className={`session ${s.next ? 'session-next' : ''}`} aria-label={`${s.topic}, ${s.when}`}>
+              <div className="session-top"><span className="when">{s.when}</span><span className={`badge badge-${s.tone}`}>{s.badge}</span></div>
+              <div className="who-row">
+                <Avatar name={s.who} initials={initialsOf(s.who)} size={44} />
+                <div><h3>{s.who}</h3><small>{s.whoNote}</small></div>
+              </div>
+              <div className="topic"><small>{s.topicLabel}</small><h4>{s.topic}</h4>{s.blurb && <p>{s.blurb}</p>}</div>
               <div className="actions">
-                <Soon className="btn-primary btn-block"><MonitorPlay size={16} aria-hidden /> {s.primary}</Soon>
-                <div className="duo">
-                  <Soon className="btn-soft"><FileText size={14} aria-hidden /> Class Prep Notes</Soon>
-                  <a className="btn-soft" href={calendarUrl}><CalendarPlus size={14} aria-hidden /> Reschedule</a>
-                </div>
+                {s.meetingUrl
+                  ? <a className={s.next ? 'btn-primary btn-block' : 'btn-soft btn-block'} href={s.meetingUrl} target="_blank" rel="noopener noreferrer"><MonitorPlay size={16} aria-hidden /> {s.primary}</a>
+                  : <a className="btn-soft btn-block" href={calendarUrl}><Eye size={14} aria-hidden /> {s.primary}</a>}
+                {s.next && (
+                  <div className="duo">
+                    <Soon className="btn-soft"><FileText size={14} aria-hidden /> Class Prep Notes</Soon>
+                    <a className="btn-soft" href={calendarUrl}><CalendarPlus size={14} aria-hidden /> Reschedule</a>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="actions row">
-                <Soon className="btn-soft grow"><Eye size={14} aria-hidden /> {s.primary}</Soon>
-                <a className="round" href={chatUrl} aria-label="Message about this class"><MessageSquare size={16} aria-hidden /></a>
-              </div>
-            )}
-          </article>
-        ))}
-      </div>
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -141,16 +153,16 @@ function MentorFinder({ d }: { d: Data }) {
         {d.mentorFilters.map((f) => <button key={f.id} type="button" className="fchip" aria-pressed={filter === f.id} onClick={() => setFilter(f.id)}>{f.label}</button>)}
       </div>
       {error && <p className="err" role="alert">{error}</p>}
-      {mentors.length === 0 ? <p className="empty">No mentors match your search.</p> : (
+      {mentors.length === 0 ? <p className="empty">{q || filter !== 'all' ? 'No mentors match your search.' : 'No mentors have published a profile yet.'}</p> : (
         <div className="cards3 mentors">
           {mentors.map((m) => (
             <article key={m.id} className={`mentor ${m.primary ? 'mentor-primary' : ''}`} aria-label={m.name}>
               {m.primary && <span className="primary-badge"><Star size={11} aria-hidden /> Your Primary Coach</span>}
               <div className="who-row top">
-                <Avatar name={m.name} initials={m.initials} photo={m.photo} size={64} />
-                <div><h3>{m.name}</h3><small className="head-line">{m.headline}</small><p className="rating"><Star size={13} aria-hidden /> <b>{m.rating}</b> ({m.reviews} student reviews)</p></div>
+                <Avatar name={m.name} initials={m.initials} size={64} />
+                <div><h3>{m.name}</h3><small className="head-line">{m.headline}</small></div>
               </div>
-              <ul className="tags">{m.tags.map((t) => <li key={t}>{t}</li>)}</ul>
+              <ul className="tags">{m.specialties.map((t) => <li key={t}>{t}</li>)}</ul>
               <blockquote>“{m.quote}”</blockquote>
               <a className={m.primary ? 'btn-primary btn-block' : 'btn-soft btn-block'} href={calendarUrl}><CalendarPlus size={15} aria-hidden /> {m.primary ? 'Book Extra 1:1 Session' : 'Book 1:1 Session'}</a>
               <div className="duo">
@@ -171,7 +183,7 @@ function Assignments({ d }: { d: Data }) {
     <section aria-labelledby="assign-h">
       <div className="sec-head">
         <span className="icon icon-sm tone-rose"><NotebookPen size={18} aria-hidden /></span>
-        <div><h2 id="assign-h">My Assignments, Practice &amp; Feedback</h2><p className="sub">Track ongoing whiteboard tasks and review coach feedback with audio playback.</p></div>
+        <div><h2 id="assign-h">My Assignments, Practice &amp; Feedback</h2><p className="sub">Track your tasks and read your teachers’ feedback.</p></div>
         <div className="segmented" role="tablist" aria-label="Assignments view">
           <button type="button" role="tab" aria-selected={tab === 'active'} onClick={() => setTab('active')}>Active Tasks ({d.assignments.length})</button>
           <button type="button" role="tab" aria-selected={tab === 'graded'} onClick={() => setTab('graded')}>Graded &amp; Feedback ({d.feedback.length})</button>
@@ -180,8 +192,10 @@ function Assignments({ d }: { d: Data }) {
       {tab === 'active' ? (
         <div className="split">
           <div>
-            <h3 className="col-h">To-Do Scratchpad &amp; Whiteboards <span className="count">{d.assignments.length} Active</span></h3>
-            <ul className="list" aria-label="Active tasks">{d.assignments.map((a, i) => <Task key={a.id} a={a} primary={i === 0} />)}</ul>
+            <h3 className="col-h">To-Do <span className="count">{d.assignments.length} Active</span></h3>
+            {d.assignments.length === 0 ? <p className="empty">No tasks right now. Your teacher’s tasks will show up here.</p> : (
+              <ul className="list" aria-label="Active tasks">{d.assignments.map((a, i) => <Task key={a.id} a={a} primary={i === 0} />)}</ul>
+            )}
             <article className="sparky">
               <span className="icon tone-sun"><Sparkles size={22} aria-hidden /></span>
               <div><h4>Stuck on a tricky step?</h4><p>Ask Sparky AI to sketch intuition hints directly on your scratchpad (no spoiler answers!).</p></div>
@@ -189,12 +203,12 @@ function Assignments({ d }: { d: Data }) {
             </article>
           </div>
           <div>
-            <h3 className="col-h">Recent Coach Feedback <span className="count count-plain">{Math.min(2, d.feedback.length)} New Reviews</span></h3>
-            <div className="list">{d.feedback.slice(0, 2).map((f) => <FeedbackCard key={f.id} f={f} />)}</div>
+            <h3 className="col-h">Recent Coach Feedback <span className="count count-plain">{d.feedback.length} Graded</span></h3>
+            {d.feedback.length === 0 ? <p className="empty">No graded work yet.</p> : <div className="list">{d.feedback.slice(0, 2).map((f) => <FeedbackCard key={f.id} f={f} />)}</div>}
           </div>
         </div>
       ) : (
-        <div className="cards3 graded" role="tabpanel">{d.feedback.map((f) => <FeedbackCard key={f.id} f={f} />)}</div>
+        d.feedback.length === 0 ? <p className="empty">No graded work yet.</p> : <div className="cards3 graded" role="tabpanel">{d.feedback.map((f) => <FeedbackCard key={f.id} f={f} />)}</div>
       )}
     </section>
   );
@@ -210,7 +224,7 @@ function Task({ a, primary }: { a: Assignment; primary: boolean }) {
         <p>{a.description}</p>
         <div className="progress-row"><Bar pct={pct} label={`${a.title} progress`} /><small>{a.status}</small></div>
       </div>
-      <Soon className={primary ? 'btn-primary' : 'btn-soft'}>{primary ? <Zap size={14} aria-hidden /> : <Play size={14} aria-hidden />} {a.action}</Soon>
+      <Link className={primary ? 'btn-primary' : 'btn-soft'} href={`/assignments/${a.id}`}><Zap size={14} aria-hidden /> {a.action}</Link>
     </li>
   );
 }
@@ -220,15 +234,10 @@ function FeedbackCard({ f }: { f: Feedback }) {
     <article className="feedback" aria-label={`${f.title}, ${f.gradedLabel}`}>
       <div className="fb-top"><small>{f.gradedLabel}</small><span className={`score ${f.score >= 95 ? 'score-top' : ''}`}>{f.score >= 95 ? <Star size={12} aria-hidden /> : <Check size={12} aria-hidden />} Score: {f.score}/100 ({f.grade})</span></div>
       <h4>{f.title}</h4>
-      <p className="coach"><Users size={12} aria-hidden /> {f.coach}{f.audio && <> • {f.audio} Audio Note attached</>}</p>
-      <blockquote>“{f.note}”</blockquote>
-      {f.audio && (
-        <div className="audio" aria-label={`Audio note, ${f.audio}`}>
-          <Soon className="play" label="Play audio note"><Play size={12} aria-hidden /></Soon>
-          <span className="track"><i /></span><small>0:{f.audio.replace('s', '')}</small>
-        </div>
-      )}
-      <Soon className="btn-soft btn-block"><FileText size={13} aria-hidden /> {f.action}</Soon>
+      <p className="coach"><Users size={12} aria-hidden /> {f.coach}</p>
+      {f.tags.length > 0 && <ul className="tags">{f.tags.map((t) => <li key={t}>{t}</li>)}</ul>}
+      {f.note && <blockquote>“{f.note}”</blockquote>}
+      <Link className="btn-soft btn-block" href={`/assignments/${f.assignmentId}`}><FileText size={13} aria-hidden /> View Graded Task</Link>
     </article>
   );
 }

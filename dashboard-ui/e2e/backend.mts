@@ -24,10 +24,13 @@ const refreshTokens = new Map<string, string>();
 const directory = new MemoryDirectory();
 const byEmail = (email: string) => [...users.values()].find((u) => u.email.toLowerCase() === email.toLowerCase());
 
-function createUser(email: string, password: string, role: 'student' | 'teacher' | 'admin', name: string) {
+/** Same secret the dashboard-service test server is started with (USERS_SERVICE_API_KEY). */
+const SERVICE_KEY = 'e2e-service-key-e2e-service-key-0123456789';
+
+function createUser(email: string, password: string, role: 'student' | 'teacher' | 'admin', name: string, guardianEmail?: string) {
   const u: AuthUser = { id: randomUUID(), email, password, name, createdAt: new Date().toISOString() };
   users.set(u.id, u);
-  directory.addProfile({ id: u.id, email, full_name: name || null, role }); // what the database triggers do in production
+  directory.addProfile({ id: u.id, email, full_name: name || null, role, ...(guardianEmail ? { guardian_email: guardianEmail } : {}) }); // what the database triggers do in production
   return u;
 }
 
@@ -74,7 +77,7 @@ http.createServer(async (req, res) => {
   }
   if (path === '/__test/user' && req.method === 'POST') {
     const b = await readJson(req);
-    const u = createUser(b.email, b.password ?? 'password123', b.role ?? 'student', b.name ?? b.email.split('@')[0]);
+    const u = createUser(b.email, b.password ?? 'password123', b.role ?? 'student', b.name ?? b.email.split('@')[0], b.guardianEmail);
     return send(res, 200, { id: u.id, email: u.email, name: u.name });
   }
 
@@ -112,7 +115,7 @@ http.createServer(async (req, res) => {
   process.exit(1);
 }).listen(AUTH_PORT, () => console.log(`fake supabase auth on :${AUTH_PORT}`));
 
-const usersApp = createApp({ verifier: createVerifier(async () => publicKey, ISS), directory, inviteRedirectTo: 'http://localhost:58765/accept-invite' });
+const usersApp = createApp({ verifier: createVerifier(async () => publicKey, ISS), directory, inviteRedirectTo: 'http://localhost:58765/accept-invite', serviceApiKey: SERVICE_KEY });
 serve({ fetch: usersApp.fetch, port: USERS_PORT }, (i) => console.log(`users-service (real code, in-memory directory) on :${i.port}`));
 
 // A stand-in for users-ui on :58765, just enough for the dashboard's links: login, account, and a POST-only sign-out.

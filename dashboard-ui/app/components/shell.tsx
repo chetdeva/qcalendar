@@ -17,7 +17,7 @@ function RoleSwitch({ view, isAdmin }: { view: View; isAdmin: boolean }) {
   );
 }
 
-export function Header({ name, view, isAdmin }: { name: string; view: View; isAdmin: boolean }) {
+export function Header({ name, view, isAdmin, current = 'dashboard', tasks = false }: { name: string; view: View; isAdmin: boolean; current?: 'dashboard' | 'assignments'; tasks?: boolean }) {
   return (
     <header className="site-top">
       <div className="top-in">
@@ -27,9 +27,11 @@ export function Header({ name, view, isAdmin }: { name: string; view: View; isAd
         </a>
         <RoleSwitch view={view} isAdmin={isAdmin} />
         <nav className="tabs" aria-label="Main">
-          <a href="/" aria-current="page">Dashboard</a>
+          <a href="/" aria-current={current === 'dashboard' ? 'page' : undefined}>Dashboard</a>
           <a href={calendarUrl}>Schedule &amp; Classes</a>
-          <Soon className="tab" label="Assignments & Tasks">Assignments &amp; Tasks <small>Soon</small></Soon>
+          {tasks
+            ? <a href="/assignments" aria-current={current === 'assignments' ? 'page' : undefined}>Assignments &amp; Tasks</a>
+            : <Soon className="tab" label="Assignments & Tasks">Assignments &amp; Tasks <small>Soon</small></Soon>}
           <Soon className="tab" label="Whiteboard & AI Practice">Whiteboard &amp; AI Practice <small>Soon</small></Soon>
           <a href={chatUrl}>Messages</a>
         </nav>
@@ -48,10 +50,6 @@ export function Header({ name, view, isAdmin }: { name: string; view: View; isAd
       </div>
     </header>
   );
-}
-
-export function PreviewNote() {
-  return <p className="preview" role="note">Preview: this dashboard shows sample data. Your real classes, tasks and grades arrive in the next release.</p>;
 }
 
 export function Footer() {

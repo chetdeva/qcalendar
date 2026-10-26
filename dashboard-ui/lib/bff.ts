@@ -29,7 +29,19 @@ export const callUsers = <T = any>(method: string, path: string, body?: unknown)
 
 export async function forwardDashboard(method: string, path: string, body?: unknown) {
   const { status, json } = await callDashboard(method, path, body);
-  return NextResponse.json(json, { status });
+  return status === 204 ? new NextResponse(null, { status }) : NextResponse.json(json, { status });
 }
 
 export const readBody = (req: Request) => req.json().catch(() => undefined);
+
+/** A raw (non-JSON) response from dashboard-service, such as an uploaded image, with the person's own token. */
+export async function rawDashboard(path: string): Promise<Response> {
+  const session = await currentSession();
+  if (!session) return new Response('Please sign in.', { status: 401 });
+  try {
+    const res = await fetch(`${dashboardBase()}${path}`, { headers: { authorization: `Bearer ${session.token}` }, cache: 'no-store' });
+    return new Response(res.body, { status: res.status, headers: { 'content-type': res.headers.get('content-type') ?? 'application/octet-stream', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'", 'cache-control': 'private, max-age=300' } });
+  } catch {
+    return new Response('The service is unreachable.', { status: 502 });
+  }
+}

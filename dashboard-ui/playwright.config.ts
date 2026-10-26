@@ -1,7 +1,9 @@
 import { defineConfig } from '@playwright/test';
-import { AUTH_URL, DASH_URL, USERS_UI, USERS_URL, WEB_URL } from './e2e/helpers';
+import path from 'node:path';
+import { AUTH_URL, CAL_URL, DASH_URL, SERVICE_KEY, USERS_UI, USERS_URL, WEB_URL } from './e2e/helpers';
 
-// The suite runs the UI against the REAL dashboard-service and users-service code. Override to test another checkout.
+// The suite runs the UI against the REAL dashboard-service, calendar-service and users-service code. Override to test another checkout.
+const CAL_DIR = process.env.CALENDAR_SERVICE_DIR ?? '../calendar-service';
 const DASH_DIR = process.env.DASHBOARD_SERVICE_DIR ?? '../dashboard-service';
 
 export default defineConfig({
@@ -28,10 +30,20 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
+      // The real calendar-service with an embedded Postgres in a throwaway folder: classes are what connect teachers and students.
+      command: `rm -rf .e2e-data && mkdir -p .e2e-data && cd ${CAL_DIR} && node --disable-warning=ExperimentalWarning src/index.ts`,
+      url: `${CAL_URL}/health`,
+      reuseExistingServer: false,
+      env: { PORT: String(new URL(CAL_URL).port), PGLITE_DIR: path.resolve(__dirname, '.e2e-data/calendar'), SUPABASE_URL: AUTH_URL, API_KEY: SERVICE_KEY, DEFAULT_TIMEZONE: 'UTC', MEETING_BASE_URL: 'https://meet.example.test' },
+    },
+    {
       command: `cd ${DASH_DIR} && node --disable-warning=ExperimentalWarning src/index.ts`,
       url: `${DASH_URL}/health`,
       reuseExistingServer: false,
-      env: { PORT: String(new URL(DASH_URL).port), SUPABASE_URL: AUTH_URL },
+      env: {
+        PORT: String(new URL(DASH_URL).port), SUPABASE_URL: AUTH_URL, PGLITE_DIR: path.resolve(__dirname, '.e2e-data/dashboard'),
+        CALENDAR_API_URL: CAL_URL, USERS_SERVICE_URL: USERS_URL, USERS_SERVICE_API_KEY: SERVICE_KEY,
+      },
     },
     {
       command: `npx next dev -p ${new URL(WEB_URL).port}`,

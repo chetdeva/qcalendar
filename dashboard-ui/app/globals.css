@@ -350,3 +350,27 @@ h1 em { font-style: normal; color: var(--primary); }
 }
 
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* assignments pages */
+.narrow { max-width: 860px; }
+.page-title { font-size: 28px; line-height: 34px; margin: 0; }
+.back { margin: 0; }
+.work { display: flex; flex-direction: column; gap: 20px; background: #fff; border-radius: 24px; padding: 28px; box-shadow: var(--lift); }
+.prompt { font-size: 16px; line-height: 24px; background: var(--tint); border-radius: 8px; padding: 16px; }
+.work-form { display: flex; flex-direction: column; gap: 16px; }
+.work-form legend { font-size: 13px; font-weight: 800; margin-bottom: 8px; }
+.steps { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 12px; }
+.steps label { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; cursor: pointer; }
+.steps input { width: 18px; height: 18px; accent-color: var(--primary); }
+.attach { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.file { font-size: 13px; color: var(--ink-2); }
+.answer { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--tint); border-radius: 8px; padding: 16px; }
+.shot { max-width: 100%; max-height: 420px; border-radius: 8px; border: 1px solid var(--line); object-fit: contain; align-self: flex-start; }
+.handed { display: flex; flex-direction: column; gap: 14px; }
+@media (max-width: 640px) { .work { padding: 18px; border-radius: 20px; } .page-title { font-size: 22px; line-height: 28px; } }
+
+.grade-pick { font: inherit; font-size: 12px; font-weight: 600; color: var(--ink-2); background: none; border: 0; padding: 0; margin-top: 2px; cursor: pointer; max-width: 100%; }
+.grade-pick:focus-visible { outline: 3px solid var(--primary-2); outline-offset: 2px; border-radius: 4px; }
+.check { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer; }
+.check input { width: 18px; height: 18px; accent-color: var(--primary); }
+.scratch .answer { background: #fff; }

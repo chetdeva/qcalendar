@@ -47,7 +47,10 @@ services:
   dashboard-service:
     restart: unless-stopped
     environment:
-      NODE_ENV: production # no /v1/__reset test helper in production
+      NODE_ENV: production # makes it refuse to start without DATABASE_URL
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env (Supabase session pooler string)} # same database as calendar, its own "dashboard" schema
+      DASHBOARD_URL: https://dashboard.${DOMAIN}
+      MAIL_FROM: ${MAIL_FROM:-Quanttoria <no-reply@quanttoria.com>}
 
   users-ui:
     restart: unless-stopped

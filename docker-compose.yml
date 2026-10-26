@@ -25,6 +25,7 @@ services:
     environment:
       PORT: "3010"
       INVITE_REDIRECT_URL: http://localhost:3003/accept-invite # opened in the browser, so localhost, not a container name
+      SERVICE_API_KEY: ${USERS_SERVICE_API_KEY:-} # lets dashboard-service read a student's guardian email (empty = that endpoint is off)
     ports: ["3010:3010"]
 
   calendar-service:
@@ -105,7 +106,16 @@ services:
     environment:
       PORT: "3007"
       SUPABASE_URL: ${SUPABASE_URL}
-      # Sample data only for now: nothing is stored, and it resets on restart.
+      DATABASE_URL: ${DATABASE_URL:-} # empty = an embedded Postgres in the dashboard-data volume
+      PGLITE_DIR: /data/pglite
+      CALENDAR_API_URL: http://calendar-service:3000 # classes and who may be assigned work
+      USERS_SERVICE_URL: http://users-service:3010 # names, and the guardian's email for the parent-sync message
+      USERS_SERVICE_API_KEY: ${USERS_SERVICE_API_KEY:-} # shared secret with users-service; empty = grades publish but parents are not emailed
+      SMTP_URL: ${SMTP_URL:-} # empty = parent emails are only logged
+      MAIL_FROM: ${MAIL_FROM:-Quanttoria <no-reply@localhost>}
+      DASHBOARD_URL: http://localhost:3006
+    volumes: [dashboard-data:/data]
+    depends_on: [calendar-service, users-service]
 
   dashboard-ui:
     build:
@@ -136,3 +146,4 @@ services:
 volumes:
   calendar-data:
   chat-data:
+  dashboard-data:

@@ -5,7 +5,7 @@ internet ──443──► Caddy (automatic HTTPS) ──► www.<domain>      
                                           ├─► accounts.<domain>  users-ui   ─┐ private Docker network
                                           ├─► calendar.<domain>  calendar-ui ─┼─► users-service, calendar-service
                                           ├─► chat.<domain>      chat-ui ─────┤   chat-service (asks calendar-service who may talk)
-                                          └─► dashboard.<domain> dashboard-ui ┘   dashboard-service (sample data for now)
+                                          └─► dashboard.<domain> dashboard-ui ┘   dashboard-service (its own `dashboard` schema)
                                                                               └─► Supabase (Auth + Postgres)
 ```
 
@@ -32,6 +32,8 @@ SUPABASE_URL=https://<project>.supabase.co
 SUPABASE_PUBLISHABLE_KEY=<publishable key>
 DATABASE_URL=<Supabase session pooler connection string, with the database password>
 # Optional: SMTP_URL=<AWS SES SMTP url>  MAIL_FROM="Quanttoria <no-reply@quanttoria.com>"  DEFAULT_TIMEZONE=America/New_York
+# Optional: USERS_SERVICE_API_KEY=<random secret, openssl rand -hex 32>  lets the dashboard email a student's guardian when a grade is
+#           published (users-service and dashboard-service both read it). Without it grades still publish; parents are not emailed.
 ```
 
 `~/app/users-service/.env` (holds the Supabase **secret** key; never in an image):

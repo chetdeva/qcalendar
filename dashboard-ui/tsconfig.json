@@ -25,18 +25,32 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "react": [
+        "./node_modules/@types/react"
+      ],
+      "react/jsx-runtime": [
+        "./node_modules/@types/react/jsx-runtime"
+      ],
+      "@components/*": [
+        "../components-ui/*"
       ]
     },
     "allowImportingTsExtensions": true
   },
   "include": [
     "next-env.d.ts",
+    "../components-ui",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     ".next-e2e/types/**/*.ts",
-    ".next-e2e/dev/types/**/*.ts"
+    ".next-e2e/dev/types/**/*.ts",
+    ".next-spike/types/**/*.ts",
+    ".next-spike/dev/types/**/*.ts",
+    ".next-dbg/types/**/*.ts",
+    ".next-dbg/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

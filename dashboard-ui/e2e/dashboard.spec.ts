@@ -17,7 +17,7 @@ test.describe('student dashboard', () => {
     await expect(page.getByText('sample data')).toHaveCount(0); // the data is real now
     await expect(page.getByRole('heading', { name: /Teaching Schedule/ })).toHaveCount(0);
     await expect(page.getByRole('navigation', { name: 'Dashboard view' })).toHaveCount(0); // only admins get the switch
-    await expect(page.locator('.role-chip')).toHaveText('Student');
+    await expect(page.locator('.qh-role')).toHaveText('Student');
   });
 
   test('upcoming classes come from the calendar, and Join opens the class meeting link', async ({ context, request }) => {
@@ -38,11 +38,11 @@ test.describe('student dashboard', () => {
   test('links go to the calendar and chat apps; unbuilt things are marked and cannot be clicked', async ({ context, request }) => {
     const page = await openPage(context, await seed(request, 'student', 'Mia Student'));
     const main = page.getByRole('navigation', { name: 'Main' });
-    await expect(main.getByRole('link', { name: 'Schedule & Classes' })).toHaveAttribute('href', 'http://localhost:3002');
-    await expect(main.getByRole('link', { name: 'Messages' })).toHaveAttribute('href', 'http://localhost:3005');
-    await expect(main.getByRole('link', { name: 'Assignments & Tasks' })).toHaveAttribute('href', '/assignments'); // live for students now
+    await expect(main.getByRole('link', { name: 'Calendar' })).toHaveAttribute('href', 'http://localhost:3002');
+    await expect(main.getByRole('link', { name: 'Chat' })).toHaveAttribute('href', 'http://localhost:3005');
+    await expect(main.getByRole('link', { name: 'Assignments' })).toHaveAttribute('href', /\/assignments$/); // live for students now
     await expect(page.getByRole('link', { name: 'Full Calendar View' })).toHaveAttribute('href', 'http://localhost:3002');
-    for (const name of ['Whiteboard & AI Practice', 'Launch AI Warm-Up with Sparky', 'Ask Sparky Hint']) {
+    for (const name of ['Launch AI Warm-Up with Sparky', 'Ask Sparky Hint']) {
       const b = page.getByRole('button', { name: new RegExp(name.replace(/[&]/g, '\\&')) }).first();
       await expect(b).toBeDisabled();
       await expect(b).toHaveAttribute('title', 'Coming soon');
@@ -116,8 +116,13 @@ test.describe('the whole loop: assign, work, hand in, grade, feedback', () => {
     await expect(todo).toContainText('Not Started');
     await todo.getByRole('link', { name: 'Start Task' }).click();
     await expect(sPage.getByRole('heading', { level: 1 })).toContainText('GeoGebra Dynamic Right Triangles Sandbox');
-    await sPage.getByLabel('Step 1').check();
-    await sPage.getByLabel('Step 2').check();
+    for (const n of [1, 2]) { // wait for each save: the first click can land before the page is hydrated on a cold dev server
+      await expect(async () => {
+        const saved = sPage.waitForResponse((r) => r.url().includes('/progress') && r.request().postDataJSON().stepsDone === n, { timeout: 2000 });
+        await sPage.getByLabel(`Step ${n}`).check();
+        await saved;
+      }).toPass({ timeout: 15_000 });
+    }
     await expect(sPage.getByRole('status')).toHaveText('Progress saved.');
     await sPage.reload();
     await expect(sPage.getByLabel('Step 2')).toBeChecked();
@@ -210,8 +215,8 @@ test.describe('teacher dashboard', () => {
     await expect(page.getByText('The grading queue is clear. Nice work!')).toBeVisible();
     await expect(page.getByText('No students yet.')).toBeVisible();
     await expect(page.getByRole('heading', { name: /My Assignments/ })).toHaveCount(0);
-    await expect(page.locator('.role-chip')).toHaveText('Teacher');
-    await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /Assignments & Tasks/ })).toBeDisabled(); // students' page
+    await expect(page.locator('.qh-role')).toHaveText('Teacher');
+    await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /Assignments/ })).toBeDisabled(); // students' page
     expect((await page.goto('/assignments'))?.url()).toMatch(/localhost:58764\/$/); // teachers are sent back to their dashboard
   });
 

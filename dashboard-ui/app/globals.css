@@ -51,28 +51,10 @@ small { font-size: 12px; }
 .ready { background: var(--sun); color: var(--sun-ink); border-radius: 999px; padding: 1px 8px; font-size: 11px; }
 
 /* header */
-.site-top { background: var(--tint); box-shadow: 0 1px 0 var(--tint-3); position: sticky; top: 0; z-index: 10; }
-.top-in { max-width: 1280px; margin: 0 auto; padding: 0 56px; height: 80px; display: flex; align-items: center; gap: 16px; }
-.brand { display: flex; align-items: center; gap: 8px; font-size: 21px; color: var(--primary); }
-.role-chip, .role-switch { display: inline-flex; background: #fff; border-radius: 999px; padding: 4px; box-shadow: var(--lift); }
-.role-chip { padding: 6px 14px; font-weight: 700; font-size: 12px; color: var(--primary); }
+.role-switch { display: inline-flex; background: #fff; border-radius: 999px; padding: 4px; box-shadow: var(--lift); }
 .role-switch a { padding: 5px 14px; border-radius: 999px; font-weight: 700; font-size: 12px; color: var(--ink-2); }
 .role-switch a[aria-current] { background: var(--primary); color: #fff; }
-.tabs { display: flex; align-items: center; gap: 4px; margin: 0 auto; background: var(--tint-2); border-radius: 999px; padding: 6px; }
-.tabs a, .tabs .tab { border: 0; background: none; border-radius: 999px; padding: 8px 16px; font-weight: 600; font-size: 13px; line-height: 1.2; color: var(--ink-2); text-align: left; }
-.tabs a[aria-current] { background: var(--primary-2); color: #fff; font-weight: 700; }
-.tabs a:not([aria-current]):hover { background: var(--tint-3); }
-.launch { max-width: 190px; text-align: left; line-height: 1.25; display: inline-flex; align-items: center; gap: 8px; border: 0; border-radius: 16px; background: var(--primary); color: #fff; font-weight: 700; padding: 12px 18px; }
 .bell { position: relative; display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 50%; background: transparent; color: var(--ink-2); }
-.me { position: relative; }
-.me summary { list-style: none; display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; font-size: 13px; }
-.me summary::-webkit-details-marker { display: none; }
-.me .avatar { width: 36px; height: 36px; font-size: 13px; }
-.me-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.me-menu { position: absolute; right: 0; top: calc(100% + 10px); min-width: 160px; background: #fff; border-radius: 14px; box-shadow: var(--lift); padding: 6px; display: flex; flex-direction: column; z-index: 20; }
-.me-menu a, .me-menu button { display: block; width: 100%; text-align: left; border: 0; background: none; border-radius: 8px; padding: 9px 12px; font-weight: 600; }
-.me-menu a:hover, .me-menu button:hover { background: var(--tint); }
-.me-menu form { margin: 0; }
 .preview { background: var(--sun); color: var(--sun-ink); text-align: center; font-size: 12px; font-weight: 700; padding: 6px 16px; }
 
 /* page */
@@ -305,11 +287,6 @@ h1 em { font-style: normal; color: var(--primary); }
 /* tablet */
 /* The header needs the full design width; below it the tabs move to their own scrollable row. */
 @media (max-width: 1279px) {
-  .top-in { flex-wrap: wrap; height: auto; padding: 12px 24px; gap: 12px; }
-  .tabs { order: 5; width: 100%; margin: 0; overflow-x: auto; border-radius: 16px; }
-  .tabs a, .tabs .tab { white-space: nowrap; }
-  .launch { display: none; }
-  .brand { margin-right: auto; }
 }
 
 @media (max-width: 1100px) {
@@ -327,8 +304,6 @@ h1 em { font-style: normal; color: var(--primary); }
 /* phones */
 @media (max-width: 640px) {
   .page { padding: 16px; gap: 24px; }
-  .top-in { padding: 10px 16px; }
-  .me-name { display: none; }
   h1, .hero-teacher h1 { font-size: 26px; line-height: 32px; }
   .sec-head { flex-wrap: wrap; }
   .sec-head h2 { font-size: 20px; line-height: 26px; }

@@ -19,7 +19,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
 
   return (
     <div className="shell">
-      <Header name={me.full_name || me.email} view={view} isAdmin={isAdmin} tasks={me.role === 'student'} />
+      <Header name={me.full_name || me.email} role={me.role} view={view} isAdmin={isAdmin} />
       <main>{view === 'teacher' && json.teacher ? <TeacherDashboard initial={json.teacher} /> : json.student ? <StudentDashboard initial={json.student} /> : null}</main>
       <Footer />
     </div>

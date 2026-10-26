@@ -22,7 +22,7 @@ export default async function AssignmentsPage() {
 
   return (
     <div className="shell">
-      <Header name={me.full_name || me.email} view="student" isAdmin={false} current="assignments" tasks />
+      <Header name={me.full_name || me.email} role={me.role} view="student" isAdmin={false} current="assignments" />
       <main>
         <div className="page">
           <div className="sec-head"><div><h1 className="page-title">Assignments &amp; Tasks</h1><p className="sub">Everything your teachers have given you, and how it went.</p></div></div>

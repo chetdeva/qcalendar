@@ -12,12 +12,13 @@ const REDIRECT = 'https://accounts.example.test/accept-invite';
 const { publicKey, privateKey } = await generateKeyPair('ES256');
 const other = await generateKeyPair('ES256');
 
+const SERVICE_KEY = 'k'.repeat(32);
 let dir: MemoryDirectory;
 let app: ReturnType<typeof createApp>;
 
 beforeEach(() => {
   dir = new MemoryDirectory();
-  app = createApp({ verifier: createVerifier(async () => publicKey, ISS), directory: dir, inviteRedirectTo: REDIRECT });
+  app = createApp({ verifier: createVerifier(async () => publicKey, ISS), directory: dir, inviteRedirectTo: REDIRECT, serviceApiKey: SERVICE_KEY });
 });
 
 async function token(sub: string, role: Role | undefined, extra: { status?: string; key?: CryptoKey; iss?: string; aud?: string; exp?: string; userMeta?: object } = {}) {
@@ -294,4 +295,35 @@ test('lookup: any active user can read name and email for known ids, and nothing
   assert.equal((await student.call('POST', '/v1/users/lookup', { ids: [] })).status, 400);
   assert.equal((await student.call('POST', '/v1/users/lookup', { ids: ['nope'] })).status, 400);
   assert.equal((await app.request('/v1/users/lookup', { method: 'POST' })).status, 401);
+});
+
+test('service endpoint: only the shared key can read a student\'s guardian email; people (even admins and teachers) cannot', async () => {
+  const kid = dir.addProfile({ email: 'kid@example.test', full_name: 'Kit Kid', role: 'student', guardian_email: 'parent@example.test' });
+  const none = dir.addProfile({ email: 'solo@example.test', full_name: 'Solo', role: 'student' });
+  const staff = dir.addProfile({ email: 't@example.test', full_name: 'Tess', role: 'teacher' });
+  const url = (id: string) => `/v1/service/students/${id}/guardian`;
+  const withKey = (id: string, key = SERVICE_KEY) => app.request(url(id), { headers: { authorization: `Bearer ${key}` } });
+
+  const ok = await withKey(kid.id);
+  assert.equal(ok.status, 200);
+  assert.deepEqual(await ok.json(), { name: 'Kit Kid', guardianEmail: 'parent@example.test' });
+  assert.deepEqual(await (await withKey(none.id)).json(), { name: 'Solo', guardianEmail: null });
+  assert.equal((await withKey(kid.id, 'x'.repeat(32))).status, 401); // wrong key
+  assert.equal((await app.request(url(kid.id))).status, 401); // no key
+  const admin = (await as('admin')).jwt;
+  const teacherJwt = await token(staff.id, 'teacher');
+  for (const jwt of [admin, teacherJwt]) assert.equal((await withKey(kid.id, jwt)).status, 401); // a person's token is not the key
+  assert.equal((await withKey(staff.id)).status, 404); // only students
+  assert.equal((await withKey(crypto.randomUUID())).status, 404);
+  assert.equal((await withKey('not-a-uuid')).status, 400);
+  // The ordinary API still never shows a teacher a guardian email.
+  const viaTeacher = await app.request(`/v1/users/${kid.id}`, { headers: { authorization: `Bearer ${teacherJwt}` } });
+  assert.ok(!JSON.stringify(await viaTeacher.json()).includes('parent@example.test'));
+});
+
+test('service endpoint: it does not exist at all when no key is configured', async () => {
+  const bare = createApp({ verifier: createVerifier(async () => publicKey, ISS), directory: dir, inviteRedirectTo: REDIRECT });
+  const kid = dir.addProfile({ email: 'kid2@example.test', role: 'student', guardian_email: 'p@example.test' });
+  const res = await bare.request(`/v1/service/students/${kid.id}/guardian`, { headers: { authorization: `Bearer ${'k'.repeat(32)}` } });
+  assert.equal(res.status, 401); // falls through to the normal person-token check
 });

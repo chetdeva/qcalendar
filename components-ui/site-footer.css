@@ -1,0 +1,20 @@
+/* The shared site footer. Self-contained: colours live on .sf and every class is prefixed sf-. */
+.sf { --sf-ink: #0d1c2f; --sf-muted: #3f4850; --sf-bg: #eff4ff;
+  background: var(--sf-bg); padding: 32px 0; filter: drop-shadow(0 -1px 3px rgba(0, 0, 0, .02)); color: var(--sf-ink);
+  font-family: var(--font-jakarta), system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 20px; }
+.sf *, .sf *::before, .sf *::after { box-sizing: border-box; }
+.sf img { display: block; max-width: none; }
+.sf p { margin: 0; }
+.sf-in { max-width: 1280px; margin: 0 auto; padding: 0 56px; display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+.sf-copy { display: flex; align-items: center; gap: 12px; max-width: 460px; }
+.sf-copy b { display: block; font-size: 13px; line-height: 16px; font-weight: 700; letter-spacing: .26px; }
+.sf-copy p { font-size: 14px; line-height: 20px; font-weight: 500; color: var(--sf-muted); }
+.sf-links { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.sf-links nav, .sf-contact { display: flex; gap: 6px 20px; flex-wrap: wrap; justify-content: center; }
+.sf-links nav button { background: none; border: 0; padding: 0; font: inherit; font-size: 11px; line-height: 14px; font-weight: 800; letter-spacing: .44px; color: var(--sf-muted); opacity: .62; cursor: not-allowed; }
+.sf-contact { font-size: 13px; line-height: 16px; font-weight: 600; color: var(--sf-muted); }
+.sf-contact a { font-size: 13px; line-height: 16px; font-weight: 700; letter-spacing: .26px; color: var(--sf-muted); text-decoration: none; }
+.sf-contact a:hover { color: #006194; }
+.sf-links small { font-size: 14px; line-height: 20px; font-weight: 500; color: var(--sf-muted); }
+@media (max-width: 1023px) { .sf-in { padding: 0 24px; } }
+@media (max-width: 640px) { .sf-in { padding: 0 16px; } .sf-links { align-items: flex-start; } .sf-links nav, .sf-contact { justify-content: flex-start; } }

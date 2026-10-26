@@ -76,3 +76,46 @@ test('the profile API refuses attempts to change role or status, even with a val
   }
   expect((await profileOf(request, KID.email))?.role).toBe('student');
 });
+
+test('a student sees the student wording and the linked parent card; Discard puts the saved values back', async ({ page }) => {
+  await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Student Profile');
+  await expect(page.getByText('appears on your classroom leaderboard')).toBeVisible();
+  await expect(page.getByText('No guardian email yet')).toBeVisible();
+  await page.getByLabel('Guardian email (optional)').fill('parent@example.test');
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.getByText('Saved.')).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: /Linked Parent Account/ })).toContainText('Connected');
+  await page.getByLabel('Full name').fill('Someone Else');
+  await page.getByLabel('Guardian email (optional)').fill('');
+  await page.getByRole('button', { name: 'Discard changes' }).click();
+  await expect(page.getByLabel('Full name')).toHaveValue('Kid One');
+  await expect(page.getByLabel('Guardian email (optional)')).toHaveValue('parent@example.test');
+});
+
+test('what is not built yet is marked and cannot be clicked; the dashboard link is in the breadcrumb', async ({ page }) => {
+  const ai = page.getByRole('button', { name: /Ask AI Math Tutor/ });
+  await expect(ai).toBeDisabled();
+  await expect(ai).toHaveAttribute('title', 'Coming soon');
+  await expect(page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: 'Dashboard' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Reset my password' })).toHaveAttribute('href', '/forgot-password');
+});
+
+test('a teacher sees the teacher wording, no parent card and a support chat', async ({ page, request }) => {
+  await seedUser(request, { email: 'tess@example.test', password: 'teacher-pass-1', role: 'teacher', name: 'Tess Teacher' });
+  await page.context().clearCookies();
+  await logInAs(page, { email: 'tess@example.test', password: 'teacher-pass-1' });
+  await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Teacher Profile');
+  await expect(page.getByText('appears on student dashboards')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Linked Parent Account/ })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Chat with School Operations' })).toHaveAttribute('href', /^https:\/\/wa\.me\//);
+  await expect(page.getByRole('button', { name: /Ask AI Math Tutor/ })).toHaveCount(0);
+});
+
+test('no sideways scrolling from phone to desktop widths', async ({ page }) => {
+  for (const width of [375, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/profile');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${width}px`).toBe(true);
+  }
+});

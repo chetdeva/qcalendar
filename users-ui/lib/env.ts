@@ -10,3 +10,4 @@ export const landing = dashboardUrl || '/profile';
 export const homeUrl = (process.env.NEXT_PUBLIC_HOME_URL ?? 'http://localhost:3004').replace(/\/$/, '');
 /** The same WhatsApp contact as the public website (home-ui/content/site.ts). */
 export const whatsappLink = `https://wa.me/919119571369?text=${encodeURIComponent("Hi Princy! I'd like to customize a personalized learning plan for my child. My child is in Grade ___.")}`;
+export const chatUrl = process.env.NEXT_PUBLIC_CHAT_URL ?? '';

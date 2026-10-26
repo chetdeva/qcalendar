@@ -1,4 +1,4 @@
-# users-ui, calendar-ui, chat-ui, dashboard-ui and home-ui. Built from the repo root by docker-compose.yml (ARG APP picks the folder).
+# users-ui, calendar-ui, chat-ui, dashboard-ui and home-ui. The app sits in /repo/app so ../components-ui (the shared header) resolves as it does in the repo. Built from the repo root by docker-compose.yml (ARG APP picks the folder).
 # NEXT_PUBLIC_* values are baked into the browser bundle at build time, so they arrive as build args.
 FROM node:24-slim
 ARG APP
@@ -22,11 +22,12 @@ ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_PUBLIC_ALLOWED_RETURN_ORIGINS=$NEXT_PUBLIC_ALLOWED_RETURN_ORIGINS \
     NEXT_PUBLIC_ACCOUNTS_URL=$NEXT_PUBLIC_ACCOUNTS_URL \
     NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
-RUN mkdir /app && chown node:node /app
-WORKDIR /app
+RUN mkdir -p /repo/app && chown -R node:node /repo
+WORKDIR /repo/app
 USER node
 COPY --chown=node:node ${APP}/package*.json ./
 RUN npm ci
+COPY --chown=node:node components-ui ../components-ui
 COPY --chown=node:node ${APP} .
 RUN npm run build
 CMD ["npm", "start"]

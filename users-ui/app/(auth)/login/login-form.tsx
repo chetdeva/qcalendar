@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/browser';
 import { emailError } from '@/lib/validation';
+import Link from 'next/link';
+import { Field } from '../_parts/field';
+import { Submit } from '../_parts/submit';
 import { GoogleButton } from '../google-button';
 
 export function LoginForm({ next, notice }: { next: string; notice?: string }) {
@@ -43,22 +46,17 @@ export function LoginForm({ next, notice }: { next: string; notice?: string }) {
 
   return (
     <>
-      {notice && <div className="alert alert-info" role="status">{notice}</div>}
+      {notice && <div className="alert alert-info" role="status" style={{ marginBottom: 12 }}>{notice}</div>}
       <GoogleButton next={next} label="Continue with Google" />
-      <div className="divider">or</div>
-      <form onSubmit={submit} noValidate>
-        <div className="field">
-          <label htmlFor="email">Email</label>
-          <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor="password">Password</label>
-          <input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        </div>
+      <div className="au-or">or</div>
+      <form className="au-form" onSubmit={submit} noValidate>
+        <Field id="email" label="Email" icon="mail" type="email" autoComplete="email" placeholder="alex@example.com" value={email} onChange={setEmail} />
+        <Field id="password" label="Password" icon="lock" type="password" reveal autoComplete="current-password" value={password} onChange={setPassword} />
+        <Link className="au-forgot" href="/forgot-password">Forgot password?</Link>
         {error && <div className="alert alert-error" role="alert">{error}</div>}
         {info && <div className="alert alert-ok" role="status">{info}</div>}
-        {needsConfirm && <button type="button" className="btn btn-sm" onClick={resend}>Resend confirmation email</button>}
-        <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Logging in…' : 'Log in'}</button>
+        {needsConfirm && <button type="button" className="au-secondary" onClick={resend}>Resend confirmation email</button>}
+        <Submit busy={busy}>{busy ? 'Logging in…' : 'Log in'}</Submit>
       </form>
     </>
   );

@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/browser';
 import { emailError } from '@/lib/validation';
+import { Field } from '../_parts/field';
+import { Submit } from '../_parts/submit';
 
 export function ForgotForm() {
   const [email, setEmail] = useState('');
@@ -27,13 +29,10 @@ export function ForgotForm() {
 
   if (sent) return <div className="alert alert-ok" role="status">If an account exists for {email.trim()}, a reset link is on its way.</div>;
   return (
-    <form onSubmit={submit} noValidate>
-      <div className="field">
-        <label htmlFor="email">Email</label>
-        <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-      </div>
+    <form className="au-form" onSubmit={submit} noValidate>
+      <Field id="email" label="Email" icon="mail" type="email" autoComplete="email" placeholder="alex@example.com" value={email} onChange={setEmail} />
       {error && <div className="alert alert-error" role="alert">{error}</div>}
-      <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Sending…' : 'Send reset link'}</button>
+      <Submit busy={busy}>{busy ? 'Sending…' : 'Send reset link'}</Submit>
     </form>
   );
 }

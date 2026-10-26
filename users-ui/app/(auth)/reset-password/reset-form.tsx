@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/browser';
 import { passwordError } from '@/lib/validation';
+import { Field } from '../_parts/field';
+import { Submit } from '../_parts/submit';
 
 export function ResetForm({ email }: { email: string }) {
   const [password, setPassword] = useState('');
@@ -22,18 +24,11 @@ export function ResetForm({ email }: { email: string }) {
   }
 
   return (
-    <form onSubmit={submit} noValidate>
-      <div className="field">
-        <label htmlFor="password">New password</label>
-        <input id="password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        <span className="hint">At least 8 characters.</span>
-      </div>
-      <div className="field">
-        <label htmlFor="confirm">Confirm password</label>
-        <input id="confirm" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-      </div>
+    <form className="au-form" onSubmit={submit} noValidate>
+      <Field id="password" label="New password" icon="lock" type="password" reveal autoComplete="new-password" hint="At least 8 characters." value={password} onChange={setPassword} />
+      <Field id="confirm" label="Confirm password" icon="lock" type="password" reveal autoComplete="new-password" value={confirm} onChange={setConfirm} />
       {error && <div className="alert alert-error" role="alert">{error}</div>}
-      <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Update password'}</button>
+      <Submit busy={busy}>{busy ? 'Saving…' : 'Update password'}</Submit>
     </form>
   );
 }

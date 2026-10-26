@@ -3,13 +3,13 @@ import { ForgotForm } from './forgot-form';
 
 export default function ForgotPasswordPage() {
   return (
-    <div className="card">
-      <div>
+    <div className="au-card">
+      <div className="au-head">
         <h1>Reset your password</h1>
-        <p className="muted">Enter your email and we will send you a link.</p>
+        <p>Enter your email and we will send you a link.</p>
       </div>
       <ForgotForm />
-      <div className="links"><Link href="/login">Back to log in</Link></div>
+      <p className="au-switch"><Link href="/login">Back to log in</Link></p>
     </div>
   );
 }

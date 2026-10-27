@@ -19,7 +19,7 @@ export default async function AssignmentsPage({ searchParams }: { searchParams: 
     const t = await callDashboard<{ teacher?: TeacherData; error?: { message?: string } }>('GET', '/v1/dashboard?view=teacher');
     return (
       <div className="shell">
-        <Header name={name} role={me.role} view="teacher" isAdmin={isAdmin} current="assignments" />
+        <Header name={name} role={me.role} avatar={me.avatar_updated_at} view="teacher" isAdmin={isAdmin} current="assignments" />
         <main>{t.status === 200 && t.json.teacher ? <TeacherAssignments initial={t.json.teacher} student={sp.student} /> : <p className="err" role="alert">{t.json.error?.message ?? 'Your tasks are unavailable right now.'}</p>}</main>
         <Footer />
       </div>
@@ -29,7 +29,7 @@ export default async function AssignmentsPage({ searchParams }: { searchParams: 
 
   return (
     <div className="shell">
-      <Header name={name} role={me.role} view="student" isAdmin={isAdmin} current="assignments" />
+      <Header name={name} role={me.role} avatar={me.avatar_updated_at} view="student" isAdmin={isAdmin} current="assignments" />
       <main>{status === 200 && json.student ? <StudentAssignments d={json.student} /> : <p className="err" role="alert">{json.error?.message ?? 'Your tasks are unavailable right now.'}</p>}</main>
       <Footer />
     </div>

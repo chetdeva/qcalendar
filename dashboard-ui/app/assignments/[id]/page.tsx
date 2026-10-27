@@ -15,7 +15,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   if (status === 404) notFound();
   return (
     <div className="shell">
-      <Header name={me.full_name || me.email} role={me.role} view="student" isAdmin={false} current="assignments" />
+      <Header name={me.full_name || me.email} role={me.role} avatar={me.avatar_updated_at} view="student" isAdmin={false} current="assignments" />
       <main>
         <div className="page narrow">
           <p><Link className="link-end back" href="/assignments">← All tasks</Link></p>

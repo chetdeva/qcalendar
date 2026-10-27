@@ -18,7 +18,7 @@ export default async function Page() {
   return (
     <>
       <div className="shell">
-        <AppHeader current="chat" name={me.full_name || me.email} role={me.role} />
+        <AppHeader current="chat" name={me.full_name || me.email} role={me.role} avatar={me.avatar_updated_at} />
         <Chat />
       </div>
       <SiteFooter /> {/* under the full-height chat: scroll down to see it */}

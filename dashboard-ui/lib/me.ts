@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { callUsers } from './bff.ts';
 import { usersUiUrl } from './env.ts';
 
-export interface Me { id: string; email: string; full_name: string | null; role: 'student' | 'teacher' | 'admin'; status: 'active' | 'disabled' }
+export interface Me { id: string; email: string; full_name: string | null; role: 'student' | 'teacher' | 'admin'; status: 'active' | 'disabled'; avatar_updated_at?: string | null }
 
 /** The signed-in person's profile from users-service, deduplicated within a request. */
 export const getMe = cache(async (): Promise<{ me: Me } | { error: string }> => {

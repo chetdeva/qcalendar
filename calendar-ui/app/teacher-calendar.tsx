@@ -286,7 +286,7 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
 
   return (
     <div className="shell">
-      <AppHeader current="calendar" name={me.full_name || me.email} role={me.role} />
+      <AppHeader current="calendar" name={me.full_name || me.email} role={me.role} avatar={me.avatar_updated_at} />
       {staleRole && <RoleBanner me={me} />}
       <TopBar
         me={me}

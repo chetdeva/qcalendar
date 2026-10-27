@@ -14,12 +14,13 @@ function RoleSwitch({ view }: { view: View }) {
   );
 }
 
-export function Header({ name, role, view, isAdmin, current = 'dashboard' }: { name: string; role: string; view: View; isAdmin: boolean; current?: 'dashboard' | 'assignments' }) {
+export function Header({ name, role, view, isAdmin, current = 'dashboard', avatar }: { name: string; role: string; view: View; isAdmin: boolean; current?: 'dashboard' | 'assignments'; avatar?: string | null }) {
   return (
     <AppHeader
       current={current}
       assignmentsHref={isAdmin ? `/assignments?view=${view}` : undefined}
       name={name}
+      avatar={avatar}
       role={role}
       left={isAdmin ? <RoleSwitch view={view} /> : undefined}
       right={<Soon className="bell" label="Notifications"><Bell size={18} aria-hidden /></Soon>}

@@ -11,10 +11,12 @@ const label = (role: string) => role.charAt(0).toUpperCase() + role.slice(1);
 /**
  * The one Quanttoria header: logo, role chip, tabs and the avatar menu. Every app renders this and passes
  * who is signed in and which tab it is. `left` replaces the role chip (the dashboard's admin switch),
- * `right` sits before the avatar (dashboard extras), `menu` adds links to the avatar menu.
+ * `right` sits before the avatar (dashboard extras), `menu` adds links to the avatar menu, `avatar` shows their picture.
  */
-export function AppHeader({ current, name, role, left, right, menu, assignmentsHref = `${dashboardUrl}/assignments` }: {
+export function AppHeader({ current, name, role, left, right, menu, assignmentsHref = `${dashboardUrl}/assignments`, avatar }: {
   current: HeaderTab; name: string; role: string; left?: ReactNode; right?: ReactNode; menu?: ReactNode; assignmentsHref?: string;
+  /** The picture's version (profiles.avatar_updated_at). Set: the person's own picture is shown instead of initials. */
+  avatar?: string | null;
 }) {
   const tab = (id: HeaderTab) => (id === current ? 'page' : undefined);
   return (
@@ -34,7 +36,7 @@ export function AppHeader({ current, name, role, left, right, menu, assignmentsH
         {right}
         <details className="qh-me">
           <summary>
-            <span className="qh-avatar" aria-hidden>{initials(name)}</span>
+            <span className="qh-avatar" aria-hidden>{avatar ? <img src={`${usersUiUrl}/api/avatar?v=${encodeURIComponent(avatar)}`} alt="" width={36} height={36} /> : initials(name)}</span>
             <span className="qh-name">{name}</span>
           </summary>
           <div className="qh-menu">

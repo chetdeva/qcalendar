@@ -23,6 +23,8 @@
 .qh-me summary { list-style: none; display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; font-size: 13px; }
 .qh-me summary::-webkit-details-marker { display: none; }
 .qh-avatar { flex: none; display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--qh-sky); color: var(--qh-primary); font-weight: 800; font-size: 13px; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(13, 28, 47, .15); }
+.qh-avatar { overflow: hidden; }
+.qh-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .qh-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .qh-menu { position: absolute; right: 0; top: calc(100% + 10px); min-width: 160px; background: #fff; border-radius: 14px; box-shadow: var(--qh-lift); padding: 6px; display: flex; flex-direction: column; z-index: 20; }
 .qh-menu a, .qh-menu button { display: block; width: 100%; text-align: left; border: 0; background: none; border-radius: 8px; padding: 9px 12px; font-weight: 600; }

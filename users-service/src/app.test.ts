@@ -327,3 +327,47 @@ test('service endpoint: it does not exist at all when no key is configured', asy
   const res = await bare.request(`/v1/service/students/${kid.id}/guardian`, { headers: { authorization: `Bearer ${'k'.repeat(32)}` } });
   assert.equal(res.status, 401); // falls through to the normal person-token check
 });
+
+// ---- profile picture ----
+const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4]);
+const putAvatar = (jwt: string, body: BodyInit, type = 'image/png') => app.request('/v1/me/avatar', { method: 'PUT', headers: { authorization: `Bearer ${jwt}`, 'content-type': type }, body });
+const getAvatar = (jwt: string) => app.request('/v1/me/avatar', { headers: { authorization: `Bearer ${jwt}` } });
+
+test('profile picture: upload, read back, replace and remove', async () => {
+  const kid = await as('student');
+  assert.equal((await getAvatar(kid.jwt)).status, 404);
+  const put = await putAvatar(kid.jwt, PNG);
+  assert.equal(put.status, 200);
+  assert.ok((await put.json() as { avatar_updated_at: string }).avatar_updated_at);
+  const got = await getAvatar(kid.jwt);
+  assert.equal(got.headers.get('content-type'), 'image/png');
+  assert.equal(got.headers.get('x-content-type-options'), 'nosniff');
+  assert.deepEqual(new Uint8Array(await got.arrayBuffer()), PNG);
+  const del = await kid.call('DELETE', '/v1/me/avatar');
+  assert.equal((await del.json() as { avatar_updated_at: string | null }).avatar_updated_at, null);
+  assert.equal((await getAvatar(kid.jwt)).status, 404);
+  assert.equal(((await (await kid.call('GET', '/v1/me')).json()) as { avatar_updated_at: unknown }).avatar_updated_at, null);
+});
+
+test('profile picture: the type comes from the bytes, the size is capped, and signed-out callers get nothing', async () => {
+  const kid = await as('student');
+  assert.equal((await putAvatar(kid.jwt, 'definitely not an image', 'image/png')).status, 400); // a lying Content-Type is not enough
+  assert.equal((await putAvatar(kid.jwt, new Uint8Array(0))).status, 400);
+  const big = new Uint8Array(256 * 1024 + 1); big.set(PNG);
+  assert.equal((await putAvatar(kid.jwt, big)).status, 413);
+  assert.equal((await getAvatar(kid.jwt)).status, 404); // none of the refused uploads were kept
+  const jpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0]); const webp = Uint8Array.from([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50]);
+  assert.equal((await putAvatar(kid.jwt, jpeg, 'text/plain')).status, 200);
+  assert.equal((await getAvatar(kid.jwt)).headers.get('content-type'), 'image/jpeg');
+  assert.equal((await putAvatar(kid.jwt, webp)).status, 200);
+  assert.equal((await getAvatar(kid.jwt)).headers.get('content-type'), 'image/webp');
+  assert.equal((await app.request('/v1/me/avatar')).status, 401);
+});
+
+test('profile picture: nobody can read or change someone else\'s, and PATCH /v1/me cannot set the version', async () => {
+  const [kid, other] = [await as('student'), await as('student')];
+  await putAvatar(kid.jwt, PNG);
+  assert.equal((await getAvatar(other.jwt)).status, 404); // their own, which is empty
+  assert.equal((await kid.call('PATCH', '/v1/me', { avatar_updated_at: '2020-01-01T00:00:00Z' })).status, 400);
+  assert.equal((await kid.call('GET', `/v1/users/${other.profile.id}`)).status, 403);
+});

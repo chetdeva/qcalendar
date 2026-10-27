@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { Principal, Role, TokenVerifier } from './auth.ts';
 import { DirectoryError, type Directory, type Profile } from './directory.ts';
 import { HttpError } from './errors.ts';
+import { MAX_AVATAR_BYTES, sniffImage } from './avatar.ts';
 
 export interface AppDeps {
   verifier: TokenVerifier;
@@ -74,6 +75,7 @@ export function createApp({ verifier, directory, inviteRedirectTo, serviceApiKey
         invitation_pending: [409, 'That email already has a pending invitation'],
         upstream: [502, 'Identity provider error'],
       } as const;
+      if (err.code === 'upstream') console.error('identity provider error:', err.message); // the response is generic; the cause goes in the log
       const [status, message] = map[err.code];
       return c.json({ error: { code: err.code, message } }, status);
     }
@@ -131,6 +133,32 @@ export function createApp({ verifier, directory, inviteRedirectTo, serviceApiKey
     const patch = parse(MePatch, await c.req.json().catch(() => null));
     const id = c.get('principal').id;
     const me = Object.keys(patch).length ? await directory.updateProfile(id, patch) : await directory.getProfile(id);
+    if (!me) throw new HttpError(404, 'not_found', 'Profile not found');
+    return c.json(me);
+  });
+
+  // ---- profile picture: private to its owner; the type comes from the file's own bytes, not from the client ----
+  app.put('/v1/me/avatar', async (c) => {
+    if (Number(c.req.header('content-length') ?? 0) > MAX_AVATAR_BYTES) throw new HttpError(413, 'too_large', 'The picture is too big (256 KB at most)');
+    const bytes = new Uint8Array(await c.req.arrayBuffer());
+    if (bytes.length === 0) throw new HttpError(400, 'invalid_request', 'No picture was sent');
+    if (bytes.length > MAX_AVATAR_BYTES) throw new HttpError(413, 'too_large', 'The picture is too big (256 KB at most)');
+    const type = sniffImage(bytes);
+    if (!type) throw new HttpError(400, 'invalid_image', 'Use a PNG, JPEG or WebP picture');
+    const me = await directory.putAvatar(c.get('principal').id, bytes, type);
+    if (!me) throw new HttpError(404, 'not_found', 'Profile not found');
+    return c.json(me);
+  });
+
+  app.get('/v1/me/avatar', async (c) => {
+    const bytes = await directory.getAvatar(c.get('principal').id);
+    const type = bytes && sniffImage(bytes);
+    if (!bytes || !type) throw new HttpError(404, 'not_found', 'No profile picture');
+    return c.body(bytes as Uint8Array<ArrayBuffer>, 200, { 'content-type': type, 'x-content-type-options': 'nosniff', 'cache-control': 'private, max-age=86400' });
+  });
+
+  app.delete('/v1/me/avatar', async (c) => {
+    const me = await directory.deleteAvatar(c.get('principal').id);
     if (!me) throw new HttpError(404, 'not_found', 'Profile not found');
     return c.json(me);
   });

@@ -10,15 +10,32 @@ export class MemoryDirectory implements Directory {
   sentInvites: { email: string; redirectTo: string }[] = [];
   confirmedEmails = new Set<string>();
   failInvites = false;
+  avatars = new Map<string, Uint8Array>();
 
   addProfile(p: Partial<Profile> & { email: string }): Profile {
     const now = new Date(Date.now() - this.profiles.size * 1000).toISOString();
     const profile: Profile = {
-      id: randomUUID(), full_name: null, role: 'student', status: 'active', timezone: null, guardian_email: null,
+      id: randomUUID(), full_name: null, role: 'student', status: 'active', timezone: null, guardian_email: null, avatar_updated_at: null,
       created_at: now, updated_at: now, ...p,
     };
     this.profiles.set(profile.id, profile);
     return profile;
+  }
+
+  async putAvatar(id: string, bytes: Uint8Array) {
+    const p = this.profiles.get(id);
+    if (!p) return null;
+    this.avatars.set(id, bytes);
+    p.avatar_updated_at = new Date().toISOString();
+    return p;
+  }
+  async getAvatar(id: string) { return this.avatars.get(id) ?? null; }
+  async deleteAvatar(id: string) {
+    const p = this.profiles.get(id);
+    if (!p) return null;
+    this.avatars.delete(id);
+    p.avatar_updated_at = null;
+    return p;
   }
 
   async getProfile(id: string) { return this.profiles.get(id) ?? null; }

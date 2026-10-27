@@ -65,6 +65,33 @@ export class SupabaseDirectory implements Directory {
     if (error) throw new DirectoryError('upstream', error.message);
   }
 
+  async putAvatar(id: string, bytes: Uint8Array, contentType: string) {
+    const up = await this.db.storage.from('avatars').upload(id, bytes, { contentType, upsert: true });
+    if (up.error) throw new DirectoryError('upstream', up.error.message);
+    return this.stampAvatar(id, new Date().toISOString());
+  }
+
+  async getAvatar(id: string) {
+    const { data, error } = await this.db.storage.from('avatars').download(id);
+    if (error) {
+      if (/not found/i.test(error.message) || [400, 404].includes((error as { statusCode?: number }).statusCode ?? 0)) return null;
+      throw new DirectoryError('upstream', error.message);
+    }
+    return new Uint8Array(await data.arrayBuffer());
+  }
+
+  async deleteAvatar(id: string) {
+    const { error } = await this.db.storage.from('avatars').remove([id]);
+    if (error) throw new DirectoryError('upstream', error.message);
+    return this.stampAvatar(id, null);
+  }
+
+  private async stampAvatar(id: string, at: string | null) {
+    const { data, error } = await this.db.from('profiles').update({ avatar_updated_at: at }).eq('id', id).select('*').maybeSingle();
+    if (error) fail(error);
+    return data as Profile | null;
+  }
+
   async createInvitation(input: { email: string; role: Role; invitedBy: string }) {
     // An expired invitation is still "pending" in the table and would block a new one; retire it first.
     const expire = await this.db.from('invitations').update({ status: 'revoked' }).ilike('email', input.email).eq('status', 'pending').lte('expires_at', new Date().toISOString());

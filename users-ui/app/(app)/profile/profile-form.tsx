@@ -5,7 +5,13 @@ import type { Me } from '@/lib/me';
 import { emailError, nameError } from '@/lib/validation';
 import { BadgeIcon, CheckCircleIcon, ClockIcon, InfoIcon, LockIcon, MailIcon, SaveIcon, TargetIcon, UserIcon, UsersIcon } from './_parts/icons';
 
-export function ProfileForm({ me, timezones }: { me: Me; timezones: string[] }) {
+/** The few zones our families and teachers use. A saved zone or the browser's zone that is not listed is added to the list. */
+const ZONES: [string, string][] = [
+  ['America/New_York', 'Eastern Time'], ['America/Chicago', 'Central Time'], ['America/Denver', 'Mountain Time'], ['America/Phoenix', 'Arizona'],
+  ['America/Los_Angeles', 'Pacific Time'], ['America/Anchorage', 'Alaska'], ['Pacific/Honolulu', 'Hawaii'], ['Europe/London', 'London'], ['Asia/Kolkata', 'India'], ['UTC', 'UTC'],
+];
+
+export function ProfileForm({ me }: { me: Me }) {
   const [name, setName] = useState(me.full_name ?? '');
   const [timezone, setTimezone] = useState(me.timezone ?? '');
   const [guardian, setGuardian] = useState(me.guardian_email ?? '');
@@ -16,11 +22,10 @@ export function ProfileForm({ me, timezones }: { me: Me; timezones: string[] }) 
   const [picked, setPicked] = useState(''); // the zone the browser button chose, shown under the selector
   const student = me.role === 'student';
 
-  // Intl.supportedValuesOf omits "UTC" and some aliases (it says Asia/Calcutta, a browser may say Asia/Kolkata), so
-  // always include the saved zone and the browser's zone, or the selector would silently show "Not set".
   const zones = useMemo(
-    () => [...new Set([...timezones, 'UTC', me.timezone ?? '', extraZone].filter(Boolean))].sort((a, b) => a.localeCompare(b)),
-    [timezones, me.timezone, extraZone],
+    () => [...ZONES, ...[me.timezone, extraZone].filter((z): z is string => !!z && !ZONES.some(([id]) => id === z)).map((z): [string, string] => [z, z])]
+      .filter(([id], i, all) => all.findIndex(([x]) => x === id) === i),
+    [me.timezone, extraZone],
   );
 
   function discard() {
@@ -63,7 +68,7 @@ export function ProfileForm({ me, timezones }: { me: Me; timezones: string[] }) 
         <div className="pf-input pf-select"><ClockIcon />
           <select id="tz" value={timezone} onChange={(e) => { setTimezone(e.target.value); setPicked(''); }}>
             <option value="">Not set</option>
-            {zones.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
+            {zones.map(([id, name]) => <option key={id} value={id}>{id === name ? id : `${name} (${id})`}</option>)}
           </select>
         </div>
         <div className="pf-tz">

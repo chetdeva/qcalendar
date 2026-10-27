@@ -149,3 +149,13 @@ test('a file that is not a picture is refused with a message and nothing changes
   expect((await profileOf(request, KID.email))?.avatar_updated_at).toBeNull();
   expect((await page.request.put('/api/avatar', { data: 'not an image', headers: { 'content-type': 'image/png' } })).status()).toBe(400); // the service sniffs the bytes too
 });
+
+test('the time zone list is short: a few common zones, plus the saved one when it is not among them', async ({ page }) => {
+  const options = page.getByLabel('Time zone').locator('option');
+  expect(await options.count()).toBeLessThanOrEqual(12);
+  await expect(options.filter({ hasText: 'Eastern Time (America/New_York)' })).toHaveCount(1);
+  await page.request.patch('/api/me', { data: { timezone: 'Europe/Paris' } });
+  await page.reload();
+  await expect(page.getByLabel('Time zone')).toHaveValue('Europe/Paris');
+  await expect(options.filter({ hasText: 'Europe/Paris' })).toHaveCount(1);
+});

@@ -10,7 +10,6 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const [result, sp] = await Promise.all([getMe(), searchParams]);
   if ('error' in result) return null; // the layout already shows the error
   const { me } = result;
-  const timezones = Intl.supportedValuesOf('timeZone');
   return (
     <div className="pf">
       <div className="pf-in">
@@ -27,7 +26,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
         {sp.updated === 'password' && <div className="alert alert-ok" role="status">Your password was updated.</div>}
         <Hero me={me} />
         <div className="pf-grid">
-          <ProfileForm me={me} timezones={timezones} />
+          <ProfileForm me={me} />
           <SideCards me={me} />
         </div>
       </div>

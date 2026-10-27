@@ -17,9 +17,18 @@
 .pf-blob { position: absolute; border-radius: 50%; pointer-events: none; }
 .pf-blob-a { right: -32px; top: -32px; width: 176px; height: 176px; background: rgba(204, 229, 255, .3); filter: blur(40px); }
 .pf-blob-b { right: 144px; bottom: -40px; width: 144px; height: 144px; background: rgba(244, 228, 131, .4); filter: blur(24px); }
-.pf-who { position: relative; display: flex; align-items: center; gap: 20px; }
+.pf-who { position: relative; display: flex; align-items: flex-start; gap: 12px; }
+.pf-who > div:last-child { padding-top: 12px; }
+
+.pf-avatar-col { flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 96px; }
 .pf-avatar { position: relative; flex: none; width: 80px; height: 80px; border-radius: 50%; background: var(--pf-primary-2); color: #fdfcff; font-size: 24px; line-height: 32px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 4px #fff, 0 4px 6px rgba(0, 0, 0, .1); }
-.pf-avatar span { position: absolute; right: 0; bottom: 0; width: 24px; height: 24px; border-radius: 50%; background: #10b981; color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px #fff; }
+.pf-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+.pf-tick { position: absolute; right: 0; bottom: 0; width: 24px; height: 24px; border-radius: 50%; background: #10b981; color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px #fff; }
+.pf-cam { position: absolute; left: -2px; bottom: -2px; width: 28px; height: 28px; border: 0; border-radius: 50%; background: #fff; color: var(--pf-primary); display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(13, 28, 47, .25); }
+.pf-cam:hover:not(:disabled) { background: var(--pf-tint-3); }
+.pf-remove { border: 0; background: none; padding: 2px 6px; border-radius: 999px; font-size: 11px; line-height: 14px; font-weight: 700; color: var(--pf-muted); }
+.pf-remove:hover:not(:disabled) { color: #ba1a1a; text-decoration: underline; }
+.pf-avatar-err { width: 220px; margin-top: 2px; font-size: 12px; line-height: 16px; font-weight: 700; color: #7a1414; }
 .pf-name { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .pf-name b { font-size: 24px; line-height: 32px; font-weight: 700; overflow-wrap: anywhere; }
 .pf-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; background: var(--pf-sun); color: var(--pf-sun-ink); font-size: 11px; line-height: 14px; font-weight: 800; letter-spacing: .44px; }

@@ -119,3 +119,33 @@ test('no sideways scrolling from phone to desktop widths', async ({ page }) => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${width}px`).toBe(true);
   }
 });
+
+const PNG_1PX = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+
+test('a profile picture can be added, shows in the hero and the header, survives a reload and can be removed', async ({ page, request }) => {
+  await expect(page.locator('.qh-avatar img')).toHaveCount(0); // initials until there is a picture
+  await page.getByLabel('Choose a profile picture').setInputFiles({ name: 'me.png', mimeType: 'image/png', buffer: PNG_1PX });
+  await expect(page.locator('.pf-avatar img')).toBeVisible();
+  await expect(page.locator('.qh-avatar img')).toHaveAttribute('src', /\/api\/avatar\?v=/);
+  expect((await profileOf(request, KID.email))?.avatar_updated_at).toBeTruthy();
+
+  await page.reload();
+  await expect(page.locator('.pf-avatar img')).toBeVisible();
+  const res = await page.request.get('/api/avatar');
+  expect(res.status()).toBe(200);
+  expect(res.headers()['content-type']).toMatch(/^image\/(webp|jpeg)$/); // re-encoded by the browser before upload
+  expect((await res.body()).length).toBeLessThan(256 * 1024);
+
+  await page.getByRole('button', { name: 'Remove photo' }).click();
+  await expect(page.locator('.pf-avatar img')).toHaveCount(0);
+  await expect(page.locator('.qh-avatar img')).toHaveCount(0);
+  expect((await page.request.get('/api/avatar')).status()).toBe(404);
+  expect((await profileOf(request, KID.email))?.avatar_updated_at).toBeNull();
+});
+
+test('a file that is not a picture is refused with a message and nothing changes', async ({ page, request }) => {
+  await page.getByLabel('Choose a profile picture').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
+  await expect(page.getByRole('alert').filter({ hasText: 'not a picture' })).toBeVisible();
+  expect((await profileOf(request, KID.email))?.avatar_updated_at).toBeNull();
+  expect((await page.request.put('/api/avatar', { data: 'not an image', headers: { 'content-type': 'image/png' } })).status()).toBe(400); // the service sniffs the bytes too
+});

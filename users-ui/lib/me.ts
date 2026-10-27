@@ -10,6 +10,7 @@ export interface Me {
   status: 'active' | 'disabled';
   timezone: string | null;
   guardian_email: string | null;
+  avatar_updated_at: string | null;
 }
 
 /** The signed-in user's profile from users-service (deduplicated within a request). Signed-out visitors go to /login. */

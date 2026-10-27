@@ -22,3 +22,4 @@ export const BotIcon = make(<><rect x="4" y="8" width="16" height="12" rx="3" />
 export const CapIcon = make(<><path d="m2 9 10-5 10 5-10 5z" /><path d="M6 11.5V16c0 1.5 3 3 6 3s6-1.5 6-3v-4.5" /></>);
 export const SaveIcon = make(<><path d="M5 4h11l3 3v13H5z" /><path d="M8 4v5h7V4M8 20v-6h8v6" /></>);
 export const BadgeIcon = make(<><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="9" cy="11" r="2" /><path d="M14 10h4M14 14h3M6.5 16a3 3 0 0 1 5 0" /></>);
+export const CameraIcon = make(<><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></>);

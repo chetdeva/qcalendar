@@ -28,3 +28,22 @@ export async function forward(method: string, path: string, body?: unknown) {
 export async function readBody(req: Request) {
   return req.json().catch(() => undefined);
 }
+
+/** Like `forward`, but for bytes (the profile picture): the body goes through untouched and so do the image headers. */
+export async function forwardRaw(method: string, path: string, body?: ArrayBuffer, contentType?: string) {
+  const session = await currentSession();
+  if (!session) return NextResponse.json({ error: { code: 'unauthorized', message: 'Please sign in.' } }, { status: 401 });
+  try {
+    const res = await fetch(`${base()}${path}`, {
+      method,
+      headers: { authorization: `Bearer ${session.token}`, ...(contentType ? { 'content-type': contentType } : {}) },
+      body,
+      cache: 'no-store',
+    });
+    const headers = new Headers();
+    for (const h of ['content-type', 'cache-control', 'x-content-type-options']) if (res.headers.has(h)) headers.set(h, res.headers.get(h)!);
+    return new NextResponse(res.body, { status: res.status, headers });
+  } catch {
+    return NextResponse.json({ error: { code: 'upstream', message: 'The accounts service is unreachable.' } }, { status: 502 });
+  }
+}

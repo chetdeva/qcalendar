@@ -37,6 +37,6 @@ export interface CalendarSettings {
   bufferMinutes: number; slotStepMinutes: number;
 }
 
-export interface Me { id: string; email: string; full_name: string | null; role: Role; status: 'active' | 'disabled' }
+export interface Me { id: string; email: string; full_name: string | null; role: Role; status: 'active' | 'disabled'; avatar_updated_at?: string | null }
 
 export interface Person { id: string; name: string | null; email: string }

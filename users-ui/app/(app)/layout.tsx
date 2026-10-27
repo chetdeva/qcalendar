@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { AppHeader } from '@components/app-header';
+import { SiteFooter } from '@components/site-footer';
 import { getMe } from '@/lib/me';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -17,9 +18,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
   const { me } = result;
   return (
-    <>
-      <AppHeader current="account" name={me.full_name || me.email} role={me.role} menu={me.role === 'admin' ? <Link href="/admin/users">Users</Link> : undefined} />
-      {children}
-    </>
+    <div className="app-shell">
+      <AppHeader current="account" name={me.full_name || me.email} role={me.role} avatar={me.avatar_updated_at} menu={me.role === 'admin' ? <Link href="/admin/users">Users</Link> : undefined} />
+      <div className="app-body">{children}</div>
+      <SiteFooter />
+    </div>
   );
 }

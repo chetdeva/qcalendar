@@ -1,0 +1,100 @@
+/* The profile page. Every class is prefixed pf- so the admin pages and the global .panel/.field/.btn are untouched. */
+.pf { --pf-primary: #006194; --pf-primary-2: #007bb9; --pf-edge: #004b73; --pf-ink: #0d1c2f; --pf-muted: #3f4850; --pf-outline: #707881;
+  --pf-line: #bfc7d2; --pf-tint: #eff4ff; --pf-tint-2: #e6eeff; --pf-tint-3: #dde9ff; --pf-sun: #f4e483; --pf-sun-ink: #71650f; --pf-green: #047857; --pf-green-bg: #d1fae5;
+  color: var(--pf-ink); font-family: var(--font-jakarta), system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 20px; font-weight: 500; }
+.pf *, .pf *::before, .pf *::after { box-sizing: border-box; }
+.pf p, .pf h1, .pf h2 { margin: 0; }
+.pf-in { max-width: 1280px; margin: 0 auto; padding: 20px 56px 48px; display: flex; flex-direction: column; gap: 24px; }
+.pf-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; line-height: 16px; font-weight: 700; letter-spacing: .26px; color: var(--pf-muted); }
+.pf-crumbs i { font-style: normal; color: var(--pf-line); }
+.pf-crumbs span { color: var(--pf-outline); }
+.pf-crumbs b { font-size: 16px; line-height: 20px; color: var(--pf-ink); }
+.pf a.pf-home { display: inline-flex; align-items: center; gap: 4px; color: var(--pf-primary); font-weight: 700; }
+.pf h1 { font-size: 40px; line-height: 48px; font-weight: 800; letter-spacing: -.8px; }
+.pf-lead { margin-top: 4px; font-size: 16px; line-height: 24px; color: var(--pf-muted); }
+
+.pf-hero { position: relative; overflow: hidden; border-radius: 48px; padding: 32px; background: linear-gradient(90deg, var(--pf-tint), var(--pf-tint-2), #d5e3fd); box-shadow: 0 1px 2px rgba(0, 0, 0, .05); }
+.pf-blob { position: absolute; border-radius: 50%; pointer-events: none; }
+.pf-blob-a { right: -32px; top: -32px; width: 176px; height: 176px; background: rgba(204, 229, 255, .3); filter: blur(40px); }
+.pf-blob-b { right: 144px; bottom: -40px; width: 144px; height: 144px; background: rgba(244, 228, 131, .4); filter: blur(24px); }
+.pf-who { position: relative; display: flex; align-items: flex-start; gap: 12px; }
+.pf-who > div:last-child { padding-top: 12px; }
+
+.pf-avatar-col { flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 96px; }
+.pf-avatar { position: relative; flex: none; width: 80px; height: 80px; border-radius: 50%; background: var(--pf-primary-2); color: #fdfcff; font-size: 24px; line-height: 32px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 4px #fff, 0 4px 6px rgba(0, 0, 0, .1); }
+.pf-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+.pf-tick { position: absolute; right: 0; bottom: 0; width: 24px; height: 24px; border-radius: 50%; background: #10b981; color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px #fff; }
+.pf-cam { position: absolute; left: -2px; bottom: -2px; width: 28px; height: 28px; border: 0; border-radius: 50%; background: #fff; color: var(--pf-primary); display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(13, 28, 47, .25); }
+.pf-cam:hover:not(:disabled) { background: var(--pf-tint-3); }
+.pf-remove { border: 0; background: none; padding: 2px 6px; border-radius: 999px; font-size: 11px; line-height: 14px; font-weight: 700; color: var(--pf-muted); }
+.pf-remove:hover:not(:disabled) { color: #ba1a1a; text-decoration: underline; }
+.pf-avatar-err { width: 220px; margin-top: 2px; font-size: 12px; line-height: 16px; font-weight: 700; color: #7a1414; }
+.pf-name { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pf-name b { font-size: 24px; line-height: 32px; font-weight: 700; overflow-wrap: anywhere; }
+.pf-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; background: var(--pf-sun); color: var(--pf-sun-ink); font-size: 11px; line-height: 14px; font-weight: 800; letter-spacing: .44px; }
+.pf-sub { margin-top: 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--pf-muted); overflow-wrap: anywhere; }
+.pf-sub i { font-style: normal; }
+.pf-sub code { font-family: ui-monospace, Menlo, monospace; font-size: 13px; color: var(--pf-outline); }
+
+.pf-grid { display: grid; grid-template-columns: minmax(0, 8fr) minmax(0, 4fr); gap: 32px; align-items: start; }
+.pf-card { background: #fff; border-radius: 48px; padding: 32px; box-shadow: 0 1px 2px rgba(0, 0, 0, .05); display: flex; flex-direction: column; gap: 14px; }
+.pf-side { display: flex; flex-direction: column; gap: 20px; }
+.pf-side .pf-card { border-radius: 32px; padding: 20px; gap: 12px; }
+.pf-card h2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 20px; line-height: 28px; font-weight: 700; }
+.pf-card h2 > span { display: inline-flex; align-items: center; gap: 6px; }
+.pf-form h2 > span { color: var(--pf-ink); }
+.pf-form h2 svg, .pf-card h2 > span svg { color: var(--pf-primary); }
+.pf-card p { color: var(--pf-muted); }
+.pf-round { width: 32px; height: 32px; border-radius: 50%; background: var(--pf-tint-3); color: var(--pf-primary); display: inline-flex; align-items: center; justify-content: center; }
+.pf-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px; border-radius: 16px; background: var(--pf-tint); font-size: 13px; font-weight: 700; color: var(--pf-ink) !important; }
+.pf-row span { display: inline-flex; align-items: center; gap: 8px; }
+.pf-row svg { color: #059669; }
+.pf-ok { padding: 2px 8px; border-radius: 999px; background: var(--pf-green-bg); color: var(--pf-green); font-size: 11px; line-height: 14px; font-weight: 800; }
+
+.pf-field { display: flex; flex-direction: column; gap: 6px; }
+.pf-field label { font-size: 12px; line-height: 16px; font-weight: 700; color: var(--pf-ink); }
+.pf-input { position: relative; }
+.pf-input > svg:first-child { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--pf-primary); pointer-events: none; }
+/* the same fields as "Assign Task / Quest" on the dashboard: tinted, 8px corners, 2px border that turns blue on focus */
+.pf-input input, .pf-input select { width: 100%; appearance: none; background: var(--pf-tint); border: 2px solid transparent; border-radius: 8px; padding: 12px 14px 12px 44px; font: inherit; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--pf-ink); }
+.pf-input input:focus, .pf-input input:focus-visible, .pf-input select:focus, .pf-input select:focus-visible { outline: 0; border-color: var(--pf-primary-2); background: #fff; }
+.pf-input input::placeholder { color: #9ca3af; }
+.pf-locked input { color: var(--pf-muted); padding-right: 44px; cursor: not-allowed; }
+.pf-locked input:focus { border-color: transparent; background: var(--pf-tint); }
+.pf-locked > svg:first-child { color: var(--pf-outline); }
+.pf-lock { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--pf-outline); display: flex; }
+.pf-select::after { content: ''; position: absolute; right: 18px; top: 50%; width: 8px; height: 8px; border-right: 2px solid var(--pf-outline); border-bottom: 2px solid var(--pf-outline); transform: translateY(-70%) rotate(45deg); pointer-events: none; }
+.pf-select select { padding-right: 40px; cursor: pointer; }
+.pf-hint { display: flex; align-items: center; gap: 6px; font-size: 14px; line-height: 20px; color: var(--pf-muted); }
+.pf-hint svg { flex: none; color: var(--pf-primary); }
+.pf-tz { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pf-tz .pf-hint { font-size: 11px; line-height: 14px; font-weight: 800; color: var(--pf-green); }
+.pf-tz .pf-hint svg { color: #059669; }
+.pf-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 20px; border: 0; border-radius: 999px; background: var(--pf-tint); color: var(--pf-primary); font-size: 13px; line-height: 16px; font-weight: 700; letter-spacing: .26px; }
+.pf-chip:hover { background: var(--pf-tint-2); }
+.pf .alert { border-radius: 16px; padding: 12px 16px; font-size: 13px; font-weight: 700; }
+
+.pf-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding-top: 12px; }
+.pf-quiet { border: 0; background: none; border-radius: 999px; padding: 10px 32px; font-size: 13px; line-height: 16px; font-weight: 700; letter-spacing: .26px; color: var(--pf-muted); }
+.pf-quiet:hover:not(:disabled) { background: var(--pf-tint); color: var(--pf-ink); }
+.pf-save, .pf-cta { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 999px; background: var(--pf-primary); color: #fff; font-weight: 700; text-decoration: none; }
+.pf-save { padding: 12px 48px; font-size: 16px; line-height: 20px; box-shadow: 0 4px 0 var(--pf-edge); }
+.pf-save:hover:not(:disabled), .pf-cta:hover:not(:disabled) { background: var(--pf-primary-2); text-decoration: none; }
+.pf-save:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--pf-edge); }
+.pf-cta { width: 100%; padding: 10px 20px; font-size: 13px; line-height: 16px; letter-spacing: .26px; box-shadow: 0 2px 0 var(--pf-edge); }
+.pf-cta small { padding: 1px 6px; border-radius: 999px; background: rgba(255, 255, 255, .25); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.pf-cta:disabled { opacity: .6; }
+.pf a.pf-wide, .pf-wide { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 8px 20px; border-radius: 999px; background: var(--pf-tint-3); color: var(--pf-primary); font-size: 13px; line-height: 16px; font-weight: 700; letter-spacing: .26px; }
+.pf a.pf-wide:hover { background: #d5e3fd; text-decoration: none; }
+.pf a.pf-cta { color: #fff; }
+
+@media (max-width: 1023px) { .pf-in { padding: 20px 32px 40px; } .pf-grid { grid-template-columns: 1fr; } }
+@media (max-width: 640px) {
+  .pf-in { padding: 16px 16px 32px; gap: 20px; }
+  .pf h1 { font-size: 32px; line-height: 38px; }
+  .pf-hero { border-radius: 32px; padding: 20px; }
+  .pf-who { flex-direction: column; align-items: flex-start; }
+  .pf-card { border-radius: 32px; padding: 20px; }
+  .pf-actions { flex-direction: column-reverse; align-items: stretch; }
+  .pf-save { width: 100%; padding-inline: 20px; }
+}

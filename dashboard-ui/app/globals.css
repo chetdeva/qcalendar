@@ -275,11 +275,6 @@ h1 em { font-style: normal; color: var(--primary); }
 .grade-select { font: inherit; font-size: 13px; font-weight: 700; background: #fff; border: 0; border-radius: 999px; padding: 8px 16px; box-shadow: var(--lift); color: var(--ink); }
 .student .actions.row .btn-soft { padding: 9px 14px; }
 
-/* footer */
-.foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; max-width: 1280px; margin: 0 auto; padding: 20px 56px; font-size: 11px; font-weight: 700; color: var(--ink-2); background: #fff; width: 100%; }
-.foot p { display: flex; align-items: center; gap: 8px; color: var(--primary); }
-.foot nav { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 28px; }
-.foot nav small { font-size: 11px; color: var(--ink-3); font-weight: 600; }
 .shell { display: flex; flex-direction: column; min-height: 100vh; }
 .shell main { flex: 1; }
 .boot-error { max-width: 480px; margin: 20vh auto; padding: 24px; background: #fff; border-radius: 12px; text-align: center; }
@@ -298,7 +293,6 @@ h1 em { font-style: normal; color: var(--primary); }
   .grade-card { grid-template-columns: 1fr; }
   .ribbon { grid-template-columns: repeat(2, 1fr); }
   .strip { grid-template-columns: 1fr; }
-  .foot { padding: 20px 24px; }
 }
 
 /* phones */

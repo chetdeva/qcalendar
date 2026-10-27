@@ -3,8 +3,15 @@
 import { useMemo, useState } from 'react';
 import type { Me } from '@/lib/me';
 import { emailError, nameError } from '@/lib/validation';
+import { BadgeIcon, CheckCircleIcon, ClockIcon, InfoIcon, LockIcon, MailIcon, SaveIcon, TargetIcon, UserIcon, UsersIcon } from './_parts/icons';
 
-export function ProfileForm({ me, timezones }: { me: Me; timezones: string[] }) {
+/** The few zones our families and teachers use. A saved zone or the browser's zone that is not listed is added to the list. */
+const ZONES: [string, string][] = [
+  ['America/New_York', 'Eastern Time'], ['America/Chicago', 'Central Time'], ['America/Denver', 'Mountain Time'], ['America/Phoenix', 'Arizona'],
+  ['America/Los_Angeles', 'Pacific Time'], ['America/Anchorage', 'Alaska'], ['Pacific/Honolulu', 'Hawaii'], ['Europe/London', 'London'], ['Asia/Kolkata', 'India'], ['UTC', 'UTC'],
+];
+
+export function ProfileForm({ me }: { me: Me }) {
   const [name, setName] = useState(me.full_name ?? '');
   const [timezone, setTimezone] = useState(me.timezone ?? '');
   const [guardian, setGuardian] = useState(me.guardian_email ?? '');
@@ -12,13 +19,19 @@ export function ProfileForm({ me, timezones }: { me: Me; timezones: string[] }) 
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [extraZone, setExtraZone] = useState('');
+  const [picked, setPicked] = useState(''); // the zone the browser button chose, shown under the selector
+  const student = me.role === 'student';
 
-  // Intl.supportedValuesOf omits "UTC" and some aliases (it says Asia/Calcutta, a browser may say Asia/Kolkata), so
-  // always include the saved zone and the browser's zone, or the selector would silently show "Not set".
   const zones = useMemo(
-    () => [...new Set([...timezones, 'UTC', me.timezone ?? '', extraZone].filter(Boolean))].sort((a, b) => a.localeCompare(b)),
-    [timezones, me.timezone, extraZone],
+    () => [...ZONES, ...[me.timezone, extraZone].filter((z): z is string => !!z && !ZONES.some(([id]) => id === z)).map((z): [string, string] => [z, z])]
+      .filter(([id], i, all) => all.findIndex(([x]) => x === id) === i),
+    [me.timezone, extraZone],
   );
+
+  function discard() {
+    setName(me.full_name ?? ''); setTimezone(me.timezone ?? ''); setGuardian(me.guardian_email ?? '');
+    setError(''); setSaved(false); setPicked('');
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -38,33 +51,42 @@ export function ProfileForm({ me, timezones }: { me: Me; timezones: string[] }) 
   }
 
   return (
-    <form onSubmit={submit} className="panel" noValidate>
-      <div className="field">
+    <form onSubmit={submit} className="pf-card pf-form" noValidate>
+      <h2><span><BadgeIcon size={22} /> Core Information</span></h2>
+      <div className="pf-field">
         <label htmlFor="email">Email</label>
-        <input id="email" value={me.email} readOnly />
-        <span className="hint">Your sign-in address. Role: {me.role}.</span>
+        <div className="pf-input pf-locked"><MailIcon /><input id="email" value={me.email} readOnly /><span className="pf-lock" title="Sign-in address, locked"><LockIcon size={18} /></span></div>
+        <p className="pf-hint"><InfoIcon size={16} /> Your sign-in address. Role: {me.role}. {student ? 'Contact your guardian or school to request updates.' : 'Contact Quanttoria support to modify official credentials.'}</p>
       </div>
-      <div className="field">
+      <div className="pf-field">
         <label htmlFor="name">Full name</label>
-        <input id="name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
+        <div className="pf-input"><UserIcon /><input id="name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} /></div>
+        <p className="pf-hint">{student ? 'This name appears on your classroom leaderboard, assignments, and certificates.' : 'This name appears on student dashboards, live classroom rooms, and weekly summary reports.'}</p>
       </div>
-      <div className="field">
+      <div className="pf-field">
         <label htmlFor="tz">Time zone</label>
-        <select id="tz" value={timezone} onChange={(e) => setTimezone(e.target.value)}>
-          <option value="">Not set</option>
-          {zones.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
-        </select>
-        <button type="button" className="btn btn-sm" style={{ alignSelf: 'flex-start', marginTop: 6 }}
-          onClick={() => { const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; setExtraZone(tz); setTimezone(tz); }}>Use my browser&apos;s time zone</button>
+        <div className="pf-input pf-select"><ClockIcon />
+          <select id="tz" value={timezone} onChange={(e) => { setTimezone(e.target.value); setPicked(''); }}>
+            <option value="">Not set</option>
+            {zones.map(([id, name]) => <option key={id} value={id}>{id === name ? id : `${name} (${id})`}</option>)}
+          </select>
+        </div>
+        <div className="pf-tz">
+          <button type="button" className="pf-chip" onClick={() => { const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; setExtraZone(tz); setTimezone(tz); setPicked(tz); }}><TargetIcon size={18} /> Use my browser&apos;s time zone</button>
+          {timezone && <span className="pf-hint"><CheckCircleIcon size={14} /> {picked ? `Browser applied: ${picked}` : `Active zone: ${timezone}`}</span>}
+        </div>
       </div>
-      <div className="field">
+      <div className="pf-field">
         <label htmlFor="guardian">Guardian email (optional)</label>
-        <input id="guardian" type="email" value={guardian} onChange={(e) => setGuardian(e.target.value)} />
-        <span className="hint">A parent or guardian we can contact. Only you and admins can see it.</span>
+        <div className="pf-input"><UsersIcon /><input id="guardian" type="email" placeholder="e.g. parent@example.com" value={guardian} onChange={(e) => setGuardian(e.target.value)} /></div>
+        <p className="pf-hint">{student ? 'A parent or guardian we can contact. Only you and admins can see it.' : 'A parent or guardian we can contact if needed. Only you and Quanttoria verified admins can view this record.'}</p>
       </div>
       {error && <div className="alert alert-error" role="alert">{error}</div>}
       {saved && <div className="alert alert-ok" role="status">Saved.</div>}
-      <div><button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button></div>
+      <div className="pf-actions">
+        <button type="button" className="pf-quiet" onClick={discard} disabled={busy}>Discard changes</button>
+        <button type="submit" className="pf-save" disabled={busy}><SaveIcon /> {busy ? 'Saving…' : 'Save changes'}</button>
+      </div>
     </form>
   );
 }

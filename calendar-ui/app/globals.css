@@ -28,12 +28,13 @@ button:disabled { cursor: default; }
 .work { display: flex; flex: 1; min-height: 0; }
 .gridwrap { display: flex; flex-direction: column; flex: 1; min-width: 0; background: var(--bg); }
 .fcbox { position: relative; flex: 1; min-height: 0; }
-.fchost { position: absolute; inset: 0; }
+.fchost { position: absolute; inset: 16px 24px; } /* breathing room around the calendar */
 @media (max-width: 960px) {
   .shell { height: auto; }
   .work { flex-direction: column; }
   .gridwrap { height: 70vh; flex: none; }
   .drawer { width: 100%; }
+  .fchost { inset: 12px; }
 }
 
 /* utility bar */

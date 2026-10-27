@@ -96,7 +96,7 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
 
   return (
     <div className="shell">
-      <AppHeader current="calendar" name={me.full_name || me.email} role={me.role} />
+      <AppHeader current="calendar" name={me.full_name || me.email} role={me.role} avatar={me.avatar_updated_at} />
       {staleRole && <RoleBanner me={me} />}
       <header className="utility">
         <div className="u-row">

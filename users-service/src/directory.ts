@@ -10,6 +10,8 @@ export interface Profile {
   status: Status;
   timezone: string | null;
   guardian_email: string | null;
+  /** When the profile picture was last set; null means there is none. Also the cache-busting version. */
+  avatar_updated_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -52,6 +54,11 @@ export interface Directory {
   setStatus(id: string, status: Status): Promise<Profile | null>;
   /** Blocks (or unblocks) sign-in at the auth layer, so a disabled user cannot refresh their session. */
   setBanned(id: string, banned: boolean): Promise<void>;
+
+  /** The profile picture (a private object, key = user id). Callers have already checked size and type. */
+  putAvatar(id: string, bytes: Uint8Array, contentType: string): Promise<Profile | null>;
+  getAvatar(id: string): Promise<Uint8Array | null>;
+  deleteAvatar(id: string): Promise<Profile | null>;
 
   createInvitation(input: { email: string; role: Role; invitedBy: string }): Promise<Invitation>;
   listInvitations(status?: Invitation['status']): Promise<Invitation[]>;

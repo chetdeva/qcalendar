@@ -31,7 +31,7 @@ export async function mailFor(request: APIRequestContext, to: string, kind: 'sig
 }
 
 export async function profileOf(request: APIRequestContext, email: string) {
-  return (await (await request.get(`${AUTH_URL}/__test/profile`, { params: { email } })).json()) as { role: string; status: string; full_name: string | null; guardian_email: string | null; timezone: string | null } | null;
+  return (await (await request.get(`${AUTH_URL}/__test/profile`, { params: { email } })).json()) as { role: string; status: string; full_name: string | null; guardian_email: string | null; timezone: string | null; avatar_updated_at: string | null } | null;
 }
 
 export async function logIn(page: Page, email: string, password: string) {

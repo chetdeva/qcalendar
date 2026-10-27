@@ -75,3 +75,9 @@ test.describe('sign-in screens', () => {
     }
   });
 });
+
+test('the tab shows the Quanttoria title and icon on the sign-in page', async ({ page }) => {
+  await page.goto('/login');
+  await expect(page).toHaveTitle('Quanttoria | Personalized Learning for US Students');
+  await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', /\/_next\/static\/media\/icon.*\.png/);
+});

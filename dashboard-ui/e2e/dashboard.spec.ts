@@ -348,3 +348,9 @@ test.describe('admin and layout', () => {
     await expect(page).toHaveURL(/58765\/login/);
   });
 });
+
+test('the tab shows the same title and icon as the Quanttoria website', async ({ context, request }) => {
+  const page = await openPage(context, await seed(request, 'student', 'Mia Student'));
+  await expect(page).toHaveTitle('Quanttoria | Personalized Learning for US Students');
+  await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', /\/_next\/static\/media\/icon.*\.png/);
+});

@@ -38,6 +38,13 @@ services:
       CALENDAR_URL: https://calendar.${DOMAIN}
       MAIL_FROM: ${MAIL_FROM:-Quanttoria <no-reply@quanttoria.com>}
 
+  billing-service:
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production # refuses to start without DATABASE_URL and SUPABASE_URL, and refuses the fake gateway
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env (Supabase session pooler string)} # same database as calendar, its own "billing" schema
+      BILLING_RETURN_URL: https://accounts.${DOMAIN}/billing
+
   chat-service:
     restart: unless-stopped
     environment:

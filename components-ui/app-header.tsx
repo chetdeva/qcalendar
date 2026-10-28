@@ -11,7 +11,7 @@ const label = (role: string) => role.charAt(0).toUpperCase() + role.slice(1);
 /**
  * The one Quanttoria header: logo, role chip, tabs and the avatar menu. Every app renders this and passes
  * who is signed in and which tab it is. `left` replaces the role chip (the dashboard's admin switch),
- * `right` sits before the avatar (dashboard extras), `menu` adds links to the avatar menu, `avatar` shows their picture.
+ * `right` sits before the avatar (dashboard extras), `menu` adds links to the avatar menu (students always get Billing), `avatar` shows their picture.
  */
 export function AppHeader({ current, name, role, left, right, menu, assignmentsHref = `${dashboardUrl}/assignments`, avatar }: {
   current: HeaderTab; name: string; role: string; left?: ReactNode; right?: ReactNode; menu?: ReactNode; assignmentsHref?: string;
@@ -41,6 +41,7 @@ export function AppHeader({ current, name, role, left, right, menu, assignmentsH
           </summary>
           <div className="qh-menu">
             <a href={`${usersUiUrl}/profile`} aria-current={tab('account')}>Account</a>
+            {role === 'student' && <a href={`${usersUiUrl}/billing`}>Billing</a>}
             {menu}
             <form action={`${usersUiUrl}/auth/signout`} method="post"><button type="submit">Sign out</button></form>
           </div>

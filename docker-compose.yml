@@ -61,6 +61,15 @@ services:
       USERS_SERVICE_URL: http://users-service:3010 # a student's grade decides their price
       USERS_SERVICE_API_KEY: ${USERS_SERVICE_API_KEY:-} # required to read grades
       BILLING_RETURN_URL: http://localhost:3003/billing
+      CASHFREE_CLIENT_ID: ${CASHFREE_CLIENT_ID:-} # BILLING_GATEWAY=cashfree; sandbox keys while testing
+      CASHFREE_CLIENT_SECRET: ${CASHFREE_CLIENT_SECRET:-}
+      CASHFREE_ENV: ${CASHFREE_ENV:-sandbox}
+      CASHFREE_CURRENCY: ${CASHFREE_CURRENCY:-INR}
+      CASHFREE_DEFAULT_PHONE: ${CASHFREE_DEFAULT_PHONE:-9999999999}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-} # BILLING_GATEWAY=razorpay; rzp_test_ keys while testing
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      RAZORPAY_CURRENCY: ${RAZORPAY_CURRENCY:-INR}
     volumes: [billing-data:/data]
     depends_on: [users-service]
 

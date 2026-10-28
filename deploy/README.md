@@ -37,7 +37,7 @@ DATABASE_URL=<Supabase session pooler connection string, with the database passw
 # Optional (billing, off by default): BILLING_SERVICE_KEY=<openssl rand -hex 32>  COMPOSE_PROFILES=billing  BILLING_GATEWAY=<gateway name>
 #   plus that gateway's own keys. Needs USERS_SERVICE_API_KEY too. Run migration users-service/migrations/0003_grade.sql first. Without
 #   BILLING_SERVICE_KEY the billing service does not start and every lesson stays free. Webhook URL to give the gateway:
-#   https://accounts.<domain>/api/webhooks/billing/<gateway name>
+#   https://accounts.<domain>/api/webhooks/billing/<gateway name> (Cashfree: also CASHFREE_CLIENT_ID, CASHFREE_CLIENT_SECRET, CASHFREE_ENV=sandbox; Razorpay: RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET)
 # Optional: FILES_BUCKET=<bucket>  FILES_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com  FILES_ACCESS_KEY_ID=...  FILES_SECRET_ACCESS_KEY=...
 #   keeps students' uploaded work (pictures, PDFs) in a private Cloudflare R2 bucket instead of the database. For Amazon S3 leave FILES_ENDPOINT
 #   empty and set FILES_REGION=eu-north-1. Existing uploads stay in the database and keep working.

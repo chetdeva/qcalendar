@@ -3,6 +3,8 @@ import { currentSession } from './supabase/server.ts';
 
 const base = (name: string, fallback: string) => (process.env[name] ?? fallback).replace(/\/$/, '');
 const dashboardBase = () => base('DASHBOARD_API_URL', 'http://localhost:3007');
+const calendarBase = () => base('CALENDAR_API_URL', 'http://localhost:3000');
+const billingBase = () => base('BILLING_API_URL', 'http://localhost:3012');
 const usersBase = () => base('USERS_SERVICE_URL', 'http://localhost:3010');
 
 export type Reply<T = any> = { status: number; json: T };
@@ -24,6 +26,9 @@ async function call<T>(root: string, method: string, path: string, body?: unknow
 }
 
 /** Both services receive the signed-in person's OWN token, so each one decides what that person may do. */
+/** calendar-service (free class requests) and billing-service (what to nudge), only for the student's nudge cards. */
+export const callCalendar = <T = any>(method: string, path: string, body?: unknown) => call<T>(calendarBase(), method, path, body);
+export const callBilling = <T = any>(method: string, path: string, body?: unknown) => call<T>(billingBase(), method, path, body);
 export const callDashboard = <T = any>(method: string, path: string, body?: unknown) => call<T>(dashboardBase(), method, path, body);
 export const callUsers = <T = any>(method: string, path: string, body?: unknown) => call<T>(usersBase(), method, path, body);
 

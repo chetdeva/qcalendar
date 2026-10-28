@@ -11,6 +11,11 @@ export interface BillingMe {
   } | null;
   credits: { remaining: number; expiresAt: string | null };
   trialAvailable: boolean;
+  trial: 'available' | 'booked' | 'done';
+  /** What to nudge the student toward; the same list every app shows. */
+  prompts: ('book_trial' | 'trial_booked' | 'subscribe')[];
+  /** Every price band, for the grade-by-grade table. `yours` marks the student's own. */
+  bands: { key: string; label: string; monthlyCents: number; annualCents: number; yours: boolean }[];
 }
 
 export const dollars = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;

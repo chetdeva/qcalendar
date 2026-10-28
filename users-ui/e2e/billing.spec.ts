@@ -28,10 +28,13 @@ test('a student with no grade sets it, then sees the price for their band and th
   await page.getByLabel('Grade', { exact: true }).selectOption('6');
   await page.getByRole('button', { name: 'Save grade' }).click();
   await expect(page.getByRole('heading', { name: 'Grade 6 plan' })).toBeVisible();
-  await expect(page.locator('.bl-price b')).toHaveText('$350');
-  await page.getByRole('radio', { name: /Annual/ }).click();
-  await expect(page.locator('.bl-price b')).toHaveText('$3,360');
-  await expect(page.locator('.bl-price span')).toContainText('$280 a month instead of $350');
+  // Monthly and annual sit side by side, each with its own button, and the table lists every band.
+  await expect(page.getByLabel('Monthly plan').locator('.bl-price b')).toHaveText('$350');
+  await expect(page.getByLabel('Annual plan').locator('.bl-price b')).toHaveText('$3,360');
+  await expect(page.getByLabel('Annual plan')).toContainText('$280 a month instead of $350');
+  await expect(page.getByLabel('Prices by grade').getByRole('row')).toHaveCount(4);
+  await expect(page.locator('.bl-yours')).toContainText('Grades 6-8');
+  await expect(page.locator('.bl-yours')).toContainText('Your grade');
 });
 
 test('Subscribe sends the student to the gateway\'s hosted checkout for their band and period', async ({ page, request }) => {
@@ -39,8 +42,7 @@ test('Subscribe sends the student to the gateway\'s hosted checkout for their ba
   await logInAs(page, KID);
   await page.route('https://pay.example.test/**', (route) => route.fulfill({ body: 'hosted checkout' }));
   await page.goto('/billing');
-  await page.getByRole('radio', { name: /Annual/ }).click();
-  await page.getByRole('button', { name: 'Subscribe' }).click();
+  await page.getByRole('button', { name: 'Subscribe annually' }).click();
   await page.waitForURL(/pay\.example\.test\/checkout/);
   expect(page.url()).toContain('plan=high');
   expect(page.url()).toContain('interval=year');
@@ -65,4 +67,19 @@ test('teachers have nothing to pay', async ({ page, request }) => {
   await logInAs(page, { email: 'teach@example.test', password: 'teach-password-1' });
   await page.goto('/billing');
   await expect(page.getByText('Billing is for students.')).toBeVisible();
+});
+
+test('students get a Billing link in the profile menu; teachers do not', async ({ page, request }) => {
+  await seedUser(request, { ...KID, name: 'Kid One', grade: 6 });
+  await logInAs(page, KID);
+  await page.goto('/profile');
+  await page.locator('.qh-me summary').click();
+  await page.getByRole('link', { name: 'Billing' }).click();
+  await expect(page).toHaveURL(/\/billing$/);
+  await page.context().clearCookies();
+  await seedUser(request, { email: 'teach2@example.test', password: 'teach-password-1', role: 'teacher' });
+  await logInAs(page, { email: 'teach2@example.test', password: 'teach-password-1' });
+  await page.goto('/profile');
+  await page.locator('.qh-me summary').click();
+  await expect(page.getByRole('link', { name: 'Billing' })).toHaveCount(0);
 });

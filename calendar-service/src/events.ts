@@ -5,6 +5,7 @@ import type { Db, Queryable } from './db.ts';
 import { HttpError } from './errors.ts';
 import type { BillingClient } from './billing.ts';
 import { enqueueMail, type MailKind, type OutboxPayload } from './outbox.ts';
+import { markScheduled } from './trial-requests.ts';
 import { enqueueWebhook } from './webhooks.ts';
 
 export interface Ctx {
@@ -221,7 +222,7 @@ async function charge(ctx: Ctx, e: EventRow, parts: PRow[], paid: PRow[]) {
   for (const p of parts) {
     const who = p.name || p.email;
     if (!p.user_id) throw new HttpError(422, 'student_account_required', `${who} has not created an account yet. Choose students who have signed up.`, { participant: who });
-    const r = await ctx.billing.reserve(p.user_id, seatRef(e.id, p.user_id));
+    const r = await ctx.billing.reserve(p.user_id, seatRef(e.id, p.user_id), new Date(e.end_at).toISOString());
     if (!r.ok) throw new HttpError(402, r.code, `${who} ${REFUSALS[r.code]}`, { participant: who });
     paid.push(p);
   }
@@ -279,6 +280,7 @@ export async function createEvent(ctx: Ctx, actor: Actor, input: CreateInput) {
     }
     created = e;
     await charge(ctx, e, parts, paid);
+    if (e.category === 'tutoring') await markScheduled(q, e.id, parts.map((p) => p.user_id));
     await notify(q, 'invite', e, parts.map((p) => ({ email: p.email, name: p.name })));
     await emit(ctx, q, 'event.created', e, parts);
     return viewOf(e, parts, 'manager');
@@ -441,6 +443,7 @@ export async function addParticipants(ctx: Ctx, actor: Actor, id: string, input:
     }
     if (added.length) {
       await charge(ctx, e, added, paid);
+      if (e.category === 'tutoring') await markScheduled(q, e.id, added.map((p) => p.user_id));
       await notify(q, 'invite', e, added.map((p) => ({ email: p.email, name: p.name })));
       await emit(ctx, q, 'event.updated', e, [...existing, ...added]);
     }

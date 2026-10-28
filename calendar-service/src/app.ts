@@ -4,6 +4,7 @@ import type { Actor, Authenticator } from './auth.ts';
 import { isValidTz } from './availability.ts';
 import { HttpError } from './errors.ts';
 import * as svc from './events.ts';
+import * as trials from './trial-requests.ts';
 
 type Env = { Variables: { actor: Actor } };
 
@@ -117,6 +118,15 @@ export function createApp(deps: { ctx: svc.Ctx; authenticator: Authenticator }) 
     const q = parse(ListQuery, c.req.query());
     return c.json({ events: await svc.listEvents(ctx, c.get('actor'), { ...q, includeCancelled: q.includeCancelled === 'true' }) });
   });
+
+  // A new student's request for the free first class, and the teachers' list of open ones.
+  app.post('/v1/trial-requests', async (c) => {
+    const b = parse(z.object({ note: z.string().trim().max(500).optional() }).strict(), (await body(c)) ?? {});
+    return c.json(await trials.requestTrial(ctx, c.get('actor'), b.note || undefined), 201);
+  });
+  app.get('/v1/trial-requests/mine', async (c) => c.json({ request: await trials.myRequest(ctx, c.get('actor')) }));
+  app.delete('/v1/trial-requests/mine', async (c) => { await trials.cancelMyRequest(ctx, c.get('actor')); return c.body(null, 204); });
+  app.get('/v1/trial-requests', async (c) => c.json({ requests: await trials.openRequests(ctx, c.get('actor')) }));
 
   // Who the caller shares a class with. chat-service uses it as its "may these two talk" rule.
   app.get('/v1/contacts', async (c) => c.json({ contacts: (await svc.contactIds(ctx, c.get('actor'))).map((id) => ({ id })) }));

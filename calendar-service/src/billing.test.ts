@@ -148,3 +148,41 @@ test('lessons already in the past are never refunded', async () => {
   await t.call('DELETE', `/v1/events/${ev.id}`);
   assert.equal(bill.credits.get(a.id), 0);
 });
+
+test('a student asks for the free class once; a teacher sees it; booking the student marks it scheduled', async () => {
+  const t = await h.person('teacher');
+  const s = await h.person('student', { name: 'Sam' });
+  bill.give(s, 3);
+  assert.equal((await t.call('POST', '/v1/trial-requests', {})).status, 403); // only students ask
+  assert.equal((await s.call('POST', '/v1/trial-requests', { note: 'After 4pm' })).status, 201);
+  assert.equal((await s.call('POST', '/v1/trial-requests', { note: 'again' })).status, 201); // idempotent while open
+  const mine = (await json(await s.call('GET', '/v1/trial-requests/mine'))).request;
+  assert.deepEqual([mine.note, mine.studentName, mine.status], ['After 4pm', 'Sam', 'requested']);
+  const open = (await json(await t.call('GET', '/v1/trial-requests'))).requests;
+  assert.deepEqual(open.map((r: any) => r.studentId), [s.id]);
+  assert.equal((await s.call('GET', '/v1/trial-requests')).status, 403);
+  assert.equal((await book(t, [s])).status, 201);
+  assert.equal((await json(await s.call('GET', '/v1/trial-requests/mine'))).request, null);
+  assert.equal((await json(await t.call('GET', '/v1/trial-requests'))).requests.length, 0);
+});
+
+test('a student can withdraw their request and ask again', async () => {
+  const s = await h.person('student');
+  await s.call('POST', '/v1/trial-requests', {});
+  assert.equal((await s.call('DELETE', '/v1/trial-requests/mine')).status, 204);
+  assert.equal((await json(await s.call('GET', '/v1/trial-requests/mine'))).request, null);
+  assert.equal((await s.call('POST', '/v1/trial-requests', {})).status, 201);
+});
+
+test('the lesson end time travels with the reservation, so billing knows when the free class is over', async () => {
+  const t = await h.person('teacher');
+  const s = await h.person('student');
+  const ends: (string | undefined)[] = [];
+  const spy = createHarness({ billing: { reserve: async (_u, _r, endsAt) => { ends.push(endsAt); return { ok: true }; }, release: async () => {} } });
+  const h2 = await spy;
+  const t2 = await h2.person('teacher');
+  await t2.call('POST', '/v1/events', { title: 'Algebra', ...slot(10), participants: [{ email: s.email, userId: s.id, name: 'Sam' }] });
+  assert.deepEqual(ends, ['2030-01-07T11:00:00.000Z']);
+  await h2.close();
+  void t;
+});

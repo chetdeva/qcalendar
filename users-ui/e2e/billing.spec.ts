@@ -42,7 +42,7 @@ test('Subscribe sends the student to the gateway\'s hosted checkout for their ba
   await page.getByRole('radio', { name: /Annual/ }).click();
   await page.getByRole('button', { name: 'Subscribe' }).click();
   await page.waitForURL(/pay\.example\.test\/checkout/);
-  expect(page.url()).toContain('plan=g8_10');
+  expect(page.url()).toContain('plan=high');
   expect(page.url()).toContain('interval=year');
 });
 

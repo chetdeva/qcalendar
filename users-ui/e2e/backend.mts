@@ -153,7 +153,7 @@ http.createServer(async (req, res) => {
     if (!u) return send(res, 404, { error: 'no such user' });
     const interval = b.interval === 'year' ? 'year' : 'month';
     const start = new Date();
-    const d = billingFake.deliver({ type: 'payment_succeeded', eventId: `evt_${randomUUID()}`, userId: u.id, customerRef: `cus_${u.id}`, subscriptionRef: `sub_${u.id}`, planKey: b.planKey ?? 'g5_7', interval, periodStart: start, periodEnd: addMonths(start, interval === 'month' ? 1 : 12), amountCents: 35000, currency: 'usd' });
+    const d = billingFake.deliver({ type: 'payment_succeeded', eventId: `evt_${randomUUID()}`, userId: u.id, customerRef: `cus_${u.id}`, subscriptionRef: `sub_${u.id}`, planKey: b.planKey ?? 'middle', interval, periodStart: start, periodEnd: addMonths(start, interval === 'month' ? 1 : 12), amountCents: 35000, currency: 'usd' });
     const r = await billingApp.request('/v1/webhooks/fake', { method: 'POST', body: d.rawBody, headers: d.headers });
     return send(res, r.status, await r.json());
   }

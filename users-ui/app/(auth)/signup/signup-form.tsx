@@ -11,6 +11,7 @@ export function SignupForm({ next }: { next: string }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [grade, setGrade] = useState('');
   const [error, setError] = useState('');
   const [sentTo, setSentTo] = useState('');
   const [busy, setBusy] = useState(false);
@@ -21,10 +22,11 @@ export function SignupForm({ next }: { next: string }) {
     setError('');
     const bad = emailError(email) ?? passwordError(password, email) ?? (password !== confirm ? 'The two passwords do not match.' : null);
     if (bad) return setError(bad);
+    if (!grade) return setError('Choose your grade.');
     setBusy(true);
     const { data, error: err } = await createClient().auth.signUp({
       email: email.trim(), password,
-      options: { emailRedirectTo: redirectTo() },
+      options: { emailRedirectTo: redirectTo(), data: { grade: Number(grade) } },
     });
     setBusy(false);
     if (err) return setError(err.code === 'weak_password' ? 'Choose a stronger password.' : err.message || 'Could not sign up. Try again.');
@@ -53,6 +55,16 @@ export function SignupForm({ next }: { next: string }) {
       <div className="au-or">or</div>
       <form className="au-form" onSubmit={submit} noValidate>
         <Field id="email" label="Email" icon="mail" type="email" autoComplete="email" placeholder="alex@example.com" value={email} onChange={setEmail} />
+        <div className="au-field">
+          <label htmlFor="grade">Student&apos;s grade</label>
+          <div className="au-input">
+            <select id="grade" value={grade} onChange={(e) => setGrade(e.target.value)}>
+              <option value="">Choose a grade</option>
+              {Array.from({ length: 10 }, (_, i) => <option key={i + 1} value={i + 1}>Grade {i + 1}</option>)}
+            </select>
+          </div>
+          <span className="au-hint">It sets your plan&apos;s price band. You can confirm it once each school year.</span>
+        </div>
         <Field id="password" label="Password" icon="lock" type="password" reveal autoComplete="new-password" hint="At least 8 characters." value={password} onChange={setPassword} />
         <Field id="confirm" label="Confirm password" icon="lock" type="password" reveal autoComplete="new-password" value={confirm} onChange={setConfirm} />
         {error && <div className="alert alert-error" role="alert">{error}</div>}

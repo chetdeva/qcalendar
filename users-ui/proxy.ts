@@ -4,7 +4,7 @@ import { cookieOptions } from '@/lib/cookies';
 import { allowedReturnOrigins, supabaseKey, supabaseUrl } from '@/lib/env';
 import { parseOrigins, safeNext } from '@/lib/return-to';
 
-const PROTECTED = ['/profile', '/admin'];
+const PROTECTED = ['/profile', '/billing', '/admin'];
 const GUEST_ONLY = ['/login', '/signup'];
 const startsWith = (path: string, prefixes: string[]) => prefixes.some((p) => path === p || path.startsWith(`${p}/`));
 

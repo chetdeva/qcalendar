@@ -23,7 +23,7 @@ export interface LessonForm {
 export type Conflict = { kind: 'owner' | 'students'; people: string[] };
 
 const DURATIONS = [30, 60, 75, 90];
-const iconFor = (c: EventCategory) => (c === 'tutoring' ? 'tutoring' : c === 'office_hours' ? 'office-hours' : 'personal');
+const iconFor = (c: EventCategory) => (c === 'tutoring' || c === 'trial' ? 'tutoring' : c === 'office_hours' ? 'office-hours' : 'personal');
 
 export function conflictMessage(c: Conflict) {
   return c.kind === 'owner'
@@ -80,13 +80,13 @@ export function CreateDrawer(p: CreateProps) {
           <input value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="AP Statistics - Private Session" />
         </label>
 
-        <StudentPicker label="Students" required={form.category === 'tutoring'} value={form.students} onChange={(v) => set('students', v)} />
+        <StudentPicker label="Students" required={form.category === 'tutoring' || form.category === 'trial'} value={form.students} onChange={(v) => set('students', v)} />
         <div className="hint ok"><Icon name="verified-sync" color="#006c4a" />Each student gets an email invitation</div>
 
         <div className="field">
           <span id="session-type">Session Type</span>
           <div className="seg" role="group" aria-labelledby="session-type">
-            {CATEGORY_ORDER.map((c) => (
+            {CATEGORY_ORDER.filter((c) => c !== 'office_hours').map((c) => ( // office hours are no longer offered when creating a class (existing ones still show)
               <button
                 key={c}
                 type="button"

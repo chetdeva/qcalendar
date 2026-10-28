@@ -107,25 +107,26 @@ test.describe('creating a class', () => {
     await page.getByRole('button', { name: 'Tutoring' }).click();
     await expect(field.create(page)).toBeDisabled();
     await field.date(page).fill('');
-    await page.getByRole('button', { name: 'Office Hr' }).click();
+    await page.getByRole('button', { name: 'Personal' }).click();
     await expect(missing).toContainText('a date');
     await field.date(page).fill(todayUtc());
     await field.title(page).fill('   ');
     await expect(missing).toContainText('a title');
   });
 
-  test('office hours and personal blocks can be created with no students, and get their own card style', async ({ context, request }) => {
+  test('personal blocks can be created with no students, and get their own card style; office hours are no longer offered', async ({ context, request }) => {
     const teacher = await seed(request, 'teacher', 'Tess Teacher');
     const page = await openPage(context, request, teacher);
     await openForm(page);
+    await expect(page.getByRole('button', { name: 'Office Hr' })).toHaveCount(0);
     await field.title(page).fill('Drop-in help');
-    await page.getByRole('button', { name: 'Office Hr' }).click();
+    await page.getByRole('button', { name: 'Personal' }).click();
     await setWhen(page, '12:00');
     await field.create(page).click();
-    const card = page.locator('.fc-event.cat-office_hours', { hasText: 'Drop-in help' });
+    const card = page.locator('.fc-event.cat-personal', { hasText: 'Drop-in help' });
     await expect(card).toBeVisible();
-    await expect(card).toContainText('OFFICE HOURS');
-    expect((await (await mine(request, teacher)).list())[0]).toMatchObject({ category: 'office_hours', participantCount: 0 });
+    await expect(card).toContainText('PERSONAL');
+    expect((await (await mine(request, teacher)).list())[0]).toMatchObject({ category: 'personal', participantCount: 0 });
   });
 
   test('the video-meeting switch controls whether the class gets a link', async ({ context, request }) => {

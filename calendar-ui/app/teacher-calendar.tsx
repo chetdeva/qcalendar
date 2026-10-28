@@ -117,7 +117,7 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
   const stats = useMemo(() => {
     const live = events.filter((e) => e.status === 'confirmed');
     const byCategory = hoursByCategory(live);
-    const booked = byCategory.tutoring + byCategory.office_hours + byCategory.personal;
+    const booked = byCategory.tutoring + byCategory.office_hours + byCategory.personal + byCategory.trial;
     return { sessions: live.length, byCategory, booked, capacity: admin ? null : range ? capacityHours(settings, range.start, range.end) : 0 };
   }, [events, settings, range, admin]);
 
@@ -126,7 +126,7 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
   if (!form.title.trim()) missing.push('a title');
   if (!form.date) missing.push('a date');
   if (!form.time) missing.push('a start time');
-  if (form.category === 'tutoring' && form.students.length === 0) missing.push('at least one student');
+  if ((form.category === 'tutoring' || form.category === 'trial') && form.students.length === 0) missing.push('at least one student');
 
   const openCreate = () => {
     setCreating(true);
@@ -339,9 +339,11 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
         <div className="side">
           <FreeClassRequests
             reloadOn={classes}
-            onSchedule={(student) => {
+            canConfirm={!admin}
+            onConfirmed={refetch}
+            onChangeTime={(student, start) => {
               openCreate();
-              setForm((f) => ({ ...f, title: 'Free first class', category: 'tutoring', students: [student] }));
+              setForm((f) => ({ ...f, title: 'Free trial class', category: 'trial', duration: 30, students: [student], ...(start ? { date: ymd(start), time: hm(start) } : {}) }));
             }}
           />
           {panel === 'details' && picked ? (

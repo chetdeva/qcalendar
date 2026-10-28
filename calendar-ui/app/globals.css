@@ -26,7 +26,7 @@ button:disabled { cursor: default; }
 /* layout */
 .shell { display: flex; flex-direction: column; height: 100vh; min-height: 640px; }
 .work { display: flex; flex: 1; min-height: 0; }
-.gridwrap { display: flex; flex-direction: column; flex: 1; min-width: 0; background: var(--bg); }
+.gridwrap { display: flex; flex-direction: column; flex: 1; min-width: 0; background: #fff; }
 .fcbox { position: relative; flex: 1; min-height: 0; }
 .fchost { position: absolute; inset: 16px 24px; } /* breathing room around the calendar */
 @media (max-width: 960px) {
@@ -167,6 +167,7 @@ button:disabled { cursor: default; }
 .fc .fc-timegrid-event-harness-inset .fc-timegrid-event { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); }
 .cat-tutoring { --accent: var(--violet); --ev-bg: #eff4ff; --badge-bg: #eaddff; --badge-fg: #25005a; }
 .cat-office_hours { --accent: var(--primary); --ev-bg: #e6effe; --badge-bg: #d8e2ff; --badge-fg: #001a41; }
+.cat-trial { --accent: #0b7a75; --ev-bg: #e6f6f4; --badge-bg: #c6ece7; --badge-fg: #00201d; }
 .cat-personal { --accent: var(--ink-3); --ev-bg: #e5eeff; --badge-bg: transparent; --badge-fg: var(--ink-2); }
 .ec { padding: 4px 4px 4px 12px; height: 100%; display: flex; flex-direction: column; gap: 1px; overflow: hidden; }
 .ec-top { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
@@ -221,7 +222,8 @@ button:disabled { cursor: default; }
 .muted-line { margin: 0; font-size: 13px; color: var(--ink-2); }
 .classes-panel { width: 420px; }
 /* teacher/admin: "My classes" with the New lesson form laid over it */
-.side { position: relative; display: flex; flex: none; width: 420px; }
+.side { position: relative; display: flex; flex-direction: column; flex: none; width: 420px; }
+.side > .classes-panel, .side > .drawer { flex: 1; min-height: 0; }
 .side > .drawer { width: 100%; }
 .over { position: absolute; inset: 0; z-index: 5; display: flex; }
 .over .drawer { width: 100%; }
@@ -255,7 +257,7 @@ button:disabled { cursor: default; }
 .stale-banner form { margin: 0; display: flex; }
 
 /* Free class requests: a new student's ask for their first class, above the class list. */
-.freereq { margin: 0 0 12px; padding: 14px 16px; border-radius: 16px; background: #eff4ff; border: 1px solid #dde9ff; }
+.freereq { margin: 12px 12px 0; padding: 14px 16px; border-radius: 16px; background: #eff4ff; border: 1px solid #dde9ff; }
 .freereq h3 { margin: 0 0 8px; font-size: 14px; font-weight: 800; color: #0d1c2f; display: flex; align-items: center; gap: 8px; }
 .freereq h3 span { padding: 0 8px; border-radius: 999px; background: #006194; color: #fff; font-size: 11px; line-height: 18px; }
 .freereq ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
@@ -263,3 +265,12 @@ button:disabled { cursor: default; }
 .freereq li div { display: flex; flex-direction: column; min-width: 0; }
 .freereq small { color: #3f4850; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .freereq button { flex: none; border: 0; border-radius: 999px; padding: 6px 14px; background: #006194; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.freereq-btns { display: flex; flex: none; gap: 6px; }
+.freereq button.alt { background: #fff; color: #006194; box-shadow: inset 0 0 0 1.5px #006194; }
+.freereq button:disabled { opacity: .6; cursor: default; }
+.freereq-err { color: #b3261e !important; white-space: normal !important; }
+/* A free class a student has asked for but a teacher has not confirmed yet. */
+.tent { height: 100%; padding: 4px 6px; border-radius: 8px; border: 2px dashed #006194; background: #eff4ff; color: #006194; font-size: 12px; font-weight: 700; }
+.freereq p { margin: 0 0 8px; font-size: 13px; color: #0d1c2f; }
+/* The slot a student has just picked for their trial class (a background block, so another slot can still be clicked). */
+.fc .fc-bg-event.pending-slot { background: rgba(0, 97, 148, .22); opacity: 1; box-shadow: inset 0 0 0 2px #006194; border-radius: 6px; }

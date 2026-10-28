@@ -24,14 +24,14 @@ test('a student with no grade sets it, then sees the price for their band and th
   await seedUser(request, { ...KID, name: 'Kid One' });
   await logInAs(page, KID);
   await page.goto('/billing');
-  await expect(page.getByText('Your free first class is ready to book.')).toBeVisible();
+  await expect(page.getByText('Your free trial class is ready to book.')).toBeVisible();
   await page.getByLabel('Grade', { exact: true }).selectOption('6');
   await page.getByRole('button', { name: 'Save grade' }).click();
   await expect(page.getByRole('heading', { name: 'Grade 6 plan' })).toBeVisible();
   // Monthly and annual sit side by side, each with its own button, and the table lists every band.
-  await expect(page.getByLabel('Monthly plan').locator('.bl-price b')).toHaveText('$350');
-  await expect(page.getByLabel('Annual plan').locator('.bl-price b')).toHaveText('$3,360');
-  await expect(page.getByLabel('Annual plan')).toContainText('$280 a month instead of $350');
+  await expect(page.getByRole('radio', { name: /Monthly/ }).locator('.bl-price b')).toHaveText('$350');
+  await expect(page.getByRole('radio', { name: /Annual/ }).locator('.bl-price b')).toHaveText('$3,360');
+  await expect(page.getByRole('radio', { name: /Annual/ })).toContainText('$280 a month instead of $350');
   await expect(page.getByLabel('Prices by grade').getByRole('row')).toHaveCount(4);
   await expect(page.locator('.bl-yours')).toContainText('Grades 6-8');
   await expect(page.locator('.bl-yours')).toContainText('Your grade');
@@ -42,7 +42,12 @@ test('Subscribe sends the student to the gateway\'s hosted checkout for their ba
   await logInAs(page, KID);
   await page.route('https://pay.example.test/**', (route) => route.fulfill({ body: 'hosted checkout' }));
   await page.goto('/billing');
-  await page.getByRole('button', { name: 'Subscribe annually' }).click();
+  await expect(page.getByRole('radio', { name: /Annual/ })).toBeChecked(); // annual is preselected
+  await page.getByRole('radio', { name: /Monthly/ }).click();
+  await expect(page.getByRole('radio', { name: /Monthly/ })).toBeChecked();
+  await expect(page.getByRole('radio', { name: /Annual/ })).not.toBeChecked();
+  await page.getByRole('radio', { name: /Annual/ }).click();
+  await page.getByRole('button', { name: 'Subscribe annually, $3,840 a year' }).click();
   await page.waitForURL(/pay\.example\.test\/checkout/);
   expect(page.url()).toContain('plan=high');
   expect(page.url()).toContain('interval=year');

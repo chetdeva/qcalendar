@@ -17,7 +17,7 @@ async function post(path: string, body?: unknown): Promise<{ ok: boolean; json: 
 
 export function BillingPanel({ data, checkout }: { data: BillingMe; checkout?: string }) {
   const router = useRouter();
-  const [paying, setPaying] = useState<Interval | null>(null);
+  const [choice, setChoice] = useState<Interval>('year');
   const [grade, setGrade] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -49,7 +49,7 @@ export function BillingPanel({ data, checkout }: { data: BillingMe; checkout?: s
         <div className="bl-meter">
           <b>{credits.remaining}</b><span>{credits.remaining === 1 ? 'class' : 'classes'} left{credits.expiresAt ? `, use by ${fullDate(credits.expiresAt)}` : ''}</span>
         </div>
-        {data.trialAvailable && <p className="bl-note">Your free first class is ready to book. Request it from your dashboard.</p>}
+        {data.trialAvailable && <p className="bl-note">Your free trial class is ready to book. Request it from your dashboard.</p>}
         {!live && !data.trialAvailable && credits.remaining === 0 && <p className="bl-note">Choose a plan below to book more classes.</p>}
       </section>
 
@@ -84,20 +84,23 @@ export function BillingPanel({ data, checkout }: { data: BillingMe; checkout?: s
         <>
           <section aria-label="Choose a plan">
             <h2 className="bl-h">Grade {data.grade} plan</h2>
-            <div className="bl-plans">
-              <article className="bl-card bl-plan" aria-label="Monthly plan">
+            <div className="bl-plans" role="radiogroup" aria-label="Billing period">
+              <button type="button" role="radio" aria-checked={choice === 'month'} className="bl-card bl-plan" onClick={() => setChoice('month')}>
                 <h3>Monthly</h3>
                 <p className="bl-price"><b>{dollars(plan.monthlyCents)}</b> a month</p>
                 <ul className="bl-list"><li>Up to {plan.creditsPerMonth} one-to-one classes every month</li><li>Classes do not carry over to the next month</li><li>Cancel any time</li></ul>
-                <button type="button" className="bl-btn" disabled={busy} onClick={() => { setPaying('month'); void go('/api/billing/checkout', { interval: 'month' }); }}>{busy && paying === 'month' ? 'Opening checkout…' : 'Subscribe monthly'}</button>
-              </article>
-              <article className="bl-card bl-plan bl-best" aria-label="Annual plan">
+              </button>
+              <button type="button" role="radio" aria-checked={choice === 'year'} className="bl-card bl-plan" onClick={() => setChoice('year')}>
                 <h3>Annual <em>Save 20%</em></h3>
                 <p className="bl-price"><b>{dollars(plan.annualCents)}</b> a year</p>
                 <p className="bl-sub">{dollars(plan.annualCents / 12)} a month instead of {dollars(plan.monthlyCents)}</p>
                 <ul className="bl-list"><li>Up to {plan.creditsPerMonth} one-to-one classes every month, all year</li><li>Pay once for twelve months</li><li>Cancel any time; paid months stay</li></ul>
-                <button type="button" className="bl-btn" disabled={busy} onClick={() => { setPaying('year'); void go('/api/billing/checkout', { interval: 'year' }); }}>{busy && paying === 'year' ? 'Opening checkout…' : 'Subscribe annually'}</button>
-              </article>
+              </button>
+            </div>
+            <div className="bl-actions bl-subscribe">
+              <button type="button" className="bl-btn" disabled={busy} onClick={() => go('/api/billing/checkout', { interval: choice })}>
+                {busy ? 'Opening checkout…' : choice === 'month' ? `Subscribe monthly, ${dollars(plan.monthlyCents)} a month` : `Subscribe annually, ${dollars(plan.annualCents)} a year`}
+              </button>
             </div>
           </section>
           <section className="bl-card" aria-label="Prices by grade">

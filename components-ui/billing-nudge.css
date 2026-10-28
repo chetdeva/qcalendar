@@ -1,7 +1,7 @@
 /* The free-class and subscribe cards. Self-contained like the header: colours live on .qn, every class is prefixed. */
 .qn {
   --qn-primary: #006194; --qn-edge: #004b73; --qn-ink: #0d1c2f; --qn-muted: #3f4850; --qn-line: #bfc7d2; --qn-tint: #eff4ff; --qn-tint-2: #dde9ff;
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 16px 0;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; padding: 4px 0 16px;
   font-family: var(--font-jakarta), system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 20px; color: var(--qn-ink);
 }
 .qn *, .qn *::before, .qn *::after { box-sizing: border-box; }
@@ -10,7 +10,21 @@
 .qn-card h2 { margin: 0; font-size: 18px; line-height: 24px; font-weight: 800; }
 .qn-card p { margin: 0; color: var(--qn-muted); }
 .qn-card input { width: 100%; padding: 10px 14px; border: 1px solid var(--qn-line); border-radius: 12px; background: #fff; font: inherit; color: var(--qn-ink); }
+.qn .qn-btn, .qn .qn-btn:visited { color: #fff; text-decoration: none; }
+.qn .qn-link { color: var(--qn-muted); }
 .qn-btn { display: inline-block; margin-top: auto; border: 0; border-radius: 999px; padding: 10px 22px; background: var(--qn-primary); color: #fff; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; box-shadow: 0 4px 0 var(--qn-edge); }
 .qn-btn:disabled { opacity: .6; cursor: not-allowed; }
 .qn-link { border: 0; background: none; padding: 4px 0; font: inherit; font-weight: 700; color: var(--qn-muted); text-decoration: underline; cursor: pointer; }
 .qn a:focus-visible, .qn button:focus-visible, .qn input:focus-visible { outline: 3px solid #007bb9; outline-offset: 2px; }
+
+/* The get-started menu: a pill in the header next to the logo; the cards drop down under it. */
+.qn-pop { --qn-primary: #006194; position: relative; font-family: var(--font-jakarta), system-ui, -apple-system, sans-serif; }
+.qn-pop > summary { list-style: none; display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; background: #fff; box-shadow: 0 1px 2px rgba(13, 28, 47, .06), 0 6px 18px rgba(13, 28, 47, .06); cursor: pointer; font-size: 13px; font-weight: 700; color: #006194; white-space: nowrap; }
+.qn-pop > summary::-webkit-details-marker { display: none; }
+.qn-pop > summary::after { content: ''; width: 7px; height: 7px; border-right: 2px solid #006194; border-bottom: 2px solid #006194; transform: translateY(-2px) rotate(45deg); transition: transform .15s; }
+.qn-pop[open] > summary::after { transform: translateY(1px) rotate(-135deg); }
+.qn-pop > summary:focus-visible { outline: 3px solid #007bb9; outline-offset: 2px; }
+.qn-badge { min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--qn-primary); color: #fff; font-size: 11px; line-height: 20px; text-align: center; }
+.qn-panel { position: absolute; left: 0; top: calc(100% + 10px); z-index: 30; width: min(760px, calc(100vw - 32px)); padding: 16px; border-radius: 20px; background: #fff; box-shadow: 0 12px 40px rgba(13, 28, 47, .18); }
+.qn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: auto; }
+@media (max-width: 1279px) { .qn-pop > summary { font-size: 12px; padding: 5px 12px; } }

@@ -54,6 +54,12 @@ export class SupabaseDirectory implements Directory {
     return data as Profile | null;
   }
 
+  async setGrade(id: string, grade: number, schoolYear: number) {
+    const { data, error } = await this.db.from('profiles').update({ grade, grade_confirmed_year: schoolYear }).eq('id', id).select('*').maybeSingle();
+    if (error) fail(error);
+    return data as Profile | null;
+  }
+
   async setStatus(id: string, status: Status) {
     const { data, error } = await this.db.from('profiles').update({ status }).eq('id', id).select('*').maybeSingle();
     if (error) fail(error);

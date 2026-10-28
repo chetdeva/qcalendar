@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { before, beforeEach, describe, it } from 'node:test';
+import { after, before, beforeEach, describe, it } from 'node:test';
 import { generateKeyPair, SignJWT } from 'jose';
 import { createApp } from './app.ts';
 import { createAuthenticator } from './auth.ts';
@@ -33,13 +33,14 @@ async function student(grade = 6) {
   const token = await jwt(id);
   return { id, me: () => call(token, 'GET', '/v1/billing/me'), as: (m: string, p: string, b?: unknown) => call(token, m, p, b) };
 }
-const subscribe = (userId: string, interval: 'month' | 'year' = 'month', plan = 'g5_7') =>
+const subscribe = (userId: string, interval: 'month' | 'year' = 'month', plan = 'middle') =>
   app.request('/v1/webhooks/fake', {
     method: 'POST',
     ...(() => { const d = fake.deliver({ type: 'payment_succeeded', eventId: `e_${randomUUID()}`, userId, customerRef: `cus_${userId}`, subscriptionRef: `sub_${userId}`, planKey: plan, interval, periodStart: T0, periodEnd: addMonths(T0, interval === 'month' ? 1 : 12), amountCents: 35000, currency: 'usd' }); return { body: d.rawBody, headers: d.headers }; })(),
   });
 
 before(async () => { await migrate(db); });
+after(() => db.close());
 beforeEach(() => { fake.calls.length = 0; });
 
 describe('auth', () => {
@@ -56,15 +57,15 @@ describe('billing/me and checkout', () => {
     const s = await student(9);
     const me = await json(await s.me());
     assert.equal(me.trialAvailable, true);
-    assert.deepEqual(me.plan, { key: 'g8_10', monthlyCents: 40000, annualCents: 384000, creditsPerMonth: 15 });
+    assert.deepEqual(me.plan, { key: 'high', monthlyCents: 40000, annualCents: 384000, creditsPerMonth: 15 });
     assert.equal(me.credits.remaining, 0);
   });
   it('checkout charges the band price, from the server-side grade, not from the request', async () => {
     const s = await student(2);
-    const r = await s.as('POST', '/v1/billing/checkout', { interval: 'year', amountCents: 1, planKey: 'g8_10' });
+    const r = await s.as('POST', '/v1/billing/checkout', { interval: 'year', amountCents: 1, planKey: 'high' });
     assert.equal(r.status, 400); // strict body: nothing price-related is accepted from the client
     const ok = await json(await s.as('POST', '/v1/billing/checkout', { interval: 'year' }));
-    assert.match(ok.url, /plan=g1_4&interval=year/);
+    assert.match(ok.url, /plan=elementary&interval=year/);
     assert.equal((fake.calls[0]!.args as any).amountCents, 288000);
   });
   it('needs a grade, and refuses a second subscription', async () => {
@@ -103,11 +104,11 @@ describe('webhook to credits to lessons', () => {
   it('a grade change schedules the new price and tells the gateway', async () => {
     const s = await student(6);
     await subscribe(s.id);
-    const r = await call(KEY, 'POST', '/v1/service/grade-changed', { userId: s.id, grade: 8 });
-    assert.deepEqual(await json(r), { pendingPlan: 'g8_10' });
+    const r = await call(KEY, 'POST', '/v1/service/grade-changed', { userId: s.id, grade: 9 });
+    assert.deepEqual(await json(r), { pendingPlan: 'high' });
     const me = await json(await s.me());
-    assert.equal(me.subscription.planKey, 'g5_7');
-    assert.equal(me.subscription.pendingPlan.key, 'g8_10');
+    assert.equal(me.subscription.planKey, 'middle');
+    assert.equal(me.subscription.pendingPlan.key, 'high');
     assert.equal(me.subscription.pendingPlan.cents, 40000);
   });
   it('cancel asks the gateway to stop at period end', async () => {

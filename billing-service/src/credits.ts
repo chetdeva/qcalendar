@@ -137,7 +137,7 @@ export async function sweepExpired(db: Db, now = new Date()): Promise<number> {
 export async function topUpAnnual(db: Db, now = new Date()): Promise<number> {
   const subs = await db.query<{ id: string; user_id: string; plan_key: string; current_period_start: Date; current_period_end: Date }>(
     `select s.id, s.user_id, s.plan_key, s.current_period_start, s.current_period_end from billing.subscriptions s
-     where s.interval = 'year' and s.status = 'active' and s.current_period_end > $1`,
+     where s.interval = 'year' and (s.status = 'active' or (s.status = 'canceled' and s.cancel_at_period_end)) and s.current_period_end > $1`,
     [now],
   );
   let made = 0;

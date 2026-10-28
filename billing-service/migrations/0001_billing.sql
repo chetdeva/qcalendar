@@ -10,7 +10,7 @@ create table billing.plans (
   credits_per_month   integer  not null default 15 check (credits_per_month > 0)
 );
 insert into billing.plans (key, min_grade, max_grade, monthly_cents) values
-  ('g1_4', 1, 4, 30000), ('g5_7', 5, 7, 35000), ('g8_10', 8, 10, 40000);
+  ('elementary', 1, 5, 30000), ('middle', 6, 8, 35000), ('high', 9, 10, 40000);
 
 -- Which gateway customer a person is. Namespaced by gateway so two gateways can coexist during a switch.
 create table billing.customers (

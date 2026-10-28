@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "node --disable-warning=ExperimentalWarning --watch --env-file=.env src/index.ts",
     "start": "node --disable-warning=ExperimentalWarning src/index.ts",
-    "test": "node --disable-warning=ExperimentalWarning --test --test-timeout=60000 src/*.test.ts",
+    "test": "node --disable-warning=ExperimentalWarning --test --test-concurrency=1 --test-timeout=60000 src/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

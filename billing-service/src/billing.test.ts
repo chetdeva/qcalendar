@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { before, beforeEach, describe, it } from 'node:test';
+import { after, before, beforeEach, describe, it } from 'node:test';
 import { addMonths, balance, release, reserve, sweepExpired, topUpAnnual } from './credits.ts';
 import { createPgliteDb, migrate, type Db } from './db.ts';
 import { createFakeGateway } from './gateways/fake.ts';
@@ -19,12 +19,13 @@ const paid = (userId: string, o: { sub?: string; plan?: string; interval?: Inter
   const start = o.start ?? T0;
   return {
     type: 'payment_succeeded', gateway: 'fake', eventId: o.eventId ?? `evt_${++n}`, userId, customerRef: `cus_${userId}`,
-    subscriptionRef: o.sub ?? `sub_${userId}`, planKey: o.plan ?? 'g5_7', interval, periodStart: start,
+    subscriptionRef: o.sub ?? `sub_${userId}`, planKey: o.plan ?? 'middle', interval, periodStart: start,
     periodEnd: addMonths(start, interval === 'month' ? 1 : 12), amountCents: 35000, currency: 'usd',
   };
 };
 
 before(async () => { await migrate(db); });
+after(() => db.close());
 beforeEach(async () => {
   await db.exec('truncate billing.credit_ledger, billing.credit_grants, billing.subscriptions, billing.customers, billing.webhook_events, billing.trials restart identity cascade');
   fake.calls.length = 0;
@@ -32,15 +33,15 @@ beforeEach(async () => {
 
 describe('pricing', () => {
   it('maps grade to band and prices annual at 12 months less 20%', async () => {
-    assert.equal((await planForGrade(db, 1))!.key, 'g1_4');
-    assert.equal((await planForGrade(db, 7))!.key, 'g5_7');
-    assert.equal((await planForGrade(db, 10))!.key, 'g8_10');
+    const band = async (g: number) => (await planForGrade(db, g))!.key;
+    assert.deepEqual(await Promise.all([1, 5, 6, 8, 9, 10].map(band)), ['elementary', 'elementary', 'middle', 'middle', 'high', 'high']);
     assert.equal(await planForGrade(db, 11), undefined);
+    assert.equal(await planForGrade(db, 0), undefined);
     const price = async (k: string, i: Interval) => priceCents(await getPlan(db, k), i);
-    assert.equal(await price('g1_4', 'month'), 30000);
-    assert.equal(await price('g1_4', 'year'), 288000);
-    assert.equal(await price('g5_7', 'year'), 336000);
-    assert.equal(await price('g8_10', 'year'), 384000);
+    assert.equal(await price('elementary', 'month'), 30000);
+    assert.equal(await price('elementary', 'year'), 288000);
+    assert.equal(await price('middle', 'year'), 336000);
+    assert.equal(await price('high', 'year'), 384000);
   });
 });
 
@@ -150,20 +151,20 @@ describe('annual plan', () => {
 describe('grade changes', () => {
   it('moving into a higher band changes the price at the next renewal, not before', async () => {
     const u = randomUUID();
-    await applyEvent(db, paid(u, { plan: 'g5_7' }));
-    assert.deepEqual(await gradeChanged(db, fake.gateway, u, 8), { pendingPlan: 'g8_10' });
+    await applyEvent(db, paid(u, { plan: 'middle' }));
+    assert.deepEqual(await gradeChanged(db, fake.gateway, u, 9), { pendingPlan: 'high' });
     assert.deepEqual(fake.calls.map((c) => c.method), ['changePlan']);
     assert.equal((fake.calls[0]!.args as any).amountCents, 40000);
     const [mid] = await db.query<{ plan_key: string; next_plan_key: string }>('select plan_key, next_plan_key from billing.subscriptions');
-    assert.deepEqual(mid, { plan_key: 'g5_7', next_plan_key: 'g8_10' });
-    await applyEvent(db, paid(u, { plan: 'g8_10', start: addMonths(T0, 1) }));
+    assert.deepEqual(mid, { plan_key: 'middle', next_plan_key: 'high' });
+    await applyEvent(db, paid(u, { plan: 'high', start: addMonths(T0, 1) }));
     const [after] = await db.query<{ plan_key: string; next_plan_key: string | null }>('select plan_key, next_plan_key from billing.subscriptions');
-    assert.deepEqual(after, { plan_key: 'g8_10', next_plan_key: null });
+    assert.deepEqual(after, { plan_key: 'high', next_plan_key: null });
   });
   it('moving back before renewal cancels the pending change; same band is a no-op', async () => {
     const u = randomUUID();
-    await applyEvent(db, paid(u, { plan: 'g5_7' }));
-    await gradeChanged(db, fake.gateway, u, 8);
+    await applyEvent(db, paid(u, { plan: 'middle' }));
+    await gradeChanged(db, fake.gateway, u, 9);
     assert.deepEqual(await gradeChanged(db, fake.gateway, u, 6), { pendingPlan: null });
     assert.equal(fake.calls.length, 2);
     assert.deepEqual(await gradeChanged(db, fake.gateway, u, 6), { pendingPlan: null });

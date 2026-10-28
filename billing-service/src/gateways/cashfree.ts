@@ -16,6 +16,7 @@ export interface CashfreeConfig {
 
 const BASE = { sandbox: 'https://sandbox.cashfree.com/pg', production: 'https://api.cashfree.com/pg' } as const;
 const INTERVAL = { month: 'MONTH', year: 'YEAR' } as const;
+const FIRST_CHARGE_DELAY_MS = 24 * 3600_000;
 const MAX_CYCLES = { month: 120, year: 10 } as const; // ten years of billing cycles
 
 /**
@@ -80,6 +81,8 @@ export function createCashfreeGateway(cfg: CashfreeConfig): PaymentGateway {
         subscription_id: id,
         customer_details: { customer_name: o.email?.split('@')[0] || 'Student', customer_email: o.email ?? 'unknown@example.com', customer_phone: cfg.defaultPhone },
         plan_details: planBody(o.planKey, o.interval, o.amountCents),
+        // Without this Cashfree charges first a whole interval after sign-up. UPI mandates cannot be debited sooner than the next day.
+        subscription_first_charge_time: new Date(Date.now() + FIRST_CHARGE_DELAY_MS).toISOString(),
         authorization_details: { authorization_amount: 1, authorization_amount_refund: true, payment_methods: ['card', 'upi'] },
         subscription_meta: { return_url: o.successUrl },
       }, { 'x-idempotency-key': randomUUID() });

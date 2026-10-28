@@ -5,7 +5,7 @@ import { balance, release, reserve } from './credits.ts';
 import type { Db } from './db.ts';
 import { HttpError } from './errors.ts';
 import type { PaymentGateway } from './gateway.ts';
-import { getPlan, planForGrade, priceCents } from './plans.ts';
+import { getPlan, planForGrade, priceCents, type Plan } from './plans.ts';
 import { applyEvent, gradeChanged } from './subscriptions.ts';
 
 /** Where a student's grade comes from (users-service). */
@@ -34,7 +34,7 @@ function parse<T extends z.ZodType>(schema: T, data: unknown): z.infer<T> {
 }
 
 const uuid = z.uuid();
-const ReserveBody = z.object({ userId: uuid, ref: z.string().min(1).max(200) }).strict();
+const ReserveBody = z.object({ userId: uuid, ref: z.string().min(1).max(200), endsAt: z.string().datetime({ offset: true }).optional() }).strict();
 const GradeBody = z.object({ userId: uuid, grade: z.number().int().min(1).max(10) }).strict();
 const CheckoutBody = z.object({ interval: z.enum(['month', 'year']) }).strict();
 
@@ -75,7 +75,7 @@ export function createApp(d: AppDeps): Hono<Env> {
   app.post('/v1/service/credits/reserve', async (c) => {
     service(c);
     const b = parse(ReserveBody, await c.req.json().catch(() => null));
-    const r = await reserve(d.db, b.userId, b.ref);
+    const r = await reserve(d.db, b.userId, b.ref, new Date(), b.endsAt ? new Date(b.endsAt) : undefined);
     return r.ok ? c.json(r) : c.json({ error: { code: r.code, message: 'This student cannot book another lesson right now' } }, 402);
   });
   app.post('/v1/service/credits/release', async (c) => {
@@ -100,7 +100,16 @@ export function createApp(d: AppDeps): Hono<Env> {
       'select status, plan_key, next_plan_key, interval, current_period_end, cancel_at_period_end from billing.subscriptions where user_id = $1 order by created_at desc limit 1',
       [me.id],
     );
-    const trialUsed = (await d.db.query('select 1 from billing.trials where user_id = $1', [me.id])).length > 0;
+    const [trialRow] = await d.db.query<{ lesson_end: Date | null }>('select lesson_end from billing.trials where user_id = $1', [me.id]);
+    const trial = !trialRow ? 'available' : trialRow.lesson_end && trialRow.lesson_end > new Date() ? 'booked' : 'done';
+    const live = sub && sub.status !== 'canceled';
+    // What to nudge the student toward, decided here so every app shows the same thing. (Whether a free class has been
+    // *requested* lives in calendar-service; the apps add that state themselves.)
+    const prompts = live ? [] : sub ? ['subscribe'] : trial === 'available' ? ['book_trial', 'subscribe'] : trial === 'booked' ? ['trial_booked'] : ['subscribe'];
+    const bands = (await d.db.query<Plan>('select * from billing.plans order by min_grade')).map((p) => ({
+      key: p.key, label: p.min_grade === p.max_grade ? `Grade ${p.min_grade}` : `Grades ${p.min_grade}-${p.max_grade}`,
+      monthlyCents: priceCents(p, 'month'), annualCents: priceCents(p, 'year'), yours: p.key === plan?.key,
+    }));
     const next = sub?.next_plan_key ? await getPlan(d.db, sub.next_plan_key) : undefined;
     return c.json({
       grade,
@@ -110,7 +119,10 @@ export function createApp(d: AppDeps): Hono<Env> {
         pendingPlan: next && { key: next.key, cents: priceCents(next, sub.interval), from: sub.current_period_end },
       },
       credits: await balance(d.db, me.id),
-      trialAvailable: !sub && !trialUsed,
+      trialAvailable: !sub && trial === 'available',
+      trial,
+      prompts,
+      bands,
     });
   });
 

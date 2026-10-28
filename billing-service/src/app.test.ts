@@ -59,6 +59,22 @@ describe('billing/me and checkout', () => {
     assert.equal(me.trialAvailable, true);
     assert.deepEqual(me.plan, { key: 'high', monthlyCents: 40000, annualCents: 384000, creditsPerMonth: 15 });
     assert.equal(me.credits.remaining, 0);
+    assert.deepEqual(me.bands.map((b: any) => [b.label, b.monthlyCents, b.annualCents, b.yours]), [['Grades 1-5', 30000, 288000, false], ['Grades 6-8', 35000, 336000, false], ['Grades 9-10', 40000, 384000, true]]);
+  });
+  it('nudges a new student to take the free class or subscribe; after the free class only to subscribe', async () => {
+    const s = await student(4);
+    const me = async () => json(await s.me());
+    assert.deepEqual([(await me()).trial, (await me()).prompts], ['available', ['book_trial', 'subscribe']]);
+    const hour = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
+    const reserveTrial = (ref: string, endsAt?: string) => s.as('POST', '/v1/service/credits/reserve', { userId: s.id, ref, endsAt });
+    assert.equal((await reserveTrial('l1', hour(2))).status, 403); // that route is for services, not people
+    const r = await app.request('/v1/service/credits/reserve', { method: 'POST', headers: { authorization: `Bearer ${KEY}`, 'content-type': 'application/json' }, body: JSON.stringify({ userId: s.id, ref: 'l1', endsAt: hour(2) }) });
+    assert.equal(r.status, 200);
+    assert.deepEqual([(await me()).trial, (await me()).prompts], ['booked', ['trial_booked']]);
+    await db.query(`update billing.trials set lesson_end = now() - interval '1 hour' where user_id = $1`, [s.id]);
+    assert.deepEqual([(await me()).trial, (await me()).prompts], ['done', ['subscribe']]);
+    await subscribe(s.id);
+    assert.deepEqual((await me()).prompts, []);
   });
   it('checkout charges the band price, from the server-side grade, not from the request', async () => {
     const s = await student(2);

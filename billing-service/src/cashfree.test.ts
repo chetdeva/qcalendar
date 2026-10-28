@@ -34,6 +34,7 @@ describe('cashfree: requests', () => {
     assert.equal(c.headers['x-client-secret'], SECRET);
     assert.match(c.body.subscription_id, new RegExp(`^qt-${USER}-middle-month-[0-9a-f]{8}$`));
     assert.deepEqual(c.body.plan_details, { plan_name: 'Quanttoria middle monthly', plan_type: 'PERIODIC', plan_currency: 'INR', plan_amount: 350, plan_max_amount: 700, plan_interval_type: 'MONTH', plan_intervals: 1, plan_max_cycles: 120 });
+    assert.ok(Math.abs(Date.parse(c.body.subscription_first_charge_time) - (Date.now() + 24 * 3600_000)) < 60_000); // first charge tomorrow, not next month
     assert.equal(c.body.customer_details.customer_email, 'kid@example.test');
     assert.equal(c.body.subscription_meta.return_url, 'https://accounts.example.test/billing?checkout=success');
     assert.equal(r.url, 'https://accounts.example.test/billing/pay/cashfree?session=subs_token_abc&mode=sandbox');

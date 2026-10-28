@@ -1,5 +1,6 @@
 import { Bell } from 'lucide-react';
 import { AppHeader } from '@components/app-header';
+import { StudentNudge } from '@components/student-nudge';
 import { SiteFooter } from '@components/site-footer';
 import type { View } from '@/lib/types';
 import { Soon } from './ui';
@@ -23,6 +24,7 @@ export function Header({ name, role, view, isAdmin, current = 'dashboard', avata
       avatar={avatar}
       role={role}
       left={isAdmin ? <RoleSwitch view={view} /> : undefined}
+      afterBrand={role === 'student' && current === 'dashboard' ? <StudentNudge /> : undefined}
       right={<Soon className="bell" label="Notifications"><Bell size={18} aria-hidden /></Soon>}
     />
   );

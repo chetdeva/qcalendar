@@ -1,7 +1,6 @@
 import { callDashboard } from '@/lib/bff';
 import { getMe } from '@/lib/me';
 import type { StudentDashboard as StudentData, TeacherDashboard as TeacherData, View } from '@/lib/types';
-import { StudentNudge } from '@components/student-nudge';
 import { Footer, Header } from './components/shell';
 import StudentDashboard from './student-dashboard';
 import TeacherDashboard from './teacher-dashboard';
@@ -21,7 +20,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
   return (
     <div className="shell">
       <Header name={me.full_name || me.email} role={me.role} avatar={me.avatar_updated_at} view={view} isAdmin={isAdmin} />
-      <main>{me.role === 'student' && <StudentNudge />}{view === 'teacher' && json.teacher ? <TeacherDashboard initial={json.teacher} /> : json.student ? <StudentDashboard initial={json.student} /> : null}</main>
+      <main>{view === 'teacher' && json.teacher ? <TeacherDashboard initial={json.teacher} /> : json.student ? <StudentDashboard initial={json.student} /> : null}</main>
       <Footer />
     </div>
   );

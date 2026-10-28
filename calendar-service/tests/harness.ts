@@ -3,6 +3,7 @@ import { generateKeyPair, SignJWT, type CryptoKey } from 'jose';
 import { createApp } from '../src/app.ts';
 import { createAuthenticator, type Role } from '../src/auth.ts';
 import { createPgliteDb, migrate } from '../src/db.ts';
+import type { BillingClient } from '../src/billing.ts';
 import type { Ctx } from '../src/events.ts';
 import { MemoryMailer } from '../src/mail.ts';
 import { processOutbox } from '../src/outbox.ts';
@@ -22,10 +23,10 @@ export async function signToken(sub: string, o: { role?: Role | string; status?:
 export type Call = (method: string, path: string, body?: unknown) => Promise<Response>;
 export interface Person { id: string; email: string; token: string; call: Call }
 
-export async function createHarness(opts: { webhooks?: boolean } = {}) {
+export async function createHarness(opts: { webhooks?: boolean; billing?: BillingClient } = {}) {
   const db = createPgliteDb();
   await migrate(db);
-  const ctx: Ctx = { db, defaultTimezone: 'UTC', webhooks: opts.webhooks ?? false, meetingBaseUrl: 'https://meet.example.test' };
+  const ctx: Ctx = { db, defaultTimezone: 'UTC', webhooks: opts.webhooks ?? false, meetingBaseUrl: 'https://meet.example.test', billing: opts.billing };
   const app = createApp({ ctx, authenticator: createAuthenticator({ apiKey: API_KEY, getKey: async () => publicKey, issuer: ISS }) });
   const mailer = new MemoryMailer();
 

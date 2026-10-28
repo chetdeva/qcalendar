@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server';
 import { createApp } from './app.ts';
 import { createAuthenticator, supabaseKeys } from './auth.ts';
+import { createBillingClient } from './billing.ts';
 import { createPgDb, createPgliteDb, migrate, type SslMode } from './db.ts';
 import { HttpError } from './errors.ts';
 import { ConsoleMailer, createSmtpMailer } from './mail.ts';
@@ -34,6 +35,8 @@ const ctx = {
   defaultTimezone: env.DEFAULT_TIMEZONE ?? 'UTC',
   webhooks: Boolean(webhookUrl),
   meetingBaseUrl: env.MEETING_BASE_URL ?? 'https://meet.jit.si',
+  // Unset BILLING_URL = lessons are free (no billing service to ask).
+  billing: env.BILLING_URL ? createBillingClient({ url: env.BILLING_URL, key: env.BILLING_SERVICE_KEY ?? '' }) : undefined,
 };
 const app = createApp({ ctx, authenticator });
 

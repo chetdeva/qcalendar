@@ -3,6 +3,7 @@ import type { Actor } from './auth.ts';
 import { computeSlots, defaultSettings, type Settings } from './availability.ts';
 import type { Db, Queryable } from './db.ts';
 import { HttpError } from './errors.ts';
+import type { BillingClient } from './billing.ts';
 import { enqueueMail, type MailKind, type OutboxPayload } from './outbox.ts';
 import { enqueueWebhook } from './webhooks.ts';
 
@@ -11,6 +12,8 @@ export interface Ctx {
   defaultTimezone: string;
   webhooks: boolean;
   meetingBaseUrl: string;
+  /** Who pays for tutoring lessons. Unset: lessons are free (billing is off). */
+  billing?: BillingClient;
 }
 
 export interface ParticipantInput { userId?: string; email: string; name?: string }
@@ -199,6 +202,40 @@ async function emit(ctx: Ctx, q: Queryable, type: string, e: EventRow, parts: PR
 
 // ---------- events ----------
 
+// ---------- paying for lessons (billing-service) ----------
+
+const seatRef = (eventId: string, userId: string) => `${eventId}:${userId}`;
+const REFUSALS = {
+  subscription_required: 'has not subscribed yet and has used their free class.',
+  payment_required: 'has a failed payment. They need to update their payment method.',
+  no_credits: 'has no classes left this month.',
+} as const;
+
+/**
+ * A tutoring lesson costs each student one class (the first ever is free). Called inside the booking transaction, so a
+ * refusal rolls the booking back. Every seat paid so far is pushed onto `paid`, so the caller can give them back if
+ * anything later in the request fails.
+ */
+async function charge(ctx: Ctx, e: EventRow, parts: PRow[], paid: PRow[]) {
+  if (!ctx.billing || e.category !== 'tutoring') return;
+  for (const p of parts) {
+    const who = p.name || p.email;
+    if (!p.user_id) throw new HttpError(422, 'student_account_required', `${who} has not created an account yet. Choose students who have signed up.`, { participant: who });
+    const r = await ctx.billing.reserve(p.user_id, seatRef(e.id, p.user_id));
+    if (!r.ok) throw new HttpError(402, r.code, `${who} ${REFUSALS[r.code]}`, { participant: who });
+    paid.push(p);
+  }
+}
+
+/** Gives seats back. Only for lessons that have not started; a lesson already taught stays paid. Never throws. */
+async function refund(ctx: Ctx, e: EventRow, parts: PRow[]) {
+  if (!ctx.billing || e.category !== 'tutoring' || new Date(e.start_at) <= new Date()) return;
+  for (const p of parts) {
+    if (!p.user_id) continue;
+    await ctx.billing.release(p.user_id, seatRef(e.id, p.user_id)).catch((err) => console.error(`could not give back a class for ${p.user_id}:`, err.message));
+  }
+}
+
 export interface CreateInput {
   title: string; description?: string; location?: string; meetingUrl?: string; meet?: boolean;
   start: string; end?: string; durationMinutes?: number; timezone?: string; category?: Category; externalRef?: string;
@@ -226,6 +263,8 @@ export async function createEvent(ctx: Ctx, actor: Actor, input: CreateInput) {
   const meetingUrl = input.meetingUrl ?? (input.meet ? newMeetingUrl(ctx.meetingBaseUrl) : null);
   const timezone = input.timezone ?? (await getSettings(ctx.db, ownerId, ctx.defaultTimezone)).timezone;
 
+  const paid: PRow[] = [];
+  let created: EventRow | undefined;
   return ctx.db.tx(async (q) => {
     await lockOwner(q, ownerId);
     await checkConflicts(q, { ownerId, start, end }, people, Boolean(input.force));
@@ -238,9 +277,14 @@ export async function createEvent(ctx: Ctx, actor: Actor, input: CreateInput) {
     for (const p of people) {
       parts.push((await q.query<PRow>('insert into calendar.event_participants (event_id, user_id, email, name) values ($1,$2,$3,$4) returning *', [e.id, p.userId ?? null, p.email, p.name ?? null]))[0]);
     }
+    created = e;
+    await charge(ctx, e, parts, paid);
     await notify(q, 'invite', e, parts.map((p) => ({ email: p.email, name: p.name })));
     await emit(ctx, q, 'event.created', e, parts);
     return viewOf(e, parts, 'manager');
+  }).catch(async (err) => {
+    if (created) await refund(ctx, created, paid); // booking rolled back: the classes already taken go back
+    throw err;
   });
 }
 
@@ -359,23 +403,30 @@ export async function patchEvent(ctx: Ctx, actor: Actor, id: string, input: Patc
 }
 
 export async function cancelEvent(ctx: Ctx, actor: Actor, id: string) {
-  return ctx.db.tx(async (q) => {
+  let toRefund: { e: EventRow; parts: PRow[] } | undefined;
+  const view = await ctx.db.tx(async (q) => {
     const { e: prev, rel } = await loadManaged(q, actor, id);
     const parts = (await participantsOf(q, [id])).get(id)!;
     if (prev.status === 'cancelled') return viewOf(prev, parts, rel);
     const e = (await q.query<EventRow>(`update calendar.events set status = 'cancelled', sequence = sequence + 1, updated_at = now() where id = $1 returning *`, [id]))[0];
     await notify(q, 'cancel', e, parts.map((p) => ({ email: p.email, name: p.name })));
     await emit(ctx, q, 'event.cancelled', e, parts);
+    toRefund = { e, parts: parts.filter((p) => p.status !== 'declined') }; // a student who declined was already given their class back
     return viewOf(e, parts, rel);
   });
+  if (toRefund) await refund(ctx, toRefund.e, toRefund.parts);
+  return view;
 }
 
 // ---------- participants ----------
 
 export async function addParticipants(ctx: Ctx, actor: Actor, id: string, input: ParticipantInput[], force = false) {
   const people = normalize(input);
+  const paid: PRow[] = [];
+  let lesson: EventRow | undefined;
   return ctx.db.tx(async (q) => {
     const { e, rel } = await loadManaged(q, actor, id);
+    lesson = e;
     if (e.status === 'cancelled') throw new HttpError(409, 'cancelled', 'This class is cancelled');
     const existing = (await participantsOf(q, [id])).get(id)!;
     const known = new Set(existing.map((p) => p.email.toLowerCase()));
@@ -389,37 +440,52 @@ export async function addParticipants(ctx: Ctx, actor: Actor, id: string, input:
       added.push((await q.query<PRow>('insert into calendar.event_participants (event_id, user_id, email, name) values ($1,$2,$3,$4) returning *', [id, p.userId ?? null, p.email, p.name ?? null]))[0]);
     }
     if (added.length) {
+      await charge(ctx, e, added, paid);
       await notify(q, 'invite', e, added.map((p) => ({ email: p.email, name: p.name })));
       await emit(ctx, q, 'event.updated', e, [...existing, ...added]);
     }
     return viewOf(e, [...existing, ...added], rel);
+  }).catch(async (err) => {
+    if (lesson) await refund(ctx, lesson, paid);
+    throw err;
   });
 }
 
 export async function removeParticipant(ctx: Ctx, actor: Actor, eventId: string, participantId: string) {
-  return ctx.db.tx(async (q) => {
+  let toRefund: { e: EventRow; parts: PRow[] } | undefined;
+  const view = await ctx.db.tx(async (q) => {
     const { e, rel } = await loadManaged(q, actor, eventId);
     const gone = (await q.query<PRow>('delete from calendar.event_participants where id = $1 and event_id = $2 returning *', [participantId, eventId]))[0];
     if (!gone) throw new HttpError(404, 'not_found', 'Participant not found');
     if (e.status === 'confirmed') await notify(q, 'cancel', e, [{ email: gone.email, name: gone.name }], e.sequence + 1);
     const rest = (await participantsOf(q, [eventId])).get(eventId)!;
     await emit(ctx, q, 'event.updated', e, rest);
+    if (e.status === 'confirmed' && gone.status !== 'declined') toRefund = { e, parts: [gone] };
     return viewOf(e, rest, rel);
   });
+  if (toRefund) await refund(ctx, toRefund.e, toRefund.parts);
+  return view;
 }
 
 export async function respond(ctx: Ctx, actor: Actor, id: string, response: 'accepted' | 'declined', rawNote?: string) {
   if (actor.kind !== 'user') throw new HttpError(403, 'forbidden', 'Only a person can answer an invitation');
   const note = rawNote?.trim() || null;
   if (note && response !== 'declined') throw new HttpError(400, 'invalid_request', 'A note can only be added when declining');
+  let toRefund: { e: EventRow; parts: PRow[] } | undefined;
+  const paid: PRow[] = [];
+  let lesson: EventRow | undefined;
   return ctx.db.tx(async (q) => {
     const { e, rel, mine } = await loadVisible(q, actor, id, true);
     if (!mine) throw new HttpError(404, 'not_found', 'Event not found'); // owners and staff are not invitees
     if (e.status === 'cancelled') throw new HttpError(409, 'cancelled', 'This class is cancelled');
+    lesson = e;
     const updated = (await q.query<PRow>(
       `update calendar.event_participants set status = $2, note = $4, responded_at = now(), user_id = coalesce(user_id, $3) where id = $1 returning *`,
       [mine.id, response, actor.id, note],
     ))[0];
+    // Changing their mind: declining gives the class back, accepting again takes one again.
+    if (response === 'accepted' && mine.status === 'declined') await charge(ctx, e, [{ ...updated, user_id: updated.user_id ?? actor.id }], paid);
+    if (response === 'declined' && mine.status !== 'declined') toRefund = { e, parts: [{ ...updated, user_id: updated.user_id ?? actor.id }] };
     if (response === 'declined') {
       // Declining withdraws a time-change request that was waiting on the teacher.
       await q.query(`update calendar.change_requests set status = 'withdrawn', decided_at = now() where participant_id = $1 and status = 'pending'`, [mine.id]);
@@ -428,6 +494,12 @@ export async function respond(ctx: Ctx, actor: Actor, id: string, response: 'acc
     const parts = (await participantsOf(q, [id])).get(id)!;
     await emit(ctx, q, 'event.responded', e, parts, { responder: { email: updated.email, status: updated.status, note: updated.note } });
     return viewOf(e, parts, rel, updated, (await latestChanges(q, [id])).get(id) ?? null);
+  }).then(async (view) => {
+    if (toRefund) await refund(ctx, toRefund.e, toRefund.parts);
+    return view;
+  }, async (err) => {
+    if (lesson) await refund(ctx, lesson, paid);
+    throw err;
   });
 }
 

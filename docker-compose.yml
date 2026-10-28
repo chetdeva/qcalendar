@@ -107,6 +107,7 @@ services:
       CALENDAR_API_URL: http://calendar-service:3000
       USERS_SERVICE_URL: http://users-service:3010
       CHAT_API_URL: http://chat-service:3001 # a decline or a time-change request also messages the teacher
+      BILLING_API_URL: http://billing-service:3012 # the student's free-class and subscribe cards; no billing service = no cards
     depends_on: [calendar-service, users-service, chat-service]
     ports: ["3002:3002"]
 
@@ -174,6 +175,8 @@ services:
     environment:
       DASHBOARD_API_URL: http://dashboard-service:3007
       USERS_SERVICE_URL: http://users-service:3010
+      CALENDAR_API_URL: http://calendar-service:3000 # the student's free-class request
+      BILLING_API_URL: http://billing-service:3012 # the student's free-class and subscribe cards; no billing service = no cards
     depends_on: [dashboard-service, users-service]
     ports: ["3006:3006"]
 

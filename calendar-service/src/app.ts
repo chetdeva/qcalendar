@@ -20,7 +20,7 @@ const email = z.email().max(254);
 const name = z.string().trim().min(1).max(100);
 const uuid = z.uuid();
 const httpsUrl = z.url().max(500).refine((u) => u.startsWith('https://'), 'Meeting links must use https');
-const CATEGORIES = ['tutoring', 'office_hours', 'personal'] as const;
+const CATEGORIES = ['tutoring', 'office_hours', 'personal', 'trial'] as const;
 
 const ParticipantSchema = z.object({ userId: uuid.optional(), email, name: name.optional() }).strict();
 
@@ -121,9 +121,10 @@ export function createApp(deps: { ctx: svc.Ctx; authenticator: Authenticator }) 
 
   // A new student's request for the free first class, and the teachers' list of open ones.
   app.post('/v1/trial-requests', async (c) => {
-    const b = parse(z.object({ note: z.string().trim().max(500).optional() }).strict(), (await body(c)) ?? {});
-    return c.json(await trials.requestTrial(ctx, c.get('actor'), b.note || undefined), 201);
+    const b = parse(z.object({ start: iso }).strict(), await body(c));
+    return c.json(await trials.requestTrial(ctx, c.get('actor'), b), 201);
   });
+  app.post('/v1/trial-requests/:id/confirm', async (c) => c.json(await trials.confirmRequest(ctx, c.get('actor'), id(c.req.param('id'))), 201));
   app.get('/v1/trial-requests/mine', async (c) => c.json({ request: await trials.myRequest(ctx, c.get('actor')) }));
   app.delete('/v1/trial-requests/mine', async (c) => { await trials.cancelMyRequest(ctx, c.get('actor')); return c.body(null, 204); });
   app.get('/v1/trial-requests', async (c) => c.json({ requests: await trials.openRequests(ctx, c.get('actor')) }));

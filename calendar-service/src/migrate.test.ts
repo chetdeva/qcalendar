@@ -11,9 +11,9 @@ const fresh = async () => { const db = createPgliteDb(); await migrate(db); retu
 
 test('migrations apply once and are recorded; running them again does nothing', async () => {
   const db = createPgliteDb();
-  assert.deepEqual(await migrate(db), ['0001_calendar', '0002_responses', '0003_trial_requests']);
+  assert.deepEqual(await migrate(db), ['0001_calendar', '0002_responses', '0003_trial_requests', '0004_trial_request_time', '0005_trial_category']);
   assert.deepEqual(await migrate(db), []);
-  assert.deepEqual((await db.query('select name from calendar.schema_migrations')).map((r) => r.name), ['0001_calendar', '0002_responses', '0003_trial_requests']);
+  assert.deepEqual((await db.query('select name from calendar.schema_migrations')).map((r) => r.name), ['0001_calendar', '0002_responses', '0003_trial_requests', '0004_trial_request_time', '0005_trial_category']);
   await db.close();
 });
 

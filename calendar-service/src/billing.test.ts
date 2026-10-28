@@ -149,29 +149,70 @@ test('lessons already in the past are never refunded', async () => {
   assert.equal(bill.credits.get(a.id), 0);
 });
 
-test('a student asks for the free class once; a teacher sees it; booking the student marks it scheduled', async () => {
+const when = (hour: number, day = 7) => slot(hour, 60, day).start;
+
+test('a student asks for a time; a teacher sees it; confirming books the class for both and marks it scheduled', async () => {
   const t = await h.person('teacher');
   const s = await h.person('student', { name: 'Sam' });
   bill.give(s, 3);
-  assert.equal((await t.call('POST', '/v1/trial-requests', {})).status, 403); // only students ask
-  assert.equal((await s.call('POST', '/v1/trial-requests', { note: 'After 4pm' })).status, 201);
-  assert.equal((await s.call('POST', '/v1/trial-requests', { note: 'again' })).status, 201); // idempotent while open
+  assert.equal((await t.call('POST', '/v1/trial-requests', { start: when(10) })).status, 403); // only students ask
+  assert.equal((await s.call('POST', '/v1/trial-requests', {})).status, 400); // a time is required
+  assert.equal((await s.call('POST', '/v1/trial-requests', { start: '2020-01-01T10:00:00Z' })).status, 400); // and it must be in the future
+  assert.equal((await s.call('POST', '/v1/trial-requests', { start: when(10), note: 'x' })).status, 400); // no free text any more
+  assert.equal((await s.call('POST', '/v1/trial-requests', { start: when(10) })).status, 201);
   const mine = (await json(await s.call('GET', '/v1/trial-requests/mine'))).request;
-  assert.deepEqual([mine.note, mine.studentName, mine.status], ['After 4pm', 'Sam', 'requested']);
+  assert.deepEqual([mine.studentName, mine.status, mine.start, mine.end], ['Sam', 'requested', '2030-01-07T10:00:00.000Z', '2030-01-07T10:30:00.000Z']);
   const open = (await json(await t.call('GET', '/v1/trial-requests'))).requests;
-  assert.deepEqual(open.map((r: any) => r.studentId), [s.id]);
+  assert.deepEqual(open.map((r: any) => [r.studentId, r.start]), [[s.id, '2030-01-07T10:00:00.000Z']]);
   assert.equal((await s.call('GET', '/v1/trial-requests')).status, 403);
-  assert.equal((await book(t, [s])).status, 201);
+
+  assert.equal((await s.call('POST', `/v1/trial-requests/${open[0].id}/confirm`)).status, 403); // students cannot confirm
+  const res = await t.call('POST', `/v1/trial-requests/${open[0].id}/confirm`);
+  assert.equal(res.status, 201);
+  const lesson = await json(res);
+  assert.equal(lesson.title, 'Free trial class');
+  assert.equal(lesson.category, 'trial');
+  assert.equal(lesson.start, '2030-01-07T10:00:00.000Z');
+  assert.equal((await json(await s.call('GET', '/v1/events?from=2030-01-01T00:00:00Z&to=2030-02-01T00:00:00Z'))).events.length, 1); // the student sees it too
+  assert.equal((await json(await t.call('GET', '/v1/events?from=2030-01-01T00:00:00Z&to=2030-02-01T00:00:00Z'))).events.length, 1);
   assert.equal((await json(await s.call('GET', '/v1/trial-requests/mine'))).request, null);
-  assert.equal((await json(await t.call('GET', '/v1/trial-requests'))).requests.length, 0);
+  assert.equal((await t.call('POST', `/v1/trial-requests/${open[0].id}/confirm`)).status, 409); // a second confirm books nothing
+  assert.equal((await h.db.query('select 1 from calendar.events')).length, 1);
 });
 
-test('a student can withdraw their request and ask again', async () => {
+test('asking again replaces the time; a student can withdraw and ask again', async () => {
   const s = await h.person('student');
-  await s.call('POST', '/v1/trial-requests', {});
+  await s.call('POST', '/v1/trial-requests', { start: when(10) });
+  await s.call('POST', '/v1/trial-requests', { start: when(14) });
+  assert.equal((await json(await s.call('GET', '/v1/trial-requests/mine'))).request.start, '2030-01-07T14:00:00.000Z');
+  assert.equal((await h.db.query(`select 1 from calendar.trial_requests where status = 'requested'`)).length, 1);
   assert.equal((await s.call('DELETE', '/v1/trial-requests/mine')).status, 204);
   assert.equal((await json(await s.call('GET', '/v1/trial-requests/mine'))).request, null);
-  assert.equal((await s.call('POST', '/v1/trial-requests', {})).status, 201);
+  assert.equal((await s.call('POST', '/v1/trial-requests', { start: when(10) })).status, 201);
+});
+
+test('confirming fails clearly when the teacher is busy, the student is booked elsewhere, or billing is down; the request stays open', async () => {
+  const t = await h.person('teacher');
+  const s = await h.person('student', { name: 'Sam' });
+  bill.give(s, 3);
+  await s.call('POST', '/v1/trial-requests', { start: when(10) });
+  const rid = (await json(await t.call('GET', '/v1/trial-requests'))).requests[0].id;
+  assert.equal((await t.call('POST', '/v1/events', { title: 'Other', ...slot(10) })).status, 201); // the teacher is busy then
+  assert.equal((await json(await t.call('POST', `/v1/trial-requests/${rid}/confirm`))).error.code, 'conflict');
+  await h.db.query('delete from calendar.events');
+  bill.state.down = true;
+  assert.equal((await json(await t.call('POST', `/v1/trial-requests/${rid}/confirm`))).error.code, 'billing_unavailable');
+  bill.state.down = false;
+  assert.equal((await json(await t.call('GET', '/v1/trial-requests'))).requests.length, 1);
+  assert.equal((await t.call('POST', `/v1/trial-requests/${rid}/confirm`)).status, 201); // fine once the problem is gone
+});
+
+test('a request without a time (made before students could pick one) cannot be confirmed directly', async () => {
+  const t = await h.person('teacher');
+  const s = await h.person('student', { name: 'Sam' });
+  await h.db.query(`insert into calendar.trial_requests (student_id, student_email, student_name) values ($1, $2, 'Sam')`, [s.id, s.email]);
+  const rid = (await json(await t.call('GET', '/v1/trial-requests'))).requests[0].id;
+  assert.equal((await json(await t.call('POST', `/v1/trial-requests/${rid}/confirm`))).error.code, 'time_required');
 });
 
 test('the lesson end time travels with the reservation, so billing knows when the free class is over', async () => {

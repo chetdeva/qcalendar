@@ -18,7 +18,9 @@ export interface Ctx {
 }
 
 export interface ParticipantInput { userId?: string; email: string; name?: string }
-export type Category = 'tutoring' | 'office_hours' | 'personal';
+export type Category = 'tutoring' | 'office_hours' | 'personal' | 'trial';
+/** Lessons a student pays for (a class credit, or the free trial). */
+const paidCategory = (c: Category) => c === 'tutoring' || c === 'trial';
 
 interface EventRow {
   id: string; owner_id: string; owner_email: string | null; owner_name: string | null; title: string; description: string | null;
@@ -218,7 +220,7 @@ const REFUSALS = {
  * anything later in the request fails.
  */
 async function charge(ctx: Ctx, e: EventRow, parts: PRow[], paid: PRow[]) {
-  if (!ctx.billing || e.category !== 'tutoring') return;
+  if (!ctx.billing || !paidCategory(e.category)) return;
   for (const p of parts) {
     const who = p.name || p.email;
     if (!p.user_id) throw new HttpError(422, 'student_account_required', `${who} has not created an account yet. Choose students who have signed up.`, { participant: who });
@@ -230,7 +232,7 @@ async function charge(ctx: Ctx, e: EventRow, parts: PRow[], paid: PRow[]) {
 
 /** Gives seats back. Only for lessons that have not started; a lesson already taught stays paid. Never throws. */
 async function refund(ctx: Ctx, e: EventRow, parts: PRow[]) {
-  if (!ctx.billing || e.category !== 'tutoring' || new Date(e.start_at) <= new Date()) return;
+  if (!ctx.billing || !paidCategory(e.category) || new Date(e.start_at) <= new Date()) return;
   for (const p of parts) {
     if (!p.user_id) continue;
     await ctx.billing.release(p.user_id, seatRef(e.id, p.user_id)).catch((err) => console.error(`could not give back a class for ${p.user_id}:`, err.message));
@@ -280,7 +282,7 @@ export async function createEvent(ctx: Ctx, actor: Actor, input: CreateInput) {
     }
     created = e;
     await charge(ctx, e, parts, paid);
-    if (e.category === 'tutoring') await markScheduled(q, e.id, parts.map((p) => p.user_id));
+    if (paidCategory(e.category)) await markScheduled(q, e.id, parts.map((p) => p.user_id));
     await notify(q, 'invite', e, parts.map((p) => ({ email: p.email, name: p.name })));
     await emit(ctx, q, 'event.created', e, parts);
     return viewOf(e, parts, 'manager');
@@ -443,7 +445,7 @@ export async function addParticipants(ctx: Ctx, actor: Actor, id: string, input:
     }
     if (added.length) {
       await charge(ctx, e, added, paid);
-      if (e.category === 'tutoring') await markScheduled(q, e.id, added.map((p) => p.user_id));
+      if (paidCategory(e.category)) await markScheduled(q, e.id, added.map((p) => p.user_id));
       await notify(q, 'invite', e, added.map((p) => ({ email: p.email, name: p.name })));
       await emit(ctx, q, 'event.updated', e, [...existing, ...added]);
     }

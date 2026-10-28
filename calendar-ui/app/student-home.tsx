@@ -15,6 +15,7 @@ import { InviteActions } from './components/invite-actions';
 import { dayHeader, makeEventContent } from './components/event-content';
 import { AppHeader } from '@components/app-header';
 import { RoleBanner } from './components/role-banner';
+import { StudentNudge } from '@components/student-nudge';
 
 const PLUGINS = [dayGridPlugin, timeGridPlugin, interactionPlugin];
 const slotLabel = (a: { date: Date }) => a.date.toLocaleTimeString('en-US', { hour: 'numeric' });
@@ -107,6 +108,7 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
           </div>
         </div>
       </header>
+      <StudentNudge />
       <div className="work">
         <section className="gridwrap">
           <CalendarToolbar title={title} view={view} tz={tz} onNav={nav} onView={(v) => cal.current?.getApi().changeView(v)} />

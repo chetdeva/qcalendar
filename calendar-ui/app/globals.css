@@ -253,3 +253,13 @@ button:disabled { cursor: default; }
 
 .stale-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #fff3d6; color: #6b4300; padding: 8px 16px; font-size: 13px; line-height: 18px; position: relative; z-index: 7; }
 .stale-banner form { margin: 0; display: flex; }
+
+/* Free class requests: a new student's ask for their first class, above the class list. */
+.freereq { margin: 0 0 12px; padding: 14px 16px; border-radius: 16px; background: #eff4ff; border: 1px solid #dde9ff; }
+.freereq h3 { margin: 0 0 8px; font-size: 14px; font-weight: 800; color: #0d1c2f; display: flex; align-items: center; gap: 8px; }
+.freereq h3 span { padding: 0 8px; border-radius: 999px; background: #006194; color: #fff; font-size: 11px; line-height: 18px; }
+.freereq ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.freereq li { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.freereq li div { display: flex; flex-direction: column; min-width: 0; }
+.freereq small { color: #3f4850; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.freereq button { flex: none; border: 0; border-radius: 999px; padding: 6px 14px; background: #006194; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }

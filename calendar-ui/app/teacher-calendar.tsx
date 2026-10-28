@@ -16,6 +16,7 @@ import { ChangeRequestBox } from './components/change-request-box';
 import { ClassesPanel, fetchUpcoming, upcomingOf } from './components/classes-panel';
 import { conflictMessage, CreateDrawer, DetailsDrawer, type Conflict, type LessonForm } from './components/lesson-drawer';
 import { dayHeader, makeEventContent } from './components/event-content';
+import { FreeClassRequests } from './components/free-class-requests';
 import { RoleBanner } from './components/role-banner';
 import { AppHeader } from '@components/app-header';
 
@@ -336,6 +337,13 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
           </div>
         </section>
         <div className="side">
+          <FreeClassRequests
+            reloadOn={classes}
+            onSchedule={(student) => {
+              openCreate();
+              setForm((f) => ({ ...f, title: 'Free first class', category: 'tutoring', students: [student] }));
+            }}
+          />
           {panel === 'details' && picked ? (
             <DetailsDrawer
               key={picked.id}

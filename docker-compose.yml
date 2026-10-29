@@ -43,6 +43,9 @@ services:
       CALENDAR_URL: http://localhost:3002
       BILLING_URL: ${BILLING_SERVICE_KEY:+http://billing-service:3012} # empty = billing is off and every lesson is free
       BILLING_SERVICE_KEY: ${BILLING_SERVICE_KEY:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-} # all three set = classes get Google Meet links, else Jitsi
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REFRESH_TOKEN: ${GOOGLE_REFRESH_TOKEN:-}
     volumes: [calendar-data:/data]
     ports: ["3000:3000"]
 

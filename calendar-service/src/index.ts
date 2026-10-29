@@ -5,6 +5,7 @@ import { createBillingClient } from './billing.ts';
 import { createPgDb, createPgliteDb, migrate, type SslMode } from './db.ts';
 import { HttpError } from './errors.ts';
 import { ConsoleMailer, createSmtpMailer } from './mail.ts';
+import { createMeetingProvider } from './meeting.ts';
 import { processOutbox } from './outbox.ts';
 import { processWebhooks } from './webhooks.ts';
 
@@ -30,11 +31,16 @@ const keys = env.SUPABASE_URL
 const authenticator = createAuthenticator({ apiKey, ...keys });
 
 const webhookUrl = env.WEBHOOK_URL ?? '';
+const meetingBaseUrl = env.MEETING_BASE_URL ?? 'https://meet.jit.si';
+// All three set = every class gets a Google Meet link from that one account; otherwise (or if Google fails) a Jitsi room.
+const google = env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REFRESH_TOKEN
+  ? { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET, refreshToken: env.GOOGLE_REFRESH_TOKEN } : undefined;
 const ctx = {
   db,
   defaultTimezone: env.DEFAULT_TIMEZONE ?? 'UTC',
   webhooks: Boolean(webhookUrl),
-  meetingBaseUrl: env.MEETING_BASE_URL ?? 'https://meet.jit.si',
+  meetingBaseUrl,
+  newMeeting: createMeetingProvider({ jitsiBase: meetingBaseUrl, google }),
   // Unset BILLING_URL = lessons are free (no billing service to ask).
   billing: env.BILLING_URL ? createBillingClient({ url: env.BILLING_URL, key: env.BILLING_SERVICE_KEY ?? '' }) : undefined,
 };

@@ -1,9 +1,9 @@
-import { randomBytes } from 'node:crypto';
 import type { Actor } from './auth.ts';
 import { computeSlots, defaultSettings, type Settings } from './availability.ts';
 import type { Db, Queryable } from './db.ts';
 import { HttpError } from './errors.ts';
 import type { BillingClient } from './billing.ts';
+import { jitsiUrl, type NewMeeting } from './meeting.ts';
 import { enqueueMail, type MailKind, type OutboxPayload } from './outbox.ts';
 import { markScheduled } from './trial-requests.ts';
 import { enqueueWebhook } from './webhooks.ts';
@@ -13,6 +13,8 @@ export interface Ctx {
   defaultTimezone: string;
   webhooks: boolean;
   meetingBaseUrl: string;
+  /** Makes the link for a class that asks for a video meeting (Google Meet when configured). Unset: a Jitsi room on meetingBaseUrl. */
+  newMeeting?: NewMeeting;
   /** Who pays for tutoring lessons. Unset: lessons are free (billing is off). */
   billing?: BillingClient;
 }
@@ -178,7 +180,7 @@ function resolveTimes(start: string, end: string | undefined, durationMinutes: n
   return { start: new Date(s).toISOString(), end: new Date(e).toISOString() };
 }
 
-const newMeetingUrl = (base: string) => `${base.replace(/\/$/, '')}/sync-${randomBytes(9).toString('base64url')}`;
+const newMeetingUrl = (ctx: Ctx, info: { title: string; start: string; end: string }) => (ctx.newMeeting ? ctx.newMeeting(info) : Promise.resolve(jitsiUrl(ctx.meetingBaseUrl)));
 
 function mailPayload(e: EventRow, p: { email: string; name: string | null }, sequence = e.sequence): OutboxPayload {
   return {
@@ -263,7 +265,7 @@ export async function createEvent(ctx: Ctx, actor: Actor, input: CreateInput) {
 
   const { start, end } = resolveTimes(input.start, input.end, input.durationMinutes);
   const people = normalize(input.participants);
-  const meetingUrl = input.meetingUrl ?? (input.meet ? newMeetingUrl(ctx.meetingBaseUrl) : null);
+  const meetingUrl = input.meetingUrl ?? (input.meet ? await newMeetingUrl(ctx, { title: input.title, start, end }) : null); // before the transaction: no network call while the calendar is locked
   const timezone = input.timezone ?? (await getSettings(ctx.db, ownerId, ctx.defaultTimezone)).timezone;
 
   const paid: PRow[] = [];
@@ -375,7 +377,7 @@ export async function patchEvent(ctx: Ctx, actor: Actor, id: string, input: Patc
 
     let meetingUrl = prev.meeting_url;
     if (input.meetingUrl !== undefined) meetingUrl = input.meetingUrl;
-    else if (input.meet === true && !meetingUrl) meetingUrl = newMeetingUrl(ctx.meetingBaseUrl);
+    else if (input.meet === true && !meetingUrl) meetingUrl = await newMeetingUrl(ctx, { title: input.title ?? prev.title, start, end }); // ponytail: inside the transaction (needs the class's time); a rare edit, and Google calls time out after 8s
     else if (input.meet === false) meetingUrl = null;
 
     const next = {

@@ -30,7 +30,7 @@ The role comes from the token's `app_metadata.role`, which people cannot edit. A
 - **No double-booking.** A teacher cannot be booked twice at the same time, and neither can a student. Back-to-back is fine. Creating or moving a class over a clash returns `409` unless `force: true`. The check is serialised per teacher, so simultaneous requests cannot both win. The student check reveals only *which students* are busy, never what they are busy with.
 - **Reschedule and cancel.** A new time resets everyone's answer to "invited". Students are emailed an updated or cancelled invitation (same calendar entry, higher `SEQUENCE`, so Apple/Google/Outlook update or remove it). Changes people do not need to hear about (the category) send nothing.
 - **Free slots.** `GET /v1/availability` computes each teacher's open times from their own working hours (default Mon to Fri, 9 to 17, in their time zone, daylight-saving safe), minus their booked classes and buffer.
-- **Meeting links.** `meet: true` creates a unique Jitsi room (`MEETING_BASE_URL`); or pass your own `https` link (Zoom, Meet).
+- **Meeting links.** `meet: true` creates a Google Meet link when a Google account is configured, else a unique Jitsi room (`MEETING_BASE_URL`); or pass your own `https` link (Zoom, Meet).
 - **Invitations by email.** Queued in an outbox and sent by a background worker with retries (up to 8, exponential backoff), so a mail outage never loses an invitation or blocks booking.
 - **Invite people who have no account yet.** A student can be added by email; once they sign in with that address, the class appears and is linked to their account.
 - **Webhooks.** `event.created`, `event.updated`, `event.cancelled`, `event.responded`, HMAC-signed (`x-calendar-signature: sha256=…`), retried 8 times.
@@ -75,7 +75,8 @@ Production uses a real Postgres. For Supabase: Project, Connect, "Session pooler
 | `SUPABASE_URL` | Where people's tokens are verified (public keys, no secret needed) |
 | `API_KEY` | Service key for trusted backends. They must say whose calendar (`ownerId`, `teacherId`) |
 | `SMTP_URL`, `MAIL_FROM`, `CALENDAR_URL` | Invitation emails. AWS SES works through its SMTP interface |
-| `MEETING_BASE_URL` | Jitsi server for generated links |
+| `MEETING_BASE_URL` | Jitsi server for generated links (and the fallback when Google is not set up or fails) |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` | Optional. Generated links become Google Meet links, created on that one account's calendar (no guests, no Google invitations). Get the refresh token with `node scripts/google-meet-auth.mjs` |
 | `WEBHOOK_URL`, `WEBHOOK_SECRET` | Optional webhooks |
 
 Run exactly one instance for now; the email and webhook workers are not coordinated across instances beyond row leasing.

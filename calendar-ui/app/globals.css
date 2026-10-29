@@ -272,5 +272,9 @@ button:disabled { cursor: default; }
 /* A free class a student has asked for but a teacher has not confirmed yet. */
 .tent { height: 100%; padding: 4px 6px; border-radius: 8px; border: 2px dashed #006194; background: #eff4ff; color: #006194; font-size: 12px; font-weight: 700; }
 .freereq p { margin: 0 0 8px; font-size: 13px; color: #0d1c2f; }
-/* The slot a student has just picked for their trial class (a background block, so another slot can still be clicked). */
-.fc .fc-bg-event.pending-slot { background: rgba(0, 97, 148, .22); opacity: 1; box-shadow: inset 0 0 0 2px #006194; border-radius: 6px; }
+/* The slot a student has just picked for their trial class . */
+.fc .fc-bg-event.pending-slot { opacity: 1; }
+.fc .fc-bg-event.pending-slot .tent { display: none; } /* eventContent wraps events in a dashed .tent; the student's background placeholder has its own border */
+.fc .fc-event.pending-slot { background: rgba(0, 97, 148, .18); border: 2px dashed #006194; border-radius: 6px; box-sizing: border-box; cursor: grab; }
+/* Over a trial request's own dashed slot (Change time starts on top of it), so the placeholder is the one that gets grabbed. */
+.fc .fc-timegrid-event-harness:has(.pending-slot) { z-index: 9 !important; } /* FullCalendar sets z-index inline */

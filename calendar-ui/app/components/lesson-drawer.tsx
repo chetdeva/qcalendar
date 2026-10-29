@@ -23,6 +23,8 @@ export interface LessonForm {
 export type Conflict = { kind: 'owner' | 'students'; people: string[] };
 
 const DURATIONS = [30, 60, 75, 90];
+/** The free trial class is always this long. */
+const TRIAL_MINUTES = 30;
 const iconFor = (c: EventCategory) => (c === 'tutoring' || c === 'trial' ? 'tutoring' : c === 'office_hours' ? 'office-hours' : 'personal');
 
 export function conflictMessage(c: Conflict) {
@@ -93,7 +95,7 @@ export function CreateDrawer(p: CreateProps) {
                 className={form.category === c ? 'on' : ''}
                 aria-pressed={form.category === c}
                 style={form.category === c ? { color: CATEGORIES[c].color } : undefined}
-                onClick={() => set('category', c)}
+                onClick={() => setForm({ ...form, category: c, ...(c === 'trial' ? { duration: TRIAL_MINUTES } : {}) })}
               >
                 <Icon name={iconFor(c)} color={form.category === c ? CATEGORIES[c].color : '#414754'} />
                 {CATEGORIES[c].label}
@@ -116,7 +118,7 @@ export function CreateDrawer(p: CreateProps) {
         <div className="field">
           <span id="duration">Duration</span>
           <div className="durations" role="group" aria-labelledby="duration">
-            {(DURATIONS.includes(form.duration) ? DURATIONS : [...DURATIONS, form.duration].sort((a, b) => a - b)).map((m) => (
+            {(form.category === 'trial' ? [TRIAL_MINUTES] : DURATIONS.includes(form.duration) ? DURATIONS : [...DURATIONS, form.duration].sort((a, b) => a - b)).map((m) => (
               <button key={m} type="button" className={form.duration === m ? 'on' : ''} aria-pressed={form.duration === m} onClick={() => set('duration', m)}>
                 {m}m
               </button>

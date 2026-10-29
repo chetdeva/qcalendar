@@ -1,30 +1,26 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { Student } from '@/lib/calendar';
 import { api } from '../api-client';
 
-interface Request { id: string; studentId: string; studentEmail: string | null; studentName: string | null; start: string | null; end: string | null }
+export interface TrialRequestRow { id: string; studentId: string; studentEmail: string | null; studentName: string | null; start: string | null; end: string | null }
 
 const whenLabel = (iso: string) => new Date(iso).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 /**
  * New students ask for their free trial class at a time they picked on their calendar. A teacher confirms it here (the
  * class is created for both of them) or uses "Change time", which opens the New lesson form with the student and the
- * asked-for time already filled in. The list reloads whenever `reloadOn` changes (the class list refreshed).
+ * asked-for time already filled in. The list is loaded by the calendar, which also draws each request as a dashed slot.
  */
-export function FreeClassRequests({ onChangeTime, onConfirmed, canConfirm, reloadOn }: {
-  onChangeTime: (student: Student, start: Date | null) => void; onConfirmed: () => void; canConfirm: boolean; reloadOn: unknown;
+export function FreeClassRequests({ requests, onChangeTime, onConfirmed, canConfirm }: {
+  requests: TrialRequestRow[]; onChangeTime: (student: Student, start: Date | null) => void; onConfirmed: () => void; canConfirm: boolean;
 }) {
-  const [requests, setRequests] = useState<Request[]>([]);
   const [error, setError] = useState<{ id: string; message: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  useEffect(() => {
-    api<{ requests: Request[] }>('/api/trial-requests').then((r) => setRequests(r.requests), () => setRequests([]));
-  }, [reloadOn]);
   if (!requests.length) return null;
 
-  async function confirm(r: Request) {
+  async function confirm(r: TrialRequestRow) {
     setBusy(r.id);
     setError(null);
     try {

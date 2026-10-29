@@ -27,7 +27,7 @@ function Welcome({ d }: { d: Data }) {
     <section className="hero" aria-label="Welcome">
       <div className="hero-l">
         <p className="eyebrow-row"><span className="tag tag-sun">{d.profile.level}</span><span>{d.profile.term}</span></p>
-        <h1>Welcome back, {w.name}! <span aria-hidden>🌟</span> <em>{w.headline}</em></h1>
+        <h1>Welcome back, {w.name}! <em>{w.headline}</em></h1>
         <p className="blurb">{w.blurb}</p>
         <ul className="chips">
           <li><Flame size={14} aria-hidden /> Current Streak: <b>{w.streakDays} Days</b></li>

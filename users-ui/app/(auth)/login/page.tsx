@@ -10,7 +10,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <div className="au-card">
       <div className="au-head">
-        <h1>Welcome back <span aria-hidden>👋</span></h1>
+        <h1>Welcome back</h1>
         <p>Log in to pick up where you left off.</p>
       </div>
       <LoginForm next={next} notice={notice} />

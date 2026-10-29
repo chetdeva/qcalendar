@@ -8,7 +8,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
   return (
     <div className="au-card">
       <div className="au-head">
-        <h1>Create your account <span aria-hidden>🚀</span></h1>
+        <h1>Create your account</h1>
         <p>Sign up as a student. Teachers join by invitation.</p>
       </div>
       <SignupForm next={next} />

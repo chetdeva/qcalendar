@@ -17,6 +17,8 @@ interface Props {
   canShade: boolean;
   onShowFree: (v: boolean) => void;
   onQuickAdd: () => void;
+  /** Sits right after Quick Add Lesson (the admin's calendar filters). */
+  extra?: React.ReactNode;
 }
 
 export function TopBar(p: Props) {
@@ -58,6 +60,7 @@ export function TopBar(p: Props) {
           <Icon name="plus-circle" color="#fff" />
           Quick Add Lesson
         </button>
+        {p.extra}
       </div>
     </header>
   );

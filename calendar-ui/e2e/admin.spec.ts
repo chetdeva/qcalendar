@@ -102,7 +102,7 @@ test('free-time shading follows the teacher chosen in the form', async ({ contex
   await expect(page.locator('.fc-bg-event.free').first()).toBeVisible();
 });
 
-test('an admin can look at one teacher\'s or one student\'s calendar, and open it from a link', async ({ context, request }) => {
+test('an admin filters the calendar to one teacher or one student from the Filters dialog, and can open it from a link', async ({ context, request }) => {
   const [t1, t2] = [await seed(request, 'teacher', 'Tess Teacher'), await seed(request, 'teacher', 'Tom Teacher')];
   const sam = await seed(request, 'student', 'Sam Student');
   await (await as(request, t1)).create({ title: 'Tess class', start: at(10), durationMinutes: 60 });
@@ -112,27 +112,51 @@ test('an admin can look at one teacher\'s or one student\'s calendar, and open i
   await expect(tess).toBeVisible();
   await expect(tom).toBeVisible();
 
-  await page.getByLabel('Viewing').selectOption('teacher');
-  await page.getByLabel('Teacher', { exact: true }).selectOption({ label: 'Tess Teacher' });
+  // the button sits to the right of Quick Add Lesson
+  const [add, filters] = [await page.getByRole('button', { name: 'Quick Add Lesson' }).boundingBox(), await page.getByRole('button', { name: 'Filters' }).boundingBox()];
+  expect(filters!.x).toBeGreaterThan(add!.x + add!.width);
+
+  const dialog = page.getByRole('dialog', { name: 'Calendar filters' });
+  await page.getByRole('button', { name: 'Filters' }).click();
+  await dialog.getByLabel('Show').selectOption('teacher');
+  await dialog.getByLabel('Teacher', { exact: true }).selectOption({ label: 'Tess Teacher' });
+  await expect(tom).toBeVisible(); // nothing changes until Apply
+  await dialog.getByRole('button', { name: 'Apply filters' }).click();
+  await expect(dialog).toBeHidden();
   await expect(tom).toHaveCount(0);
   await expect(tess).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Filters' })).toContainText('Tess Teacher'); // the active filter shows on the button
 
-  await page.getByLabel('Viewing').selectOption('student');
-  await page.getByLabel('Find a student').fill('sam');
+  await page.getByRole('button', { name: 'Filters' }).click();
+  await dialog.getByLabel('Show').selectOption('student');
+  await expect(dialog.getByRole('button', { name: 'Apply filters' })).toBeDisabled(); // pick a student first
+  await dialog.getByLabel('Find a student').fill('sam');
   await page.getByRole('option', { name: /Sam Student/ }).click();
+  await expect(dialog.locator('.viewing-chip')).toContainText('Sam Student'); // both the name and the email are shown
+  await expect(dialog.locator('.viewing-chip')).toContainText(sam.email);
+  expect((await dialog.getByRole('button', { name: `Remove ${sam.email}` }).boundingBox())!.width).toBeLessThan(40); // a small cross, not a wide button
+  await dialog.getByRole('button', { name: 'Apply filters' }).click();
   await expect(tess).toHaveCount(0);
   await expect(tom).toBeVisible();
 
-  await page.getByLabel('Viewing').selectOption('all');
+  await page.getByRole('button', { name: 'Filters' }).click();
+  await dialog.getByLabel('Show').selectOption('all');
+  await dialog.getByRole('button', { name: 'Apply filters' }).click();
   await expect(tess).toBeVisible();
+  await expect(tom).toBeVisible();
 
   await page.goto(`/?teacher=${t2.id}`); // the link from the admin portal
-  await expect(page.getByLabel('Teacher', { exact: true })).toHaveValue(t2.id);
   await expect(tess).toHaveCount(0);
   await expect(tom).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Filters' })).toContainText('Tom Teacher');
   await page.goto(`/?student=${encodeURIComponent(sam.email)}&name=Sam%20Student`);
-  await expect(page.locator('.viewing-chip')).toContainText('Sam Student');
+  await expect(page.getByRole('button', { name: 'Filters' })).toContainText('Sam Student');
   await expect(tom).toBeVisible();
+  await expect(tess).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Filters' }).click(); // Cancel leaves the filter as it was
+  await dialog.getByLabel('Show').selectOption('all');
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
   await expect(tess).toHaveCount(0);
 });
 
@@ -169,4 +193,48 @@ test('scheduling for a student starts from their assigned teacher', async ({ con
   await page.getByRole('combobox', { name: /Students/ }).fill('sam');
   await page.getByRole('option', { name: /Sam Student/ }).click();
   await expect(teacherSelect(page)).toHaveValue(tess.id);
+});
+
+test('the students filter finds students by name or by email, and takes several at once', async ({ context, request }) => {
+  const teacher = await seed(request, 'teacher', 'Tess Teacher');
+  const [sam, ann, zed] = [await seed(request, 'student', 'Sam Student'), await seed(request, 'student', 'Ann Student'), await seed(request, 'student', 'Zed Student')];
+  const t = await as(request, teacher);
+  await t.create({ title: 'Sam class', start: at(9), durationMinutes: 60, participants: [{ email: sam.email, userId: sam.id }] });
+  await t.create({ title: 'Ann class', start: at(11), durationMinutes: 60, participants: [{ email: ann.email, userId: ann.id }] });
+  await t.create({ title: 'Zed class', start: at(13), durationMinutes: 60, participants: [{ email: zed.email, userId: zed.id }] });
+  const page = await openPage(context, request, await seed(request, 'admin', 'Ada Admin'));
+  const ev = (title: string) => page.locator('.fc-event', { hasText: title });
+  await expect(ev('Zed class')).toBeVisible();
+
+  const dialog = page.getByRole('dialog', { name: 'Calendar filters' });
+  await page.getByRole('button', { name: 'Filters' }).click();
+  await dialog.getByLabel('Show').selectOption('student');
+  const find = dialog.getByLabel('Find a student');
+  await find.fill(ann.email); // by email
+  await page.getByRole('option', { name: /Ann Student/ }).click();
+  await find.fill('sam stu'); // by name
+  await page.getByRole('option', { name: /Sam Student/ }).click();
+  await expect(dialog.locator('.viewing-chip')).toHaveCount(2);
+  await find.fill('sam');
+  await expect(page.getByRole('option', { name: /Sam Student/ })).toHaveCount(0); // already chosen
+  await find.fill('student'); // a search that matches everyone still leaves out the two already chosen
+  await expect(page.getByRole('option', { name: /Zed Student/ })).toBeVisible();
+  await expect(page.getByRole('option', { name: /Ann Student|Sam Student/ })).toHaveCount(0);
+  await page.getByRole('option', { name: /Zed Student/ }).click();
+  await expect(dialog.locator('.viewing-chip')).toHaveCount(3);
+  await dialog.getByRole('button', { name: `Remove ${zed.email}` }).click();
+  await expect(dialog.locator('.viewing-chip')).toHaveCount(2);
+  await find.fill('');
+
+  await dialog.getByRole('button', { name: 'Apply filters' }).click();
+  await expect(ev('Sam class')).toBeVisible();
+  await expect(ev('Ann class')).toBeVisible();
+  await expect(ev('Zed class')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Filters' })).toContainText('2 students');
+
+  await page.getByRole('button', { name: 'Filters' }).click();
+  await dialog.getByRole('button', { name: `Remove ${ann.email}` }).click();
+  await dialog.getByRole('button', { name: 'Apply filters' }).click();
+  await expect(ev('Ann class')).toHaveCount(0);
+  await expect(ev('Sam class')).toBeVisible();
 });

@@ -76,7 +76,7 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
     if (!admin || fromLink.current) return;
     const sp = new URLSearchParams(window.location.search);
     const email = sp.get('student');
-    if (email) { fromLink.current = true; setViewing({ kind: 'student', student: { email, name: sp.get('name') } }); return; }
+    if (email) { fromLink.current = true; setViewing({ kind: 'student', students: [{ email, name: sp.get('name') }] }); return; }
     const id = sp.get('teacher');
     const t = id && teachers.find((x) => x.id === id);
     if (t) { fromLink.current = true; setViewing({ kind: 'teacher', teacher: t }); }
@@ -116,7 +116,7 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
   const loadEvents = useCallback(async (info: { start: Date; end: Date }): Promise<EventInput[]> => {
     const qs = `from=${encodeURIComponent(info.start.toISOString())}&to=${encodeURIComponent(info.end.toISOString())}`;
     const v = viewingRef.current;
-    const filter = v.kind === 'teacher' ? `&ownerId=${v.teacher.id}` : v.kind === 'student' && v.student.email ? `&participant=${encodeURIComponent(v.student.email)}` : '';
+    const filter = v.kind === 'teacher' ? `&ownerId=${v.teacher.id}` : v.kind === 'student' && v.students.length ? `&participant=${encodeURIComponent(v.students.map((x) => x.email).join(','))}` : '';
     try {
       const { events: list } = await api<{ events: CalendarEvent[] }>(`/api/events?${qs}${filter}`);
       setEvents(list);
@@ -368,10 +368,10 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
         canShade={!admin || Boolean(form.teacher)}
         onShowFree={(v) => { setShowFree(v); setTimeout(refetch, 0); }}
         onQuickAdd={openCreate}
+        extra={admin ? <AdminViewing teachers={teachers} value={viewing} onApply={setViewing} /> : undefined}
       />
       <div className="work">
         <section className="gridwrap">
-          {admin && <AdminViewing teachers={teachers} value={viewing} onChange={setViewing} />}
           <CalendarToolbar title={title} view={view} tz={tz} onNav={nav} onView={(v) => cal.current?.getApi().changeView(v)} />
           <div className="fcbox">
             <div className="fchost">

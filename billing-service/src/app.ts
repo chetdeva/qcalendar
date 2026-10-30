@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import type { Actor, Authenticator } from './auth.ts';
+import { isManager, type Actor, type Authenticator } from './auth.ts';
 import { balance, release, reserve } from './credits.ts';
 import type { Db } from './db.ts';
 import { HttpError } from './errors.ts';
@@ -36,6 +36,7 @@ function parse<T extends z.ZodType>(schema: T, data: unknown): z.infer<T> {
 const uuid = z.uuid();
 const ReserveBody = z.object({ userId: uuid, ref: z.string().min(1).max(200), endsAt: z.string().datetime({ offset: true }).optional() }).strict();
 const GradeBody = z.object({ userId: uuid, grade: z.number().int().min(1).max(10) }).strict();
+const BalancesBody = z.object({ userIds: z.array(uuid).min(1).max(100) }).strict();
 const CheckoutBody = z.object({ interval: z.enum(['month', 'year']) }).strict();
 
 export function createApp(d: AppDeps): Hono<Env> {
@@ -65,11 +66,25 @@ export function createApp(d: AppDeps): Hono<Env> {
   const service = (c: { get(k: 'actor'): Actor }) => {
     if (c.get('actor').kind !== 'service') throw new HttpError(403, 'forbidden', 'Service access only');
   };
+  const manager = (c: { get(k: 'actor'): Actor }) => {
+    if (!isManager(c.get('actor'))) throw new HttpError(403, 'forbidden', 'Admins only');
+  };
   const person = (c: { get(k: 'actor'): Actor }) => {
     const a = c.get('actor');
     if (a.kind !== 'user') throw new HttpError(403, 'forbidden', 'Sign in as a person');
     return a;
   };
+
+  // --- the admin portal ------------------------------------------------------------------------------------------
+  // Spendable credits for a page of people at once (the Students tab).
+  app.post('/v1/admin/balances', async (c) => {
+    manager(c);
+    const b = parse(BalancesBody, await c.req.json().catch(() => null));
+    const now = new Date();
+    const balances: Record<string, { remaining: number; expiresAt: Date | null }> = {};
+    for (const id of b.userIds) balances[id] = await balance(d.db, id, now);
+    return c.json({ balances });
+  });
 
   // --- called by calendar-service and users-service -------------------------------------------------------------
   app.post('/v1/service/credits/reserve', async (c) => {

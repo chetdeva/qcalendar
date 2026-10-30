@@ -19,11 +19,13 @@ export function AppHeader({ current, name, role, left, afterBrand, right, menu, 
   avatar?: string | null;
 }) {
   const tab = (id: HeaderTab) => (id === current ? 'page' : undefined);
+  // An admin's dashboard is the admin portal (teachers, students, users), not a class dashboard of their own.
+  const home = role === 'admin' ? `${usersUiUrl}/admin/teachers` : dashboardUrl;
   return (
     <header className="qh">
       <div className="qh-in">
         <div className="qh-id">
-          <a className="qh-brand" href={dashboardUrl} aria-label="Quanttoria dashboard">
+          <a className="qh-brand" href={home} aria-label="Quanttoria dashboard">
             <img src={mark.src} alt="" width={32} height={30} />
             <b>Quanttoria</b>
           </a>
@@ -32,7 +34,7 @@ export function AppHeader({ current, name, role, left, afterBrand, right, menu, 
         {left}
         {afterBrand}
         <nav className="qh-tabs" aria-label="Main">
-          <a href={dashboardUrl} aria-current={tab('dashboard')}>Dashboard</a>
+          <a href={home} aria-current={tab('dashboard')}>Dashboard</a>
           <a href={calendarUrl} aria-current={tab('calendar')}>Calendar</a>
           <a href={assignmentsHref} aria-current={tab('assignments')}>Assignments</a>
           <a href={chatUrl} aria-current={tab('chat')}>Chat</a>

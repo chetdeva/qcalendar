@@ -339,7 +339,11 @@ export async function contactIds(ctx: Ctx, actor: Actor): Promise<string[]> {
       where e.status = 'confirmed' and p.user_id = $1 and e.owner_id <> $1
      union
      select p.user_id from calendar.events e join calendar.event_participants p on p.event_id = e.id
-      where e.status = 'confirmed' and e.owner_id = $1 and p.user_id is not null and p.user_id <> $1`,
+      where e.status = 'confirmed' and e.owner_id = $1 and p.user_id is not null and p.user_id <> $1
+     union
+     select teacher_id from calendar.student_teacher where ended_at is null and student_id = $1
+     union
+     select student_id from calendar.student_teacher where ended_at is null and teacher_id = $1`,
     [actor.id],
   );
   return rows.map((r) => r.id);

@@ -46,7 +46,7 @@ export async function createHarness(opts: { webhooks?: boolean; billing?: Billin
     withToken: caller,
     outbox: () => processOutbox(db, mailer, { fromEmail: 'no-reply@example.test', calendarUrl: 'https://calendar.example.test' }),
     async reset() {
-      await db.exec('truncate calendar.trial_requests, calendar.events, calendar.event_participants, calendar.email_outbox, calendar.webhook_queue, calendar.teacher_settings restart identity cascade');
+      await db.exec('truncate calendar.trial_requests, calendar.events, calendar.event_participants, calendar.email_outbox, calendar.webhook_queue, calendar.teacher_settings, calendar.student_teacher restart identity cascade');
       mailer.sent.length = 0; mailer.failNext = 0; mailer.failAlways = false;
     },
     close: () => db.close(),

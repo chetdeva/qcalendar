@@ -2,7 +2,7 @@ import type { Db, Queryable } from './db.ts';
 import { buildIcs } from './ics.ts';
 import type { Mailer, MailMessage } from './mail.ts';
 
-export type MailKind = 'invite' | 'update' | 'cancel' | 'declined' | 'change_request';
+export type MailKind = 'invite' | 'update' | 'cancel' | 'declined' | 'change_request' | 'teacher_assigned';
 
 /** Everything needed to write one person's email, frozen when the change happened. */
 export interface OutboxPayload {
@@ -15,6 +15,38 @@ export interface OutboxPayload {
   from?: { name: string };
   note?: string | null;
   requested?: { start: string; end: string };
+}
+
+/** A change of teacher, told to the student, the new teacher and the old one. There is no class involved. */
+export interface AssignmentPayload {
+  audience: 'student' | 'new_teacher' | 'old_teacher';
+  recipient: { email: string; name: string | null };
+  student: { email: string; name: string | null };
+  teacher: { email: string; name: string | null } | null;
+  previousTeacher: { email: string; name: string | null } | null;
+  note: string | null;
+}
+
+export async function enqueueAssignmentMail(q: Queryable, payloads: AssignmentPayload[]) {
+  for (const p of payloads) {
+    await q.query(`insert into calendar.email_outbox (kind, event_id, to_email, payload) values ('teacher_assigned', null, $1, $2)`, [p.recipient.email, JSON.stringify(p)]);
+  }
+}
+
+function renderAssignment(p: AssignmentPayload, opts: { calendarUrl?: string }): MailMessage {
+  const name = (x: { name: string | null; email: string } | null, fallback: string) => oneLine(x?.name || x?.email || fallback);
+  const [student, teacher, previous] = [name(p.student, 'A student'), name(p.teacher, 'no teacher'), name(p.previousTeacher, 'your previous teacher')];
+  const hello = p.recipient.name ? `Hi ${oneLine(p.recipient.name)},` : 'Hello,';
+  const note = p.note?.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').trim();
+  const [subject, line] =
+    p.audience === 'student'
+      ? p.teacher
+        ? [`Your teacher is ${teacher}`, `${teacher} is now your teacher.${p.previousTeacher ? ` (Before, it was ${previous}.)` : ''}`]
+        : ['You no longer have an assigned teacher', `${previous} is no longer assigned to you. We will let you know when a new teacher is assigned.`]
+      : p.audience === 'new_teacher'
+        ? [`${student} is now your student`, `${student} has been assigned to you.`]
+        : [`${student} is no longer your student`, `${student} is no longer assigned to you${p.teacher ? `; ${teacher} is taking over` : ''}.`];
+  return { to: p.recipient.email, subject, text: [hello, '', line, ...(note ? ['', `Note from the admin: ${note}`] : []), ...(opts.calendarUrl ? ['', `Your calendar: ${opts.calendarUrl}`] : [])].join('\n') };
 }
 
 export async function enqueueMail(q: Queryable, kind: MailKind, payloads: OutboxPayload[]) {
@@ -60,7 +92,12 @@ function renderStudentNote(kind: 'declined' | 'change_request', p: OutboxPayload
   };
 }
 
-export function renderMail(kind: MailKind, p: OutboxPayload, opts: { fromEmail: string; calendarUrl?: string }): MailMessage {
+export function renderMail(kind: MailKind, p: OutboxPayload | AssignmentPayload, opts: { fromEmail: string; calendarUrl?: string }): MailMessage {
+  if (kind === 'teacher_assigned') return renderAssignment(p as AssignmentPayload, opts);
+  return renderEventMail(kind, p as OutboxPayload, opts);
+}
+
+function renderEventMail(kind: Exclude<MailKind, 'teacher_assigned'>, p: OutboxPayload, opts: { fromEmail: string; calendarUrl?: string }): MailMessage {
   const { event: e, recipient: r } = p;
   const w = when(e.start, e.end, e.timezone);
   if (kind === 'declined' || kind === 'change_request') return renderStudentNote(kind, p, w, opts);
@@ -111,7 +148,7 @@ const MAX_ATTEMPTS = 8;
  * worker will not send the same one twice.
  */
 export async function processOutbox(db: Db, mailer: Mailer, opts: { fromEmail: string; calendarUrl?: string; batch?: number }) {
-  const rows = await db.query<{ id: string; kind: MailKind; payload: OutboxPayload; attempts: number }>(
+  const rows = await db.query<{ id: string; kind: MailKind; payload: OutboxPayload | AssignmentPayload; attempts: number }>(
     `update calendar.email_outbox set next_at = now() + interval '2 minutes'
       where id in (select id from calendar.email_outbox where status = 'pending' and next_at <= now() order by id limit $1 for update skip locked)
       returning id, kind, payload, attempts`,

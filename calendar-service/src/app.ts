@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { Actor, Authenticator } from './auth.ts';
 import { isValidTz } from './availability.ts';
 import { adminSummary } from './admin.ts';
+import { assignmentHistory, assignTeacher } from './assignments.ts';
 import { HttpError } from './errors.ts';
 import * as svc from './events.ts';
 import * as trials from './trial-requests.ts';
@@ -135,6 +136,18 @@ export function createApp(deps: { ctx: svc.Ctx; authenticator: Authenticator }) 
     const b = parse(z.object({ userIds: z.array(uuid).min(1).max(100), role: z.enum(['teacher', 'student']) }).strict(), await body(c));
     return c.json({ summary: await adminSummary(ctx, c.get('actor'), b) });
   });
+
+  // Assigning a student to a teacher (and the history of it).
+  const PersonSchema = z.object({ email, name: name.nullish() }).strict();
+  app.put('/v1/admin/students/:id/teacher', async (c) => {
+    const b = parse(
+      z.object({ teacherId: uuid.nullable(), note: z.string().trim().max(500).optional(), student: PersonSchema, teacher: PersonSchema.optional() }).strict()
+        .refine((v) => (v.teacherId === null) === (v.teacher === undefined), { message: 'teacher is required with teacherId, and only then' }),
+      await body(c),
+    );
+    return c.json(await assignTeacher(ctx, c.get('actor'), id(c.req.param('id')), b));
+  });
+  app.get('/v1/admin/students/:id/assignments', async (c) => c.json(await assignmentHistory(ctx, c.get('actor'), id(c.req.param('id')))));
 
   // Who the caller shares a class with. chat-service uses it as its "may these two talk" rule.
   app.get('/v1/contacts', async (c) => c.json({ contacts: (await svc.contactIds(ctx, c.get('actor'))).map((id) => ({ id })) }));

@@ -92,6 +92,7 @@ services:
     environment:
       USERS_SERVICE_URL: http://users-service:3010 # server to server, over the compose network
       BILLING_API_URL: http://billing-service:3012 # the billing page and the payment gateway's webhook
+      CALENDAR_API_URL: http://calendar-service:3000 # classes per person in the admin tables
     depends_on: [users-service]
     ports: ["3003:3003"]
 

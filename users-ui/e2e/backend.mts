@@ -148,7 +148,7 @@ http.createServer(async (req, res) => {
   if (path === '/__test/reset' && req.method === 'POST') {
     reset();
     await calendarDb.exec('truncate calendar.trial_requests, calendar.events, calendar.event_participants, calendar.email_outbox, calendar.webhook_queue, calendar.teacher_settings restart identity cascade');
-    await billingDb.exec('truncate billing.credit_ledger, billing.credit_grants, billing.subscriptions, billing.customers, billing.webhook_events, billing.trials restart identity cascade');
+    await billingDb.exec('truncate billing.credit_ledger, billing.credit_grants, billing.subscriptions, billing.customers, billing.webhook_events, billing.trials, billing.teacher_rates, billing.teacher_earnings, billing.payouts restart identity cascade');
     return send(res, 200, { ok: true });
   }
   // Plays the payment gateway: "this student just paid". Same webhook path a real gateway uses.

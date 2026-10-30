@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
-import { ADMIN, AUTH_URL, CALENDAR_API_URL, pay, resetBackend, seedUser } from './helpers';
+import { ADMIN, AUTH_URL, BILLING_URL, CALENDAR_API_URL, pay, resetBackend, seedUser } from './helpers';
 
 test.beforeEach(async ({ request }) => resetBackend(request));
 
@@ -66,7 +66,7 @@ test.describe('teachers and students tabs', () => {
     await expect(tess).toContainText('Tess Teacher');
     await expect(tess.getByRole('link', { name: 'View calendar of tess@example.test' })).toHaveAttribute('href', /\/\?teacher=[0-9a-f-]{36}$/);
     await expect(tess.locator('td').nth(3)).toHaveText('2'); // active students
-    await expect(tess.locator('td').nth(4)).toContainText('1'); // upcoming classes
+    await expect(tess.locator('td').nth(6)).toContainText('1'); // upcoming classes
     await expect(rowOf(page, 'Teachers', 'tom@example.test').locator('td').nth(3)).toHaveText('0');
 
     await page.getByLabel('Search by name or email').fill('tom');
@@ -158,5 +158,80 @@ test.describe('assigning teachers', () => {
     const put = (id: string, teacherId: string | null) => page.request.put(`/api/admin/students/${id}/teacher`, { data: { teacherId } });
     expect((await put(sam, other)).status()).toBe(400); // a student is not a teacher
     expect((await put(other, null)).status()).toBe(200); // removing when nothing is assigned is harmless
+  });
+});
+
+test.describe('credits and payouts', () => {
+  test('a student\'s credits: add and deduct with a reason, never below zero, and the history says why', async ({ page, request }) => {
+    await seedUser(request, { email: 'amy@example.test', name: 'Amy Student', password: PASS, grade: 6 });
+    await signInAt(page, '/login/admin', ADMIN);
+    await page.getByRole('link', { name: 'Students', exact: true }).click();
+    const amy = rowOf(page, 'Students', 'amy@example.test');
+    await page.getByRole('button', { name: 'Credits of amy@example.test' }).click();
+    const panel = page.getByRole('region', { name: 'Credits of amy@example.test' });
+
+    await panel.getByLabel('Credits', { exact: true }).fill('3');
+    await panel.getByRole('button', { name: 'Save' }).click();
+    await expect(panel.locator('.alert-error')).toContainText('reason is required');
+    await panel.getByLabel('Reason (required)').fill('Make-up for a cancelled week');
+    await panel.getByRole('button', { name: 'Save' }).click();
+    await expect(panel.locator('.alert-ok')).toContainText('Added 3 credits');
+    await expect(amy.locator('td').nth(4)).toHaveText('3');
+    await expect(panel.getByRole('table', { name: 'Credit history' })).toContainText('Make-up for a cancelled week');
+
+    await panel.getByLabel('Change').selectOption('deduct');
+    await panel.getByLabel('Credits', { exact: true }).fill('5');
+    await panel.getByLabel('Reason (required)').fill('Entered by mistake');
+    await panel.getByRole('button', { name: 'Save' }).click();
+    await expect(panel.locator('.alert-error')).toContainText('does not have that many');
+    await panel.getByLabel('Credits', { exact: true }).fill('2');
+    await panel.getByRole('button', { name: 'Save' }).click();
+    await expect(panel.locator('.alert-ok')).toContainText('Removed 2 credits');
+    await expect(amy.locator('td').nth(4)).toHaveText('1');
+    await expect(panel.getByRole('table', { name: 'Credit history' }).locator('tbody tr').first()).toContainText('Entered by mistake');
+  });
+
+  test('a teacher\'s earned credits are paid out at their rate and marked settled', async ({ page, request }) => {
+    const tess = await seedUser(request, { email: 'tess@example.test', name: 'Tess Teacher', password: PASS, role: 'teacher' });
+    for (const ref of ['ev1:a', 'ev1:b', 'ev2:a']) {
+      const r = await request.post(`${BILLING_URL}/v1/service/earnings`, { headers: { authorization: `Bearer ${'b'.repeat(32)}` }, data: { teacherId: tess, ref, earnedAt: new Date().toISOString() } });
+      expect(r.ok()).toBeTruthy();
+    }
+    await signInAt(page, '/login/admin', ADMIN);
+    const row = rowOf(page, 'Teachers', 'tess@example.test');
+    await expect(row.locator('td').nth(4)).toHaveText('3'); // credit balance
+    await expect(row).toContainText('3 to pay');
+
+    await page.getByRole('button', { name: 'Payout for tess@example.test' }).click();
+    const panel = page.getByRole('region', { name: 'Payout for tess@example.test' });
+    await expect(panel).toContainText('set a rate to see the amount');
+    await panel.getByLabel('Paid per credit').fill('250');
+    await panel.getByRole('button', { name: 'Save rate' }).click();
+    await expect(panel).toContainText('₹750.00');
+    await panel.getByLabel('Payment reference').fill('UTR-8841');
+    await panel.getByLabel('Notes (optional)').fill('October');
+    await panel.getByRole('button', { name: 'Mark as paid' }).click();
+    await expect(panel.locator('.alert-ok')).toContainText('3 credits, ₹750.00');
+    await expect(panel.getByRole('table', { name: 'Past payouts' })).toContainText('UTR-8841');
+    await expect(panel.getByRole('button', { name: 'Mark as paid' })).toHaveCount(0); // nothing left to settle
+    await expect(row.locator('td').nth(4)).toHaveText('0');
+    await expect(row).toContainText('Settled');
+
+    await panel.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Credits of tess@example.test' }).click();
+    const credits = page.getByRole('region', { name: 'Credits of tess@example.test' });
+    await credits.getByLabel('Reason (required)').fill('Covered a missed class');
+    await credits.getByRole('button', { name: 'Save' }).click();
+    await expect(credits.locator('.alert-ok')).toContainText('Added 1 credit');
+    await expect(row.locator('td').nth(4)).toHaveText('1');
+    await expect(row).toContainText('1 to pay');
+  });
+
+  test('credit and payout routes are for admins', async ({ page, request }) => {
+    const sam = await seedUser(request, { email: 'sam@example.test', password: PASS });
+    await signInAt(page, '/login', { email: 'sam@example.test', password: PASS });
+    await expect(page.getByRole('heading', { name: 'Your profile' })).toBeVisible();
+    expect((await page.request.post('/api/admin/credits/adjust', { data: { userId: sam, kind: 'student', delta: 5, reason: 'free credits', requestId: crypto.randomUUID() } })).status()).toBe(403);
+    expect((await page.request.get(`/api/admin/teachers/${sam}/payout`)).status()).toBe(403);
   });
 });

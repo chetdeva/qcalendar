@@ -18,10 +18,14 @@ import { createAuthenticator as createBillingAuth } from '../../billing-service/
 import { addMonths } from '../../billing-service/src/credits.ts';
 import { createPgliteDb, migrate as migrateBilling } from '../../billing-service/src/db.ts';
 import { createFakeGateway } from '../../billing-service/src/gateways/fake.ts';
+import { createApp as createCalendarApp } from '../../calendar-service/src/app.ts';
+import { createAuthenticator as createCalendarAuth } from '../../calendar-service/src/auth.ts';
+import { createPgliteDb as createCalendarDb, migrate as migrateCalendar } from '../../calendar-service/src/db.ts';
 
 const AUTH_PORT = 58731;
 const USERS_PORT = 58732;
 const BILLING_PORT = 58735;
+const CALENDAR_PORT = 58736;
 const AUTH_URL = `http://localhost:${AUTH_PORT}`;
 const ISS = `${AUTH_URL}/auth/v1`;
 const WEB = 'http://localhost:58733';
@@ -143,6 +147,7 @@ http.createServer(async (req, res) => {
   if (path === '/__test/health') return send(res, 200, { ok: true });
   if (path === '/__test/reset' && req.method === 'POST') {
     reset();
+    await calendarDb.exec('truncate calendar.trial_requests, calendar.events, calendar.event_participants, calendar.email_outbox, calendar.webhook_queue, calendar.teacher_settings restart identity cascade');
     await billingDb.exec('truncate billing.credit_ledger, billing.credit_grants, billing.subscriptions, billing.customers, billing.webhook_events, billing.trials restart identity cascade');
     return send(res, 200, { ok: true });
   }
@@ -281,6 +286,13 @@ const billingApp = createBillingApp({
   authenticator: createBillingAuth({ apiKey: 'b'.repeat(32), getKey: async () => publicKey, issuer: ISS }),
   users: { grade: async (id) => directory.profiles.get(id)?.grade ?? null },
 });
+const calendarDb = createCalendarDb();
+await migrateCalendar(calendarDb);
+const calendarApp = createCalendarApp({
+  ctx: { db: calendarDb, defaultTimezone: 'UTC', webhooks: false, meetingBaseUrl: 'https://meet.example.test' },
+  authenticator: createCalendarAuth({ apiKey: 'c'.repeat(32), getKey: async () => publicKey, issuer: ISS }),
+});
+serve({ fetch: calendarApp.fetch, port: CALENDAR_PORT }, (i) => console.log(`calendar-service (real code, in-memory database) on :${i.port}`));
 serve({ fetch: billingApp.fetch, port: BILLING_PORT }, (i) => console.log(`billing-service (real code, in-memory database, fake gateway) on :${i.port}`));
 
 const usersApp = createApp({

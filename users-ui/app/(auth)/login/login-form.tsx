@@ -8,7 +8,8 @@ import { Field } from '../_parts/field';
 import { Submit } from '../_parts/submit';
 import { GoogleButton } from '../google-button';
 
-export function LoginForm({ next, notice }: { next: string; notice?: string }) {
+/** `only` names who the page is for (the admin and teacher sign-in pages): anyone else is signed straight back out. */
+export function LoginForm({ next, notice, only }: { next: string; notice?: string; only?: { roles: string[]; message: string } }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -23,7 +24,16 @@ export function LoginForm({ next, notice }: { next: string; notice?: string }) {
     if (bad) return setError(bad);
     if (!password) return setError('Enter your password.');
     setBusy(true);
-    const { error: err } = await createClient().auth.signInWithPassword({ email: email.trim(), password });
+    const supabase = createClient();
+    const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    if (!err && only) {
+      const me = await fetch('/api/me').then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      if (!me || !only.roles.includes(me.role)) {
+        await supabase.auth.signOut();
+        setBusy(false);
+        return setError(only.message);
+      }
+    }
     if (!err) return window.location.assign(next); // full navigation: cookies are set, and next may be another app
     setBusy(false);
     if (err.code === 'email_not_confirmed') {

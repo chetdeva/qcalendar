@@ -19,7 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { me } = result;
   return (
     <div className="app-shell">
-      <AppHeader current="account" name={me.full_name || me.email} role={me.role} avatar={me.avatar_updated_at} menu={me.role === 'admin' ? <Link href="/admin/users">Users</Link> : undefined} />
+      <AppHeader current="account" name={me.full_name || me.email} role={me.role} avatar={me.avatar_updated_at} menu={me.role === 'admin' ? <Link href="/admin">Admin</Link> : undefined} />
       <div className="app-body">{children}</div>
       <SiteFooter />
     </div>

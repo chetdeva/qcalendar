@@ -39,7 +39,8 @@ export async function proxy(request: NextRequest) {
     return redirect(url);
   }
   if (user && startsWith(pathname, GUEST_ONLY)) {
-    const next = safeNext(request.nextUrl.searchParams.get('next'), parseOrigins(allowedReturnOrigins));
+    const fallback = startsWith(pathname, ['/login/admin']) ? '/admin' : undefined; // an admin already signed in goes to the portal
+    const next = safeNext(request.nextUrl.searchParams.get('next'), parseOrigins(allowedReturnOrigins), fallback);
     return redirect(next);
   }
   return response;

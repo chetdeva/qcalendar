@@ -11,7 +11,7 @@ test.describe('who can see the admin page', () => {
       await seedUser(request, { email: `${role}@example.test`, password: 'pass-12345', role });
       const victim = await seedUser(request, { email: 'victim@example.test' });
       await logInAs(page, { email: `${role}@example.test`, password: 'pass-12345' });
-      await expect(page.getByRole('link', { name: 'Users' })).toHaveCount(0);
+      await expect(page.getByRole('link', { name: 'Admin', exact: true })).toHaveCount(0);
       await page.goto('/admin/users');
       await expect(page.getByRole('heading', { name: 'No access' })).toBeVisible();
       await expect(page.getByRole('heading', { name: 'All users' })).toHaveCount(0);
@@ -50,7 +50,8 @@ test.describe('who can see the admin page', () => {
   test('an admin sees the Users page', async ({ page }) => {
     await logInAs(page, ADMIN);
     await page.locator('.qh-me summary').click();
-    await page.getByRole('link', { name: 'Users' }).click();
+    await page.getByRole('link', { name: 'Admin', exact: true }).click();
+    await page.getByRole('link', { name: 'Users & invitations' }).click();
     await expect(page.getByRole('heading', { name: 'All users' })).toBeVisible();
     await expect(row(page, ADMIN.email)).toContainText('admin (you)');
   });
@@ -175,7 +176,7 @@ test.describe('invitations', () => {
     await expect(page.locator('.alert-ok, .alert-info')).toContainText('Welcome to SyncSchedule');
     await expect(page.locator('.qh-role')).toHaveText('Teacher');
     await expect(page.locator('.qh')).toContainText('Nora Newteacher');
-    await expect(page.getByRole('link', { name: 'Users' })).toHaveCount(0); // a teacher, not an admin
+    await expect(page.getByRole('link', { name: 'Admin', exact: true })).toHaveCount(0); // a teacher, not an admin
     expect(await profileOf(request, 'new.teacher@example.test')).toMatchObject({ role: 'teacher', full_name: 'Nora Newteacher' });
 
     // they can log in normally from now on
@@ -195,7 +196,8 @@ test.describe('invitations', () => {
     await page.getByRole('button', { name: 'Set password and continue' }).click();
     await expect(page.locator('.qh-role')).toHaveText('Admin');
     await page.locator('.qh-me summary').click();
-    await page.getByRole('link', { name: 'Users' }).click();
+    await page.getByRole('link', { name: 'Admin', exact: true }).click();
+    await page.getByRole('link', { name: 'Users & invitations' }).click();
     await expect(page.getByRole('heading', { name: 'All users' })).toBeVisible();
   });
 

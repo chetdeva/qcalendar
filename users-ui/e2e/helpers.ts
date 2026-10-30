@@ -5,9 +5,11 @@ export const AUTH_PORT = 58731;
 export const USERS_PORT = 58732;
 export const WEB_PORT = 58733;
 export const BILLING_PORT = 58735;
+export const CALENDAR_API_PORT = 58736;
 export const AUTH_URL = `http://localhost:${AUTH_PORT}`;
 export const USERS_URL = `http://localhost:${USERS_PORT}`;
 export const BILLING_URL = `http://localhost:${BILLING_PORT}`;
+export const CALENDAR_API_URL = `http://localhost:${CALENDAR_API_PORT}`;
 export const WEB_URL = `http://localhost:${WEB_PORT}`;
 /** A pretend second app (the calendar). Never actually served; tests intercept requests to it. */
 export const CALENDAR_ORIGIN = 'http://localhost:58734';

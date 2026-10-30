@@ -91,9 +91,9 @@ test.describe('teachers and students tabs', () => {
     await page.getByRole('link', { name: 'Students', exact: true }).click();
     const row = rowOf(page, 'Students', 'amy@example.test');
     await expect(row).toContainText('Amy Student');
-    await expect(row.locator('td').nth(3)).toHaveText('15'); // the fake calendar here has no billing wired, so booking does not spend one
-    await expect(row.locator('td').nth(4)).toContainText('1');
-    await expect(rowOf(page, 'Students', 'ben@example.test').locator('td').nth(3)).toHaveText('0');
+    await expect(row.locator('td').nth(4)).toHaveText('15'); // the fake calendar here has no billing wired, so booking does not spend one
+    await expect(row.locator('td').nth(5)).toContainText('1');
+    await expect(rowOf(page, 'Students', 'ben@example.test').locator('td').nth(4)).toHaveText('0');
     await expect(rowOf(page, 'Students', 'tess@example.test')).toHaveCount(0); // only students
   });
 
@@ -103,5 +103,59 @@ test.describe('teachers and students tabs', () => {
     await expect(page.getByRole('heading', { name: 'Your profile' })).toBeVisible();
     expect((await page.request.get('/api/admin/people?role=student')).status()).toBe(403);
     expect((await page.request.get('/api/admin/people?role=admin')).status()).toBe(400);
+  });
+});
+
+test.describe('assigning teachers', () => {
+  test('assign a student to a teacher from the Students tab, change it, then remove it; the teacher count follows', async ({ page, request }) => {
+    await seedUser(request, { email: 'tess@example.test', name: 'Tess Teacher', password: PASS, role: 'teacher' });
+    await seedUser(request, { email: 'tom@example.test', name: 'Tom Tutor', password: PASS, role: 'teacher' });
+    await seedUser(request, { email: 'amy@example.test', name: 'Amy Student', password: PASS });
+    await signInAt(page, '/login/admin', ADMIN);
+    await page.getByRole('link', { name: 'Students', exact: true }).click();
+
+    const amy = rowOf(page, 'Students', 'amy@example.test');
+    await expect(amy).toContainText('Not assigned');
+    await page.getByRole('button', { name: 'Assign a teacher to amy@example.test' }).click();
+    await page.getByLabel('Teacher', { exact: true }).selectOption({ label: 'Tess Teacher' });
+    await page.getByLabel('Note (optional, sent in the email)').fill('Strong in algebra');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('.alert-ok')).toContainText('Amy Student is now assigned to Tess Teacher');
+    await expect(amy).toContainText('Tess Teacher');
+
+    await page.getByRole('button', { name: 'Change teacher for amy@example.test' }).click();
+    await page.getByLabel('Teacher', { exact: true }).selectOption({ label: 'Tom Tutor' });
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(amy).toContainText('Tom Tutor');
+
+    await page.getByRole('link', { name: 'Teachers', exact: true }).click();
+    await expect(rowOf(page, 'Teachers', 'tom@example.test').locator('td').nth(3)).toHaveText('1');
+    await expect(rowOf(page, 'Teachers', 'tess@example.test').locator('td').nth(3)).toHaveText('0');
+
+    await page.getByRole('link', { name: 'Students', exact: true }).click();
+    await page.getByRole('button', { name: 'Change teacher for amy@example.test' }).click();
+    await page.getByRole('button', { name: 'Remove assignment' }).click();
+    await expect(amy).toContainText('Not assigned');
+  });
+
+  test('assign students from the Teachers tab by searching for them', async ({ page, request }) => {
+    await seedUser(request, { email: 'tess@example.test', name: 'Tess Teacher', password: PASS, role: 'teacher' });
+    await seedUser(request, { email: 'amy@example.test', name: 'Amy Student', password: PASS });
+    await signInAt(page, '/login/admin', ADMIN);
+    await page.getByRole('button', { name: 'Assign students to tess@example.test' }).click();
+    await page.getByLabel('Search students by name or email').fill('amy');
+    await page.getByRole('button', { name: 'Assign amy@example.test' }).click();
+    await expect(page.locator('.alert-ok')).toContainText('Amy Student is now assigned to Tess Teacher');
+    await expect(rowOf(page, 'Teachers', 'tess@example.test').locator('td').nth(3)).toHaveText('1');
+  });
+
+  test('only a teacher can be chosen, and only students can be assigned', async ({ page, request }) => {
+    const sam = await seedUser(request, { email: 'sam@example.test', password: PASS });
+    const other = await seedUser(request, { email: 'other@example.test', password: PASS });
+    await signInAt(page, '/login/admin', ADMIN);
+    await expect(page).toHaveURL(/\/admin\/teachers/);
+    const put = (id: string, teacherId: string | null) => page.request.put(`/api/admin/students/${id}/teacher`, { data: { teacherId } });
+    expect((await put(sam, other)).status()).toBe(400); // a student is not a teacher
+    expect((await put(other, null)).status()).toBe(200); // removing when nothing is assigned is harmless
   });
 });

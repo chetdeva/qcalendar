@@ -1,5 +1,5 @@
 // Types shared by the pages and the server routes. The shapes mirror calendar-service's API.
-export type EventCategory = 'tutoring' | 'office_hours' | 'personal';
+export type EventCategory = 'tutoring' | 'office_hours' | 'personal' | 'trial';
 export type ParticipantStatus = 'invited' | 'accepted' | 'declined';
 export type Role = 'student' | 'teacher' | 'admin';
 

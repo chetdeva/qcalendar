@@ -107,25 +107,26 @@ test.describe('creating a class', () => {
     await page.getByRole('button', { name: 'Tutoring' }).click();
     await expect(field.create(page)).toBeDisabled();
     await field.date(page).fill('');
-    await page.getByRole('button', { name: 'Office Hr' }).click();
+    await page.getByRole('button', { name: 'Personal' }).click();
     await expect(missing).toContainText('a date');
     await field.date(page).fill(todayUtc());
     await field.title(page).fill('   ');
     await expect(missing).toContainText('a title');
   });
 
-  test('office hours and personal blocks can be created with no students, and get their own card style', async ({ context, request }) => {
+  test('personal blocks can be created with no students, and get their own card style; office hours are no longer offered', async ({ context, request }) => {
     const teacher = await seed(request, 'teacher', 'Tess Teacher');
     const page = await openPage(context, request, teacher);
     await openForm(page);
+    await expect(page.getByRole('button', { name: 'Office Hr' })).toHaveCount(0);
     await field.title(page).fill('Drop-in help');
-    await page.getByRole('button', { name: 'Office Hr' }).click();
+    await page.getByRole('button', { name: 'Personal' }).click();
     await setWhen(page, '12:00');
     await field.create(page).click();
-    const card = page.locator('.fc-event.cat-office_hours', { hasText: 'Drop-in help' });
+    const card = page.locator('.fc-event.cat-personal', { hasText: 'Drop-in help' });
     await expect(card).toBeVisible();
-    await expect(card).toContainText('OFFICE HOURS');
-    expect((await (await mine(request, teacher)).list())[0]).toMatchObject({ category: 'office_hours', participantCount: 0 });
+    await expect(card).toContainText('PERSONAL');
+    expect((await (await mine(request, teacher)).list())[0]).toMatchObject({ category: 'personal', participantCount: 0 });
   });
 
   test('the video-meeting switch controls whether the class gets a link', async ({ context, request }) => {
@@ -441,4 +442,107 @@ test.describe('time-change requests from students', () => {
     await page.locator('.fc-event', { hasText: 'Algebra' }).click();
     await expect(page.getByRole('complementary', { name: 'Lesson details' })).toContainText('Ann Student declined: “Family trip”');
   });
+});
+
+test('a trial class a student asked for shows on the teacher calendar as a dashed 30-minute slot, and confirming turns it into the class', async ({ context, request }) => {
+  const teacher = await seed(request, 'teacher', 'Tess Teacher');
+  const student = await seed(request, 'student', 'Sam Student');
+  const asked = await calendarAs(request, await tokenFor(request, student)).call('POST', '/v1/trial-requests', { start: inDays(1, 20) });
+  expect(asked.status, JSON.stringify(asked.body)).toBe(201);
+  expect(asked.body.end).toBe(inDays(1, 20, 30).replace('Z', '.000Z'));
+
+  const page = await openPage(context, request, teacher);
+  if (new Date().getUTCDay() === 6) await page.getByRole('button', { name: 'Next' }).click().catch(() => page.locator('.toolbar button').last().click()); // tomorrow is in next week
+  const slot = page.locator('.fc-event .tent', { hasText: 'Trial: Sam Student' });
+  await expect(slot).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Free trial class requests' })).toContainText('Sam Student');
+
+  await page.getByRole('button', { name: 'Confirm' }).click();
+  await expect(slot).toHaveCount(0); // the request is done: the real class replaces it
+  await expect(page.locator('.fc-event.cat-trial', { hasText: 'Free trial class' })).toBeVisible();
+});
+
+test('a trial class offers only 30 minutes; other session types choose freely', async ({ context, request }) => {
+  const teacher = await seed(request, 'teacher', 'Tess Teacher');
+  const page = await openPage(context, request, teacher);
+  await openForm(page);
+  await page.getByRole('button', { name: 'Trial' }).click();
+  await expect(page.getByRole('group', { name: 'Duration' }).getByRole('button')).toHaveText(['30m']); // only 30 minutes on offer
+  await expect(field.duration(page, 30)).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Tutoring' }).click();
+  await expect(page.getByRole('group', { name: 'Duration' }).getByRole('button')).toHaveCount(4); // other types choose freely again
+});
+
+/** The week view's column next to a day (the one on its right, or on its left for Saturday, the last column). */
+const neighbour = (ymd: string) => { const d = new Date(`${ymd}T00:00:00Z`).getUTCDay(); return d === 6 ? 5 : d + 1; };
+
+test('the slot being booked is drawn on the calendar and follows the duration; a trial class is 30 minutes', async ({ context, request }) => {
+  const teacher = await seed(request, 'teacher', 'Tess Teacher');
+  const page = await openPage(context, request, teacher);
+  await openForm(page);
+  const slot = page.locator('.fc-event.pending-slot');
+  const height = async () => (await slot.boundingBox())!.height;
+  await field.duration(page, 30).click();
+  await expect(slot).toBeVisible();
+  const half = await height();
+  await field.duration(page, 90).click();
+  await expect.poll(height).toBeGreaterThan(half * 2.5); // 90 minutes is three times 30
+  await page.getByRole('button', { name: 'Trial' }).click();
+  await expect.poll(height).toBeCloseTo(half, 0); // back to 30 minutes
+  const day = await field.date(page).inputValue();
+  const before = await slot.boundingBox();
+  const col = (await page.locator('.fc-timegrid-col[data-date]').nth(neighbour(day)).boundingBox())!;
+  await page.mouse.move(before!.x + before!.width / 2, before!.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(col.x + col.width / 2, before!.y + 10 - 76, { steps: 10 }); // another day, an hour or so earlier
+  await page.mouse.up();
+  await expect(field.date(page)).not.toHaveValue(day); // dragging the slot moves the form's date
+});
+
+test('the slot being booked can be dragged to another time and day; the form follows', async ({ context, request }) => {
+  const teacher = await seed(request, 'teacher', 'Tess Teacher');
+  const page = await openPage(context, request, teacher);
+  await openForm(page);
+  await field.duration(page, 30).click();
+  const slot = page.locator('.fc-event.pending-slot');
+  await expect(slot).toBeVisible();
+  const [date, time] = [await field.date(page).inputValue(), await field.start(page).inputValue()];
+  const box = (await slot.boundingBox())!;
+  const hour = box.height * 2; // a 30 minute slot is half an hour tall
+  const drag = async (dx: number, dy: number) => {
+    const b = (await slot.boundingBox())!;
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.width / 2 + dx / 2, b.y + b.height / 2 + dy / 2, { steps: 5 });
+    await page.mouse.move(b.x + b.width / 2 + dx, b.y + b.height / 2 + dy, { steps: 5 });
+    await page.mouse.up();
+  };
+  const mins = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+  await drag(0, -hour); // about an hour earlier (snaps to 15 minutes), same day
+  await expect.poll(async () => mins(time) - mins(await field.start(page).inputValue())).toBeGreaterThanOrEqual(45);
+  await expect.poll(async () => mins(time) - mins(await field.start(page).inputValue())).toBeLessThanOrEqual(75);
+  await expect(field.date(page)).toHaveValue(date);
+  await drag(new Date(`${date}T00:00:00Z`).getUTCDay() === 6 ? -(box.width + 4) : box.width + 4, 0); // the next day over, same time
+  await expect(field.date(page)).not.toHaveValue(date);
+  await expect(slot).toHaveCount(1); // still one placeholder, now at the new place
+});
+
+test('after Change time on a trial request, the slot can be dragged too (a trial stays 30 minutes)', async ({ context, request }) => {
+  const teacher = await seed(request, 'teacher', 'Tess Teacher');
+  const student = await seed(request, 'student', 'Sam Student');
+  await calendarAs(request, await tokenFor(request, student)).call('POST', '/v1/trial-requests', { start: inDays(1, 20) });
+  const page = await openPage(context, request, teacher);
+  await page.getByRole('button', { name: 'Change time' }).click();
+  const slot = page.locator('.fc-event.pending-slot');
+  await expect(slot).toBeVisible();
+  const date = await field.date(page).inputValue();
+  const b = (await slot.boundingBox())!;
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.down();
+  const dx = new Date(`${date}T00:00:00Z`).getUTCDay() === 6 ? -1 : 1; // Saturday is the last column: go left
+  await page.mouse.move(b.x + b.width / 2 + dx * 60, b.y + b.height / 2 + 1, { steps: 5 });
+  await page.mouse.move(b.x + b.width / 2 + dx * (b.width + 4), b.y + b.height / 2 + 1, { steps: 5 });
+  await page.mouse.up();
+  await expect(field.date(page)).not.toHaveValue(date);
+  await expect(field.duration(page, 30)).toHaveAttribute('aria-pressed', 'true');
 });

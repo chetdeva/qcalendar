@@ -5,7 +5,7 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import type { DatesSetArg, EventClickArg, EventInput } from '@fullcalendar/core';
+import type { DateSelectArg, DatesSetArg, EventClickArg, EventContentArg, EventInput } from '@fullcalendar/core';
 import type { CalendarEvent, Me } from '@/lib/calendar';
 import { STATUS_LABEL } from '@/lib/format';
 import { api } from './api-client';
@@ -15,6 +15,7 @@ import { InviteActions } from './components/invite-actions';
 import { dayHeader, makeEventContent } from './components/event-content';
 import { AppHeader } from '@components/app-header';
 import { RoleBanner } from './components/role-banner';
+import { StudentNudge } from '@components/student-nudge';
 
 const PLUGINS = [dayGridPlugin, timeGridPlugin, interactionPlugin];
 const slotLabel = (a: { date: Date }) => a.date.toLocaleTimeString('en-US', { hour: 'numeric' });
@@ -29,6 +30,11 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Free class: the student picks a slot on this calendar; a teacher confirms it later.
+  const [picking, setPicking] = useState(false);
+  const [slot, setSlot] = useState<{ start: Date; end: Date } | null>(null);
+  const [request, setRequest] = useState<{ start: string; end: string } | null>(null);
+  const [nudgeKey, setNudgeKey] = useState(0);
 
   const refetch = () => cal.current?.getApi().refetchEvents();
 
@@ -41,6 +47,15 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
       setClasses([]);
     }
   }, []);
+
+  const loadRequest = useCallback(() => {
+    api<{ request: { start: string | null; end: string | null } | null }>('/api/trial-requests/mine').then(
+      (r) => setRequest(r.request?.start && r.request.end ? { start: r.request.start, end: r.request.end } : null),
+      () => setRequest(null),
+    );
+  }, []);
+  useEffect(() => { loadRequest(); }, [loadRequest, nudgeKey]);
+  useEffect(() => { if (new URLSearchParams(window.location.search).get('pick') === '1') setPicking(true); }, []); // the dashboard card links here
 
   useEffect(() => {
     void loadList();
@@ -62,7 +77,39 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
     [loadRange],
   );
   const onDates = useCallback((a: DatesSetArg) => { setTitle(a.view.title); setView(a.view.type as ViewType); }, []);
-  const eventContent = useMemo(() => makeEventContent({ showTeacher: true, showStudents: false }), []);
+  const eventContent = useMemo(() => {
+    const base = makeEventContent({ showTeacher: true, showStudents: false });
+    return (arg: EventContentArg) => (arg.event.extendedProps.ev ? base(arg) : <div className="tent">{arg.event.title}</div>);
+  }, []);
+  const sources = useMemo(
+    () => [
+      eventSource,
+      ...(request ? [[{ id: 'free-class-request', title: 'Free trial class (requested)', start: request.start, end: request.end, editable: false }]] : []),
+      ...(slot ? [[{ id: 'pending-slot', start: slot.start, end: slot.end, display: 'background' as const, classNames: ['pending-slot'] }]] : []),
+    ],
+    [eventSource, request, slot],
+  );
+  const onPick = (info: DateSelectArg) => {
+    if (info.allDay) return;
+    const start = info.start;
+    const end = new Date(start.getTime() + 30 * 60_000); // the trial class is 30 minutes, whatever was dragged
+    setSlot({ start, end });
+    cal.current?.getApi().unselect(); // FullCalendar's own selection stays out of the way so another slot can be picked; the chosen one is drawn below
+  };
+  async function sendRequest() {
+    if (!slot) return;
+    setError('');
+    try {
+      await api('/api/trial-requests', { method: 'POST', body: JSON.stringify({ start: slot.start.toISOString() }) });
+      setPicking(false);
+      setSlot(null);
+      cal.current?.getApi().unselect();
+      setNudgeKey((k) => k + 1);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+  const stopPicking = () => { setPicking(false); setSlot(null); cal.current?.getApi().unselect(); };
 
   const upcoming = upcomingOf(classes);
   const needsAnswer = upcoming.filter((c) => c.myStatus === 'invited');
@@ -96,7 +143,7 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
 
   return (
     <div className="shell">
-      <AppHeader current="calendar" name={me.full_name || me.email} role={me.role} avatar={me.avatar_updated_at} />
+      <AppHeader current="calendar" name={me.full_name || me.email} role={me.role} avatar={me.avatar_updated_at} afterBrand={<StudentNudge onPickTime={() => setPicking(true)} reloadKey={nudgeKey} />} />
       {staleRole && <RoleBanner me={me} />}
       <header className="utility">
         <div className="u-row">
@@ -120,7 +167,11 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
                 height="100%"
                 allDaySlot={false}
                 nowIndicator
-                selectable={false}
+                selectable={picking}
+                selectMirror
+                snapDuration="00:15:00"
+                selectAllow={(s) => s.start.getTime() > Date.now()}
+                select={onPick}
                 editable={false}
                 slotDuration="01:00:00"
                 slotLabelContent={slotLabel}
@@ -132,13 +183,30 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
                   const ev = a.event.extendedProps.ev as CalendarEvent | undefined;
                   return ev ? [`cat-${ev.category}`, `my-${ev.myStatus ?? 'invited'}`] : [];
                 }}
-                events={eventSource}
+                eventSources={sources}
                 datesSet={onDates}
-                eventClick={(a: EventClickArg) => setSelected((a.event.extendedProps.ev as CalendarEvent).id)}
+                eventClick={(a: EventClickArg) => { const ev = a.event.extendedProps.ev as CalendarEvent | undefined; if (ev) setSelected(ev.id); }}
               />
             </div>
           </div>
         </section>
+        <div className="side">
+        {picking && (
+          <section className="freereq" aria-label="Request your free trial class">
+            <h3>Request your free trial class</h3>
+            {slot ? (
+              <>
+                <p>Request {slot.start.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} for your free trial class?</p>
+                <div className="freereq-btns"><button type="button" onClick={sendRequest}>Send request</button><button type="button" className="alt" onClick={stopPicking}>Cancel</button></div>
+              </>
+            ) : (
+              <>
+                <p>Pick a day and time: click or drag on the calendar.</p>
+                <div className="freereq-btns"><button type="button" className="alt" onClick={stopPicking}>Cancel</button></div>
+              </>
+            )}
+          </section>
+        )}
         <ClassesPanel
           subtitle="Accept, decline or ask for another time"
           empty="No upcoming classes. When a teacher invites you, it will show up here and in your email."
@@ -151,6 +219,7 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
           badge={(c) => { const st = c.myStatus ?? 'invited'; return <span className={`status status-${st}`}>{STATUS_LABEL[st]}</span>; }}
           actions={(c) => <InviteActions c={c} busy={busyId === c.id} onAnswer={answer} onRequest={requestChange} />}
         />
+        </div>
       </div>
     </div>
   );

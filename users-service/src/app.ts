@@ -12,6 +12,10 @@ export interface AppDeps {
   inviteRedirectTo: string;
   /** Lets one trusted backend (dashboard-service) read a student's guardian email. Unset: that endpoint does not exist. */
   serviceApiKey?: string;
+  /** Tells billing a student's grade changed (price band moves at the next renewal). Unset: nothing to tell. */
+  onGradeChanged?: (userId: string, grade: number) => Promise<void>;
+  /** Clock, for tests. */
+  now?: () => Date;
 }
 
 type Env = { Variables: { principal: Principal } };
@@ -40,6 +44,15 @@ const MePatch = z
   })
   .strict();
 
+const GradeBody = z.object({ grade: z.number().int().min(1).max(10) }).strict();
+
+/** The school year starts on 1 August; it is named by the calendar year it starts in. */
+export const schoolYear = (d: Date) => {
+  const x = new Date(d);
+  x.setUTCMonth(x.getUTCMonth() - 7); // 1 Aug becomes 1 Jan of the year the school year started
+  return x.getUTCFullYear();
+};
+
 const InviteBody = z.object({ email: z.email().max(254), role: z.enum(['teacher', 'admin']) }).strict();
 const RoleBody = z.object({ role: z.enum(['student', 'teacher', 'admin']) }).strict();
 const ListQuery = z.object({
@@ -61,7 +74,7 @@ const safeEqual = (a: string, b: string) => {
   return x.length === y.length && timingSafeEqual(x, y);
 };
 
-export function createApp({ verifier, directory, inviteRedirectTo, serviceApiKey }: AppDeps) {
+export function createApp({ verifier, directory, inviteRedirectTo, serviceApiKey, onGradeChanged, now = () => new Date() }: AppDeps) {
   const app = new Hono<Env>();
 
   app.onError((err, c) => {
@@ -94,6 +107,14 @@ export function createApp({ verifier, directory, inviteRedirectTo, serviceApiKey
       const student = await directory.getProfile(requireId(c.req.param('id')));
       if (!student || student.role !== 'student') throw new HttpError(404, 'not_found', 'Student not found');
       return c.json({ name: student.full_name, guardianEmail: student.guardian_email });
+    });
+    // Billing reads a student's grade to price their plan.
+    app.get('/v1/service/students/:id', async (c) => {
+      const header = c.req.header('authorization') ?? '';
+      if (!header.startsWith('Bearer ') || !safeEqual(header.slice(7), serviceApiKey)) throw new HttpError(401, 'unauthorized', 'Invalid service key');
+      const student = await directory.getProfile(requireId(c.req.param('id')));
+      if (!student || student.role !== 'student') throw new HttpError(404, 'not_found', 'Student not found');
+      return c.json({ grade: student.grade });
     });
   }
 
@@ -135,6 +156,31 @@ export function createApp({ verifier, directory, inviteRedirectTo, serviceApiKey
     const me = Object.keys(patch).length ? await directory.updateProfile(id, patch) : await directory.getProfile(id);
     if (!me) throw new HttpError(404, 'not_found', 'Profile not found');
     return c.json(me);
+  });
+
+  // ---- grade: sets the price band, so it is not part of PATCH /v1/me ----
+  /** Saves the grade, then tells billing. If billing is down the grade is kept and the caller may retry (it is idempotent). */
+  const applyGrade = async (id: string, grade: number) => {
+    const updated = await directory.setGrade(id, grade, schoolYear(now()));
+    if (!updated) throw new HttpError(404, 'not_found', 'User not found');
+    try {
+      await onGradeChanged?.(id, grade);
+    } catch (e) {
+      console.error('billing grade sync failed:', e instanceof Error ? e.message : e);
+      throw new HttpError(502, 'billing_unavailable', 'Grade saved, but billing could not be updated. Please try again.');
+    }
+    return updated;
+  };
+
+  // A student sets their grade the first time, then confirms or moves up once per school year.
+  app.post('/v1/me/grade', async (c) => {
+    const { grade } = parse(GradeBody, await c.req.json().catch(() => null));
+    const me = await directory.getProfile(c.get('principal').id);
+    if (!me) throw new HttpError(404, 'not_found', 'Profile not found');
+    if (me.role !== 'student') throw new HttpError(403, 'forbidden', 'Only students have a grade');
+    const open = me.grade === null || (me.grade_confirmed_year ?? 0) < schoolYear(now()) || me.grade === grade;
+    if (!open) throw new HttpError(409, 'grade_already_confirmed', 'Your grade was already confirmed this school year. Ask an admin to change it.');
+    return c.json(await applyGrade(me.id, grade));
   });
 
   // ---- profile picture: private to its owner; the type comes from the file's own bytes, not from the client ----
@@ -216,6 +262,15 @@ export function createApp({ verifier, directory, inviteRedirectTo, serviceApiKey
   });
 
   // ---- admin: roles and account status ----
+  app.patch('/v1/users/:id/grade', async (c) => {
+    await requireAdmin(c);
+    const id = requireId(c.req.param('id'));
+    const { grade } = parse(GradeBody, await c.req.json().catch(() => null));
+    const target = await directory.getProfile(id);
+    if (!target || target.role !== 'student') throw new HttpError(404, 'not_found', 'Student not found');
+    return c.json(await applyGrade(id, grade));
+  });
+
   app.patch('/v1/users/:id/role', async (c) => {
     const admin = await requireAdmin(c);
     const id = requireId(c.req.param('id'));

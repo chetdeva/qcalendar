@@ -1,0 +1,40 @@
+/* The billing page. Every class is prefixed bl- so nothing else is touched. Same look as the profile page. */
+.bl { --bl-primary: #006194; --bl-edge: #004b73; --bl-ink: #0d1c2f; --bl-muted: #3f4850; --bl-line: #bfc7d2; --bl-tint: #eff4ff; --bl-tint-3: #dde9ff;
+  color: var(--bl-ink); font-family: var(--font-jakarta), system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 20px; font-weight: 500; }
+.bl *, .bl *::before, .bl *::after { box-sizing: border-box; }
+.bl p, .bl h1, .bl h2 { margin: 0; }
+.bl-in { max-width: 860px; margin: 0 auto; padding: 24px 24px 56px; display: flex; flex-direction: column; gap: 20px; }
+.bl h1 { font-size: 40px; line-height: 48px; font-weight: 800; letter-spacing: -.8px; }
+.bl-lead { margin-top: 4px; font-size: 16px; line-height: 24px; color: var(--bl-muted); }
+.bl-card { background: #fff; border-radius: 32px; padding: 28px; box-shadow: 0 1px 2px rgba(0, 0, 0, .05); display: flex; flex-direction: column; gap: 14px; }
+.bl-card h2 { font-size: 20px; line-height: 28px; font-weight: 700; }
+.bl-card p { color: var(--bl-muted); }
+.bl-meter { display: flex; align-items: baseline; gap: 10px; }
+.bl-meter b { font-size: 48px; line-height: 52px; font-weight: 800; color: var(--bl-primary); }
+.bl-meter span { font-size: 16px; color: var(--bl-muted); }
+.bl-note { padding: 10px 14px; border-radius: 16px; background: var(--bl-tint); color: var(--bl-ink) !important; }
+.bl-h { margin-bottom: 12px; font-size: 20px; line-height: 28px; font-weight: 700; }
+.bl-plans { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.bl-plan { position: relative; text-align: left; font: inherit; color: inherit; cursor: pointer; border: 2px solid transparent; transition: border-color .12s, background-color .12s; }
+.bl-plan:hover { border-color: var(--bl-tint-3); }
+.bl-plan[aria-checked='true'] { border-color: var(--bl-primary); background: var(--bl-tint); }
+.bl-plan:focus-visible { outline: 3px solid #007bb9; outline-offset: 2px; }
+.bl-subscribe { margin-top: 16px; }
+.bl-plan h3 { margin: 0; font-size: 18px; line-height: 24px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.bl-plan em { font-style: normal; padding: 1px 10px; border-radius: 999px; background: #d1fae5; color: #047857; font-size: 11px; font-weight: 800; }
+.bl-sub { color: var(--bl-muted); }
+.bl-table { width: 100%; border-collapse: collapse; }
+.bl-table th, .bl-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--bl-tint-3); font-weight: 600; }
+.bl-table thead th { color: var(--bl-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .4px; }
+.bl-table tbody th em { margin-left: 8px; font-style: normal; padding: 1px 8px; border-radius: 999px; background: var(--bl-primary); color: #fff; font-size: 11px; font-weight: 800; }
+.bl-yours { background: var(--bl-tint); }
+.bl-price b { font-size: 36px; line-height: 44px; font-weight: 800; color: var(--bl-ink); }
+.bl-price span { color: var(--bl-muted); }
+.bl-list { margin: 0; padding-left: 20px; color: var(--bl-muted); display: flex; flex-direction: column; gap: 4px; }
+.bl-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.bl-btn { align-self: flex-start; border: 0; border-radius: 999px; padding: 12px 28px; background: var(--bl-primary); color: #fff; font: inherit; font-weight: 700; cursor: pointer; box-shadow: 0 4px 0 var(--bl-edge); }
+.bl-btn:hover:not(:disabled) { background: #007bb9; }
+.bl-btn:disabled { opacity: .6; cursor: default; }
+.bl-link { border: 0; background: none; padding: 8px; font: inherit; font-weight: 700; color: var(--bl-muted); text-decoration: underline; cursor: pointer; }
+.bl select { padding: 12px 16px; border: 1px solid var(--bl-line); border-radius: 12px; background: #fff; font: inherit; color: var(--bl-ink); }
+@media (max-width: 640px) { .bl-plans { grid-template-columns: 1fr; } .bl h1 { font-size: 32px; line-height: 40px; } .bl-in { padding: 16px 16px 40px; } }

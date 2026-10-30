@@ -26,6 +26,8 @@ services:
       PORT: "3010"
       INVITE_REDIRECT_URL: http://localhost:3003/accept-invite # opened in the browser, so localhost, not a container name
       SERVICE_API_KEY: ${USERS_SERVICE_API_KEY:-} # lets dashboard-service read a student's guardian email (empty = that endpoint is off)
+      BILLING_URL: ${BILLING_SERVICE_KEY:+http://billing-service:3012} # tells billing when a grade changes; empty = billing is off
+      BILLING_SERVICE_KEY: ${BILLING_SERVICE_KEY:-}
     ports: ["3010:3010"]
 
   calendar-service:
@@ -39,8 +41,40 @@ services:
       SMTP_URL: ${SMTP_URL:-} # empty = invitation emails are only logged
       MAIL_FROM: ${MAIL_FROM:-SyncSchedule <no-reply@localhost>}
       CALENDAR_URL: http://localhost:3002
+      BILLING_URL: ${BILLING_SERVICE_KEY:+http://billing-service:3012} # empty = billing is off and every lesson is free
+      BILLING_SERVICE_KEY: ${BILLING_SERVICE_KEY:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-} # all three set = classes get Google Meet links, else Jitsi
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REFRESH_TOKEN: ${GOOGLE_REFRESH_TOKEN:-}
     volumes: [calendar-data:/data]
     ports: ["3000:3000"]
+
+  # Plans, subscriptions and lesson credits. Opt-in: set BILLING_SERVICE_KEY (openssl rand -hex 32) and COMPOSE_PROFILES=billing
+  # in .env. Without them it does not start and every lesson stays free.
+  billing-service:
+    profiles: [billing]
+    build: { context: ., dockerfile: docker/service.Dockerfile, args: { APP: billing-service } }
+    environment:
+      PORT: "3012"
+      SUPABASE_URL: ${SUPABASE_URL}
+      DATABASE_URL: ${DATABASE_URL:-} # empty = an embedded Postgres in the billing-data volume
+      PGLITE_DIR: /data/pglite
+      BILLING_SERVICE_KEY: ${BILLING_SERVICE_KEY:-} # required: the service refuses to start without it
+      BILLING_GATEWAY: ${BILLING_GATEWAY:-fake} # which payment gateway new checkouts use (see billing-service/.env.example)
+      USERS_SERVICE_URL: http://users-service:3010 # a student's grade decides their price
+      USERS_SERVICE_API_KEY: ${USERS_SERVICE_API_KEY:-} # required to read grades
+      BILLING_RETURN_URL: http://localhost:3003/billing
+      CASHFREE_CLIENT_ID: ${CASHFREE_CLIENT_ID:-} # BILLING_GATEWAY=cashfree; sandbox keys while testing
+      CASHFREE_CLIENT_SECRET: ${CASHFREE_CLIENT_SECRET:-}
+      CASHFREE_ENV: ${CASHFREE_ENV:-sandbox}
+      CASHFREE_CURRENCY: ${CASHFREE_CURRENCY:-INR}
+      CASHFREE_DEFAULT_PHONE: ${CASHFREE_DEFAULT_PHONE:-9999999999}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-} # BILLING_GATEWAY=razorpay; rzp_test_ keys while testing
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      RAZORPAY_CURRENCY: ${RAZORPAY_CURRENCY:-INR}
+    volumes: [billing-data:/data]
+    depends_on: [users-service]
 
   users-ui:
     build:
@@ -57,6 +91,8 @@ services:
         NEXT_PUBLIC_HOME_URL: http://localhost:3004 # "Back to Website" on the sign-in pages
     environment:
       USERS_SERVICE_URL: http://users-service:3010 # server to server, over the compose network
+      BILLING_API_URL: http://billing-service:3012 # the billing page and the payment gateway's webhook
+      CALENDAR_API_URL: http://calendar-service:3000 # classes per person in the admin tables
     depends_on: [users-service]
     ports: ["3003:3003"]
 
@@ -75,6 +111,7 @@ services:
       CALENDAR_API_URL: http://calendar-service:3000
       USERS_SERVICE_URL: http://users-service:3010
       CHAT_API_URL: http://chat-service:3001 # a decline or a time-change request also messages the teacher
+      BILLING_API_URL: http://billing-service:3012 # the student's free-class and subscribe cards; no billing service = no cards
     depends_on: [calendar-service, users-service, chat-service]
     ports: ["3002:3002"]
 
@@ -142,6 +179,8 @@ services:
     environment:
       DASHBOARD_API_URL: http://dashboard-service:3007
       USERS_SERVICE_URL: http://users-service:3010
+      CALENDAR_API_URL: http://calendar-service:3000 # the student's free-class request
+      BILLING_API_URL: http://billing-service:3012 # the student's free-class and subscribe cards; no billing service = no cards
     depends_on: [dashboard-service, users-service]
     ports: ["3006:3006"]
 
@@ -156,6 +195,7 @@ services:
     ports: ["3004:3004"]
 
 volumes:
+  billing-data:
   calendar-data:
   chat-data:
   dashboard-data:

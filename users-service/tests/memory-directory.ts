@@ -16,10 +16,18 @@ export class MemoryDirectory implements Directory {
     const now = new Date(Date.now() - this.profiles.size * 1000).toISOString();
     const profile: Profile = {
       id: randomUUID(), full_name: null, role: 'student', status: 'active', timezone: null, guardian_email: null, avatar_updated_at: null,
-      created_at: now, updated_at: now, ...p,
+      grade: null, grade_confirmed_year: null, created_at: now, updated_at: now, ...p,
     };
     this.profiles.set(profile.id, profile);
     return profile;
+  }
+
+  async setGrade(id: string, grade: number, schoolYear: number) {
+    const p = this.profiles.get(id);
+    if (!p) return null;
+    p.grade = grade;
+    p.grade_confirmed_year = schoolYear;
+    return p;
   }
 
   async putAvatar(id: string, bytes: Uint8Array) {

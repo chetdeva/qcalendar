@@ -35,7 +35,7 @@ function WelcomeBar({ d }: { d: Data }) {
         <Avatar name={d.profile.name} initials={d.profile.name.split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase()} size={72} />
         <div className="grow">
           <p className="eyebrow-row"><span className="tag tag-sky">{d.profile.title}</span><span className="tag tag-sun"><i className="dot" /> {d.profile.status}</span></p>
-          <h1>Welcome, {d.welcome.name}! <span aria-hidden>🍎</span></h1>
+          <h1>Welcome, {d.welcome.name}!</h1>
           <p className="blurb">{d.welcome.blurb}</p>
         </div>
         <div className="fast">

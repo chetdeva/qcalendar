@@ -20,15 +20,19 @@ export interface LessonForm {
 }
 
 /** A 409 from the service: the teacher is busy, or some of the chosen students already are. */
-export type Conflict = { kind: 'owner' | 'students'; people: string[] };
+export type Conflict = { kind: 'owner' | 'students' | 'hours'; people: string[] };
 
 const DURATIONS = [30, 60, 75, 90];
-const iconFor = (c: EventCategory) => (c === 'tutoring' ? 'tutoring' : c === 'office_hours' ? 'office-hours' : 'personal');
+/** The free trial class is always this long. */
+const TRIAL_MINUTES = 30;
+const iconFor = (c: EventCategory) => (c === 'tutoring' || c === 'trial' ? 'tutoring' : c === 'office_hours' ? 'office-hours' : 'personal');
 
 export function conflictMessage(c: Conflict) {
   return c.kind === 'owner'
     ? 'That time overlaps another class on the calendar.'
-    : `Already in another class at this time: ${c.people.join(', ')}.`;
+    : c.kind === 'hours'
+      ? "That time is outside this teacher's working hours."
+      : `Already in another class at this time: ${c.people.join(', ')}.`;
 }
 
 interface CreateProps {
@@ -80,20 +84,20 @@ export function CreateDrawer(p: CreateProps) {
           <input value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="AP Statistics - Private Session" />
         </label>
 
-        <StudentPicker label="Students" required={form.category === 'tutoring'} value={form.students} onChange={(v) => set('students', v)} />
+        <StudentPicker label="Students" required={form.category === 'tutoring' || form.category === 'trial'} value={form.students} onChange={(v) => set('students', v)} />
         <div className="hint ok"><Icon name="verified-sync" color="#006c4a" />Each student gets an email invitation</div>
 
         <div className="field">
           <span id="session-type">Session Type</span>
           <div className="seg" role="group" aria-labelledby="session-type">
-            {CATEGORY_ORDER.map((c) => (
+            {CATEGORY_ORDER.filter((c) => c !== 'office_hours').map((c) => ( // office hours are no longer offered when creating a class (existing ones still show)
               <button
                 key={c}
                 type="button"
                 className={form.category === c ? 'on' : ''}
                 aria-pressed={form.category === c}
                 style={form.category === c ? { color: CATEGORIES[c].color } : undefined}
-                onClick={() => set('category', c)}
+                onClick={() => setForm({ ...form, category: c, ...(c === 'trial' ? { duration: TRIAL_MINUTES } : {}) })}
               >
                 <Icon name={iconFor(c)} color={form.category === c ? CATEGORIES[c].color : '#414754'} />
                 {CATEGORIES[c].label}
@@ -116,7 +120,7 @@ export function CreateDrawer(p: CreateProps) {
         <div className="field">
           <span id="duration">Duration</span>
           <div className="durations" role="group" aria-labelledby="duration">
-            {(DURATIONS.includes(form.duration) ? DURATIONS : [...DURATIONS, form.duration].sort((a, b) => a - b)).map((m) => (
+            {(form.category === 'trial' ? [TRIAL_MINUTES] : DURATIONS.includes(form.duration) ? DURATIONS : [...DURATIONS, form.duration].sort((a, b) => a - b)).map((m) => (
               <button key={m} type="button" className={form.duration === m ? 'on' : ''} aria-pressed={form.duration === m} onClick={() => set('duration', m)}>
                 {m}m
               </button>

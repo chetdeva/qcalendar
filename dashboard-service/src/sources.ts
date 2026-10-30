@@ -11,7 +11,7 @@ export interface CalEvent {
   start: string;
   end: string;
   timezone: string;
-  category: 'tutoring' | 'office_hours' | 'personal';
+  category: 'tutoring' | 'office_hours' | 'personal' | 'trial';
   status: 'confirmed' | 'cancelled';
   participants: { userId: string | null; email: string; name: string | null; status: string }[];
   participantCount: number;

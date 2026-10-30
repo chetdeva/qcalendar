@@ -14,7 +14,7 @@ test('shows the account details; the email is read-only and the header links to 
   await expect(page.getByLabel('Email', { exact: true })).toHaveJSProperty('readOnly', true);
   await expect(page.getByLabel('Full name')).toHaveValue('Kid One');
   await expect(page.getByRole('link', { name: 'Calendar' })).toHaveAttribute('href', `${CALENDAR_ORIGIN}`);
-  await expect(page.getByRole('link', { name: 'Users' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Admin', exact: true })).toHaveCount(0);
 });
 
 test('saves name, time zone and guardian email, and they persist after a reload', async ({ page, request }) => {

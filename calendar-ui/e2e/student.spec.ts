@@ -259,7 +259,7 @@ test.describe('declining with a note and asking for another time', () => {
     await expect(tCard).toContainText('Could we do after school?');
     await tCard.getByRole('button', { name: 'Approve' }).click();
     await expect(tCard).not.toContainText('Time change requested');
-    await expect(tCard).toContainText('Sunday'); // the card now shows the new day
+    await expect(tCard).toContainText(new Date(inDays(3, 15)).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })); // the card now shows the new day
 
     await page.reload();
     await expect(card(page, 'Algebra')).toContainText('Your request was approved');

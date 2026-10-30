@@ -53,8 +53,9 @@ export const CATEGORIES: Record<EventCategory, { label: string; short: string; b
   tutoring: { label: 'Tutoring', short: 'Tutoring', badge: 'STUDENT', icon: 'student-badge', color: '#732de4' },
   office_hours: { label: 'Office Hr', short: 'Office hours', badge: 'OFFICE HOURS', icon: 'gcal-badge', color: '#005bbf' },
   personal: { label: 'Personal', short: 'Personal', badge: 'PERSONAL', icon: 'restaurant', color: '#727785' },
+  trial: { label: 'Trial', short: 'Trial class', badge: 'TRIAL', icon: 'student-badge', color: '#0b7a75' },
 };
-export const CATEGORY_ORDER: EventCategory[] = ['tutoring', 'office_hours', 'personal'];
+export const CATEGORY_ORDER: EventCategory[] = ['tutoring', 'trial', 'office_hours', 'personal'];
 
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
@@ -73,7 +74,7 @@ export function capacityHours(settings: CalendarSettings | null, start: Date, en
 }
 
 export function hoursByCategory(events: CalendarEvent[]): Record<EventCategory, number> {
-  const out: Record<EventCategory, number> = { tutoring: 0, office_hours: 0, personal: 0 };
+  const out: Record<EventCategory, number> = { tutoring: 0, office_hours: 0, personal: 0, trial: 0 };
   for (const e of events) out[e.category] += minutesBetween(e.start, e.end) / 60;
   return out;
 }

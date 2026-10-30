@@ -17,6 +17,8 @@ interface Props {
   canShade: boolean;
   onShowFree: (v: boolean) => void;
   onQuickAdd: () => void;
+  /** Sits right after Quick Add Lesson (the admin's calendar filters). */
+  extra?: React.ReactNode;
 }
 
 export function TopBar(p: Props) {
@@ -50,7 +52,7 @@ export function TopBar(p: Props) {
         {chips.length === 0 && <span className="chip muted-chip">No classes in view</span>}
         {chips.map((c) => (
           <span key={c} className="chip">
-            <Icon name={c === 'tutoring' ? 'tutoring' : c === 'office_hours' ? 'office-hours' : 'personal'} color={CATEGORIES[c].color} />
+            <Icon name={c === 'tutoring' || c === 'trial' ? 'tutoring' : c === 'office_hours' ? 'office-hours' : 'personal'} color={CATEGORIES[c].color} />
             {hoursLabel(p.byCategory[c])}h {CATEGORIES[c].short}
           </span>
         ))}
@@ -58,6 +60,7 @@ export function TopBar(p: Props) {
           <Icon name="plus-circle" color="#fff" />
           Quick Add Lesson
         </button>
+        {p.extra}
       </div>
     </header>
   );

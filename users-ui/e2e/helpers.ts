@@ -4,8 +4,12 @@ import { expect, type APIRequestContext, type Page } from '@playwright/test';
 export const AUTH_PORT = 58731;
 export const USERS_PORT = 58732;
 export const WEB_PORT = 58733;
+export const BILLING_PORT = 58735;
+export const CALENDAR_API_PORT = 58736;
 export const AUTH_URL = `http://localhost:${AUTH_PORT}`;
 export const USERS_URL = `http://localhost:${USERS_PORT}`;
+export const BILLING_URL = `http://localhost:${BILLING_PORT}`;
+export const CALENDAR_API_URL = `http://localhost:${CALENDAR_API_PORT}`;
 export const WEB_URL = `http://localhost:${WEB_PORT}`;
 /** A pretend second app (the calendar). Never actually served; tests intercept requests to it. */
 export const CALENDAR_ORIGIN = 'http://localhost:58734';
@@ -18,7 +22,7 @@ export async function resetBackend(request: APIRequestContext) {
 
 export async function seedUser(
   request: APIRequestContext,
-  u: { email: string; password?: string; role?: 'student' | 'teacher' | 'admin'; name?: string; confirmed?: boolean },
+  u: { email: string; password?: string; role?: 'student' | 'teacher' | 'admin'; name?: string; confirmed?: boolean; grade?: number },
 ) {
   const res = await request.post(`${AUTH_URL}/__test/user`, { data: { password: 'password123', name: u.email.split('@')[0], ...u } });
   expect(res.ok()).toBeTruthy();
@@ -31,7 +35,12 @@ export async function mailFor(request: APIRequestContext, to: string, kind: 'sig
 }
 
 export async function profileOf(request: APIRequestContext, email: string) {
-  return (await (await request.get(`${AUTH_URL}/__test/profile`, { params: { email } })).json()) as { role: string; status: string; full_name: string | null; guardian_email: string | null; timezone: string | null; avatar_updated_at: string | null } | null;
+  return (await (await request.get(`${AUTH_URL}/__test/profile`, { params: { email } })).json()) as { role: string; status: string; full_name: string | null; guardian_email: string | null; timezone: string | null; avatar_updated_at: string | null; grade: number | null } | null;
+}
+
+/** Plays the payment gateway: this student has just paid for a plan. */
+export async function pay(request: APIRequestContext, email: string, interval: 'month' | 'year' = 'month') {
+  expect((await request.post(`${AUTH_URL}/__test/billing/pay`, { data: { email, interval } })).ok()).toBeTruthy();
 }
 
 export async function logIn(page: Page, email: string, password: string) {

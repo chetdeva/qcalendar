@@ -4,12 +4,13 @@ import { cookieOptions } from '@/lib/cookies';
 import { allowedReturnOrigins, supabaseKey, supabaseUrl } from '@/lib/env';
 import { parseOrigins, safeNext } from '@/lib/return-to';
 
-const PROTECTED = ['/profile', '/admin'];
+const PROTECTED = ['/profile', '/billing', '/admin'];
 const GUEST_ONLY = ['/login', '/signup'];
 const startsWith = (path: string, prefixes: string[]) => prefixes.some((p) => path === p || path.startsWith(`${p}/`));
 
 /** Refreshes the session cookie on every request and sends signed-out visitors to /login. */
 export async function proxy(request: NextRequest) {
+  request.headers.set('x-pathname', request.nextUrl.pathname); // for the layout: which header tab is this page under?
   let response = NextResponse.next({ request });
   const supabase = createServerClient(supabaseUrl, supabaseKey, {
     cookieOptions: cookieOptions(),
@@ -39,7 +40,8 @@ export async function proxy(request: NextRequest) {
     return redirect(url);
   }
   if (user && startsWith(pathname, GUEST_ONLY)) {
-    const next = safeNext(request.nextUrl.searchParams.get('next'), parseOrigins(allowedReturnOrigins));
+    const fallback = startsWith(pathname, ['/login/admin']) ? '/admin' : undefined; // an admin already signed in goes to the portal
+    const next = safeNext(request.nextUrl.searchParams.get('next'), parseOrigins(allowedReturnOrigins), fallback);
     return redirect(next);
   }
   return response;

@@ -63,6 +63,8 @@
 .au-field label { font-size: 13px; line-height: 16px; font-weight: 700; letter-spacing: .26px; }
 .au-input { position: relative; }
 .au-input input { width: 100%; background: #fff; border: 1px solid var(--au-line); border-radius: 0; padding: 14px 17px 15px 45px; font: inherit; font-size: 16px; line-height: 20px; font-weight: 500; color: var(--au-ink); box-shadow: inset 0 2px 4px 1px rgba(0, 0, 0, .05); }
+.au-input select { width: 100%; background: #fff; border: 1px solid var(--au-line); border-radius: 0; padding: 14px 17px 15px; font: inherit; font-size: 16px; line-height: 20px; font-weight: 500; color: var(--au-ink); box-shadow: inset 0 2px 4px 1px rgba(0, 0, 0, .05); }
+.au-page .au-input select:focus, .au-page .au-input select:focus-visible { outline: 0; border-color: #8a96a3; }
 .au-input input::placeholder { color: #9ca3af; }
 .au-input input[readonly] { background: var(--au-tint-2); color: var(--au-muted); }
 .au-ico { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; }

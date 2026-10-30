@@ -220,9 +220,30 @@ test('listing filters: time window, externalRef, includeCancelled, and staff fil
   assert.deepEqual(await names(t, '?externalRef=session-1'), ['Mon']);
   assert.deepEqual(await names(admin, `?ownerId=${o.id}`), ['Other']);
   assert.deepEqual(await names(admin, `?participant=${s.email}`), ['Mon']);
+  const s2 = await h.person('student');
+  await mk(o, [s2], { title: 'Other2', ...slot(12, 60, 7) });
+  assert.deepEqual(await names(admin, `?participant=${s.email},${s2.email.toUpperCase()}`), ['Mon', 'Other2'], 'several students at once, any case');
+  assert.equal((await admin.call('GET', '/v1/events?participant=nope')).status, 400);
   assert.deepEqual(await names(t, `?ownerId=${o.id}`), ['Mon', 'Tue'], 'a teacher cannot widen their view with ownerId');
   await t.call('DELETE', `/v1/events/${mon.id}`);
   assert.deepEqual(await names(t), ['Tue']);
   assert.deepEqual(await names(t, '?includeCancelled=true'), ['Mon', 'Tue']);
   assert.equal((await t.call('GET', '/v1/events?from=yesterday')).status, 400);
+});
+
+test('a configured meeting provider supplies the link for new and edited classes; an explicit link still wins', async () => {
+  const seen: string[] = [];
+  const keep = h.ctx.newMeeting;
+  h.ctx.newMeeting = async (i) => { seen.push(i.title); return 'https://meet.google.com/aaa-bbbb-ccc'; };
+  try {
+    const t = await h.person('teacher');
+    const made = await json(await t.call('POST', '/v1/events', { title: 'Algebra', ...slot(10), meet: true }));
+    assert.equal(made.meetingUrl, 'https://meet.google.com/aaa-bbbb-ccc');
+    const own = await json(await t.call('POST', '/v1/events', { title: 'Own', ...slot(12), meet: true, meetingUrl: 'https://zoom.example.test/j/1' }));
+    assert.equal(own.meetingUrl, 'https://zoom.example.test/j/1');
+    const plain = await json(await t.call('POST', '/v1/events', { title: 'Later', ...slot(14) }));
+    const patched = await json(await t.call('PATCH', `/v1/events/${plain.id}`, { meet: true }));
+    assert.equal(patched.meetingUrl, 'https://meet.google.com/aaa-bbbb-ccc');
+    assert.deepEqual(seen, ['Algebra', 'Later']);
+  } finally { h.ctx.newMeeting = keep; }
 });

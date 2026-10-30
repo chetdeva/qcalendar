@@ -13,9 +13,19 @@ import { createApp } from '../../users-service/src/app.ts';
 import { createVerifier } from '../../users-service/src/auth.ts';
 import { DirectoryError } from '../../users-service/src/directory.ts';
 import { MemoryDirectory } from '../../users-service/tests/memory-directory.ts';
+import { createApp as createBillingApp } from '../../billing-service/src/app.ts';
+import { createAuthenticator as createBillingAuth } from '../../billing-service/src/auth.ts';
+import { addMonths } from '../../billing-service/src/credits.ts';
+import { createPgliteDb, migrate as migrateBilling } from '../../billing-service/src/db.ts';
+import { createFakeGateway } from '../../billing-service/src/gateways/fake.ts';
+import { createApp as createCalendarApp } from '../../calendar-service/src/app.ts';
+import { createAuthenticator as createCalendarAuth } from '../../calendar-service/src/auth.ts';
+import { createPgliteDb as createCalendarDb, migrate as migrateCalendar } from '../../calendar-service/src/db.ts';
 
 const AUTH_PORT = 58731;
 const USERS_PORT = 58732;
+const BILLING_PORT = 58735;
+const CALENDAR_PORT = 58736;
 const AUTH_URL = `http://localhost:${AUTH_PORT}`;
 const ISS = `${AUTH_URL}/auth/v1`;
 const WEB = 'http://localhost:58733';
@@ -44,10 +54,10 @@ function applyInvitation(u: AuthUser) {
   const profile = directory.profiles.get(u.id);
   if (inv && profile) { profile.role = inv.role; inv.status = 'accepted'; inv.accepted_at = new Date().toISOString(); }
 }
-function createUser(email: string, password: string | null, opts: { confirmed?: boolean; name?: string; provider?: 'email' | 'google'; role?: 'student' | 'teacher' | 'admin' } = {}) {
+function createUser(email: string, password: string | null, opts: { confirmed?: boolean; name?: string; grade?: number; provider?: 'email' | 'google'; role?: 'student' | 'teacher' | 'admin' } = {}) {
   const u: AuthUser = { id: randomUUID(), email, password, confirmed: false, provider: opts.provider ?? 'email', name: opts.name ?? '', createdAt: new Date().toISOString() };
   users.set(u.id, u);
-  directory.addProfile({ id: u.id, email, full_name: u.name || null, role: opts.role ?? 'student' });
+  directory.addProfile({ id: u.id, email, full_name: u.name || null, role: opts.role ?? 'student', grade: opts.grade ?? null });
   if (opts.confirmed) confirm(u);
   return u;
 }
@@ -135,10 +145,26 @@ http.createServer(async (req, res) => {
 
   // ---------- test helpers ----------
   if (path === '/__test/health') return send(res, 200, { ok: true });
-  if (path === '/__test/reset' && req.method === 'POST') { reset(); return send(res, 200, { ok: true }); }
+  if (path === '/__test/reset' && req.method === 'POST') {
+    reset();
+    await calendarDb.exec('truncate calendar.trial_requests, calendar.events, calendar.event_participants, calendar.email_outbox, calendar.webhook_queue, calendar.teacher_settings restart identity cascade');
+    await billingDb.exec('truncate billing.credit_ledger, billing.credit_grants, billing.subscriptions, billing.customers, billing.webhook_events, billing.trials, billing.teacher_rates, billing.teacher_earnings, billing.payouts restart identity cascade');
+    return send(res, 200, { ok: true });
+  }
+  // Plays the payment gateway: "this student just paid". Same webhook path a real gateway uses.
+  if (path === '/__test/billing/pay' && req.method === 'POST') {
+    const b = await readJson(req);
+    const u = byEmail(b.email);
+    if (!u) return send(res, 404, { error: 'no such user' });
+    const interval = b.interval === 'year' ? 'year' : 'month';
+    const start = new Date();
+    const d = billingFake.deliver({ type: 'payment_succeeded', eventId: `evt_${randomUUID()}`, userId: u.id, customerRef: `cus_${u.id}`, subscriptionRef: `sub_${u.id}`, planKey: b.planKey ?? 'middle', interval, periodStart: start, periodEnd: addMonths(start, interval === 'month' ? 1 : 12), amountCents: 35000, currency: 'usd' });
+    const r = await billingApp.request('/v1/webhooks/fake', { method: 'POST', body: d.rawBody, headers: d.headers });
+    return send(res, r.status, await r.json());
+  }
   if (path === '/__test/user' && req.method === 'POST') {
     const b = await readJson(req);
-    const u = createUser(b.email, b.password ?? null, { confirmed: b.confirmed ?? true, name: b.name ?? '', role: b.role ?? 'student', provider: b.provider });
+    const u = createUser(b.email, b.password ?? null, { confirmed: b.confirmed ?? true, name: b.name ?? '', role: b.role ?? 'student', grade: b.grade, provider: b.provider });
     return send(res, 200, { id: u.id });
   }
   if (path === '/__test/mail') {
@@ -159,7 +185,7 @@ http.createServer(async (req, res) => {
     if (typeof b.password !== 'string' || b.password.length < 6) return err(res, 422, 'weak_password', 'Password should be at least 6 characters.');
     const existing = byEmail(b.email);
     if (existing) return send(res, 200, { ...userJson(existing), identities: [] }); // looks like success, leaks nothing
-    const u = createUser(b.email, b.password, { name: b.data?.full_name ?? '' });
+    const u = createUser(b.email, b.password, { name: b.data?.full_name ?? '', grade: Number.isInteger(b.data?.grade) && b.data.grade >= 1 && b.data.grade <= 10 ? b.data.grade : undefined });
     mail(u, 'signup', url.searchParams.get('redirect_to') ?? WEB);
     return send(res, 200, userJson(u));
   }
@@ -251,6 +277,23 @@ http.createServer(async (req, res) => {
 
   send(res, 404, { code: 404, error_code: 'not_found', msg: `no fake for ${req.method} ${path}` });
 }).on('error', taken).listen(AUTH_PORT, () => console.log(`fake supabase auth on :${AUTH_PORT}`));
+
+const billingDb = createPgliteDb();
+await migrateBilling(billingDb);
+const billingFake = createFakeGateway();
+const billingApp = createBillingApp({
+  db: billingDb, gateways: { fake: billingFake.gateway }, defaultGateway: 'fake', returnUrl: `${WEB}/billing`,
+  authenticator: createBillingAuth({ apiKey: 'b'.repeat(32), getKey: async () => publicKey, issuer: ISS }),
+  users: { grade: async (id) => directory.profiles.get(id)?.grade ?? null },
+});
+const calendarDb = createCalendarDb();
+await migrateCalendar(calendarDb);
+const calendarApp = createCalendarApp({
+  ctx: { db: calendarDb, defaultTimezone: 'UTC', webhooks: false, meetingBaseUrl: 'https://meet.example.test' },
+  authenticator: createCalendarAuth({ apiKey: 'c'.repeat(32), getKey: async () => publicKey, issuer: ISS }),
+});
+serve({ fetch: calendarApp.fetch, port: CALENDAR_PORT }, (i) => console.log(`calendar-service (real code, in-memory database) on :${i.port}`));
+serve({ fetch: billingApp.fetch, port: BILLING_PORT }, (i) => console.log(`billing-service (real code, in-memory database, fake gateway) on :${i.port}`));
 
 const usersApp = createApp({
   verifier: createVerifier(async () => publicKey, ISS),

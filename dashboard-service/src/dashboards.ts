@@ -36,7 +36,7 @@ function when(e: CalEvent, now: Date) {
   return `${label}, ${range(e)} (${minutes(e)}m)`;
 }
 
-const CATEGORY = { tutoring: 'Private tutoring', office_hours: 'Office hours', personal: 'Personal' } as const;
+const CATEGORY = { tutoring: 'Private tutoring', office_hours: 'Office hours', personal: 'Personal', trial: 'Free trial class' } as const;
 
 export function toAssignment(r: AssignmentRow, now: Date): Assignment {
   const state = r.sub_status === 'graded' ? 'graded' : r.sub_id ? 'submitted' : r.steps_done > 0 ? 'in_progress' : 'todo';

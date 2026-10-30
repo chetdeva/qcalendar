@@ -1,9 +1,12 @@
 import { serve } from '@hono/node-server';
 import { createApp } from './app.ts';
 import { createAuthenticator, supabaseKeys } from './auth.ts';
+import { createBillingClient } from './billing.ts';
 import { createPgDb, createPgliteDb, migrate, type SslMode } from './db.ts';
 import { HttpError } from './errors.ts';
 import { ConsoleMailer, createSmtpMailer } from './mail.ts';
+import { recordEarnings } from './earnings.ts';
+import { createMeetingProvider } from './meeting.ts';
 import { processOutbox } from './outbox.ts';
 import { processWebhooks } from './webhooks.ts';
 
@@ -29,11 +32,18 @@ const keys = env.SUPABASE_URL
 const authenticator = createAuthenticator({ apiKey, ...keys });
 
 const webhookUrl = env.WEBHOOK_URL ?? '';
+const meetingBaseUrl = env.MEETING_BASE_URL ?? 'https://meet.jit.si';
+// All three set = every class gets a Google Meet link from that one account; otherwise (or if Google fails) a Jitsi room.
+const google = env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REFRESH_TOKEN
+  ? { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET, refreshToken: env.GOOGLE_REFRESH_TOKEN } : undefined;
 const ctx = {
   db,
   defaultTimezone: env.DEFAULT_TIMEZONE ?? 'UTC',
   webhooks: Boolean(webhookUrl),
-  meetingBaseUrl: env.MEETING_BASE_URL ?? 'https://meet.jit.si',
+  meetingBaseUrl,
+  newMeeting: createMeetingProvider({ jitsiBase: meetingBaseUrl, google }),
+  // Unset BILLING_URL = lessons are free (no billing service to ask).
+  billing: env.BILLING_URL ? createBillingClient({ url: env.BILLING_URL, key: env.BILLING_SERVICE_KEY ?? '' }) : undefined,
 };
 const app = createApp({ ctx, authenticator });
 
@@ -44,6 +54,7 @@ const mailer = env.SMTP_URL ? createSmtpMailer(env.SMTP_URL, mailFrom) : new Con
 
 const tick = (name: string, fn: () => Promise<unknown>) => () => void fn().catch((e) => console.error(`${name} failed:`, e.message));
 setInterval(tick('email outbox', () => processOutbox(db, mailer, { fromEmail, calendarUrl: env.CALENDAR_URL })), 15_000);
+if (ctx.billing) setInterval(tick('teacher earnings', () => recordEarnings(ctx)), 10 * 60_000);
 if (webhookUrl) setInterval(tick('webhooks', () => processWebhooks(db, { url: webhookUrl, secret: env.WEBHOOK_SECRET ?? apiKey })), 10_000);
 
 serve({ fetch: app.fetch, port: Number(env.PORT ?? 3000) }, (i) => console.log(`calendar-service on :${i.port}`));

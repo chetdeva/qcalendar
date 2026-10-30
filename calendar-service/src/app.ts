@@ -2,8 +2,11 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import type { Actor, Authenticator } from './auth.ts';
 import { isValidTz } from './availability.ts';
+import { adminSummary } from './admin.ts';
+import { assignmentHistory, assignTeacher } from './assignments.ts';
 import { HttpError } from './errors.ts';
 import * as svc from './events.ts';
+import * as trials from './trial-requests.ts';
 
 type Env = { Variables: { actor: Actor } };
 
@@ -19,7 +22,7 @@ const email = z.email().max(254);
 const name = z.string().trim().min(1).max(100);
 const uuid = z.uuid();
 const httpsUrl = z.url().max(500).refine((u) => u.startsWith('https://'), 'Meeting links must use https');
-const CATEGORIES = ['tutoring', 'office_hours', 'personal'] as const;
+const CATEGORIES = ['tutoring', 'office_hours', 'personal', 'trial'] as const;
 
 const ParticipantSchema = z.object({ userId: uuid.optional(), email, name: name.optional() }).strict();
 
@@ -65,7 +68,9 @@ const RespondBody = z.object({ response: z.enum(['accepted', 'declined']), note:
 const ChangeBody = z.object({ start: iso, note: note.optional() }).strict();
 
 const ListQuery = z.object({
-  from: iso.optional(), to: iso.optional(), ownerId: uuid.optional(), participant: email.optional(),
+  from: iso.optional(), to: iso.optional(), ownerId: uuid.optional(),
+  // One email, or several separated by commas (the admin's filter by students): classes any of them is in.
+  participant: z.string().max(3000).transform((v) => v.split(',').map((e) => e.trim()).filter(Boolean)).pipe(z.array(email).min(1).max(20)).optional(),
   externalRef: z.string().max(200).optional(), includeCancelled: z.enum(['true', 'false']).optional(),
 });
 const AvailabilityQuery = z.object({ teacherId: uuid.optional(), from: iso, to: iso, duration: z.coerce.number().int().min(5).max(480).default(60) });
@@ -117,6 +122,34 @@ export function createApp(deps: { ctx: svc.Ctx; authenticator: Authenticator }) 
     const q = parse(ListQuery, c.req.query());
     return c.json({ events: await svc.listEvents(ctx, c.get('actor'), { ...q, includeCancelled: q.includeCancelled === 'true' }) });
   });
+
+  // A new student's request for the free first class, and the teachers' list of open ones.
+  app.post('/v1/trial-requests', async (c) => {
+    const b = parse(z.object({ start: iso }).strict(), await body(c));
+    return c.json(await trials.requestTrial(ctx, c.get('actor'), b), 201);
+  });
+  app.post('/v1/trial-requests/:id/confirm', async (c) => c.json(await trials.confirmRequest(ctx, c.get('actor'), id(c.req.param('id'))), 201));
+  app.get('/v1/trial-requests/mine', async (c) => c.json({ request: await trials.myRequest(ctx, c.get('actor')) }));
+  app.delete('/v1/trial-requests/mine', async (c) => { await trials.cancelMyRequest(ctx, c.get('actor')); return c.body(null, 204); });
+  app.get('/v1/trial-requests', async (c) => c.json({ requests: await trials.openRequests(ctx, c.get('actor')) }));
+
+  // The admin portal's tables: classes and students per person, for a page of people at once.
+  app.post('/v1/admin/summary', async (c) => {
+    const b = parse(z.object({ userIds: z.array(uuid).min(1).max(100), role: z.enum(['teacher', 'student']) }).strict(), await body(c));
+    return c.json({ summary: await adminSummary(ctx, c.get('actor'), b) });
+  });
+
+  // Assigning a student to a teacher (and the history of it).
+  const PersonSchema = z.object({ email, name: name.nullish() }).strict();
+  app.put('/v1/admin/students/:id/teacher', async (c) => {
+    const b = parse(
+      z.object({ teacherId: uuid.nullable(), note: z.string().trim().max(500).optional(), student: PersonSchema, teacher: PersonSchema.optional() }).strict()
+        .refine((v) => (v.teacherId === null) === (v.teacher === undefined), { message: 'teacher is required with teacherId, and only then' }),
+      await body(c),
+    );
+    return c.json(await assignTeacher(ctx, c.get('actor'), id(c.req.param('id')), b));
+  });
+  app.get('/v1/admin/students/:id/assignments', async (c) => c.json(await assignmentHistory(ctx, c.get('actor'), id(c.req.param('id')))));
 
   // Who the caller shares a class with. chat-service uses it as its "may these two talk" rule.
   app.get('/v1/contacts', async (c) => c.json({ contacts: (await svc.contactIds(ctx, c.get('actor'))).map((id) => ({ id })) }));

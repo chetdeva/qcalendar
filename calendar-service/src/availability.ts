@@ -65,6 +65,13 @@ function nextDate(date: string): string {
   return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
 }
 
+/** Does the whole class fall inside one of the teacher's working windows on its day (in the teacher's time zone)? */
+export function withinWorkingHours(settings: Settings, startMs: number, endMs: number): boolean {
+  const date = localDate(startMs, settings.timezone);
+  const windows = settings.workingHours[DAYS[new Date(`${date}T00:00:00Z`).getUTCDay()]!];
+  return windows.some(([a, b]) => startMs >= zonedTimeToUtcMs(date, a, settings.timezone) && endMs <= zonedTimeToUtcMs(date, b, settings.timezone));
+}
+
 export function overlaps(a: Interval, b: Interval): boolean {
   return a.start < b.end && b.start < a.end;
 }

@@ -371,3 +371,70 @@ test('profile picture: nobody can read or change someone else\'s, and PATCH /v1/
   assert.equal((await kid.call('PATCH', '/v1/me', { avatar_updated_at: '2020-01-01T00:00:00Z' })).status, 400);
   assert.equal((await kid.call('GET', `/v1/users/${other.profile.id}`)).status, 403);
 });
+
+// ---- grade: sets the price band, so it is guarded ----
+function withGradeSync(clock = new Date('2030-10-01T00:00:00Z')) {
+  const told: [string, number][] = [];
+  const state = { fail: false, clock };
+  app = createApp({
+    verifier: createVerifier(async () => publicKey, ISS), directory: dir, inviteRedirectTo: REDIRECT, serviceApiKey: SERVICE_KEY,
+    onGradeChanged: async (id, g) => { if (state.fail) throw new Error('down'); told.push([id, g]); }, now: () => state.clock,
+  });
+  return { told, state };
+}
+
+test('grade: school years start on 1 August', async () => {
+  const { schoolYear } = await import('./app.ts');
+  assert.equal(schoolYear(new Date('2030-07-31T12:00:00Z')), 2029);
+  assert.equal(schoolYear(new Date('2030-08-01T00:00:00Z')), 2030);
+  assert.equal(schoolYear(new Date('2031-01-15T00:00:00Z')), 2030);
+});
+
+test('grade: a student sets it once, then only once per school year; billing is told each time', async () => {
+  const { told, state } = withGradeSync();
+  const kid = await as('student');
+  assert.equal(((await (await kid.call('GET', '/v1/me')).json()) as { grade: unknown }).grade, null);
+  assert.equal((await kid.call('POST', '/v1/me/grade', { grade: 5 })).status, 200);
+  assert.equal((await kid.call('POST', '/v1/me/grade', { grade: 8 })).status, 409); // same school year
+  assert.equal((await kid.call('POST', '/v1/me/grade', { grade: 5 })).status, 200); // confirming the same grade is fine
+  state.clock = new Date('2031-08-02T00:00:00Z'); // next school year
+  assert.equal((await kid.call('POST', '/v1/me/grade', { grade: 6 })).status, 200);
+  assert.deepEqual(told.map((t) => t[1]), [5, 5, 6]);
+  assert.equal((await kid.call('POST', '/v1/me/grade', { grade: 11 })).status, 400);
+  assert.equal((await kid.call('POST', '/v1/me/grade', { grade: 5, role: 'admin' })).status, 400);
+});
+
+test('grade: PATCH /v1/me cannot set it; teachers have none; admins can set a student\'s any time', async () => {
+  const { told } = withGradeSync();
+  const kid = await as('student');
+  assert.equal((await kid.call('PATCH', '/v1/me', { grade: 1 })).status, 400);
+  assert.equal((await (await as('teacher')).call('POST', '/v1/me/grade', { grade: 3 })).status, 403);
+  await kid.call('POST', '/v1/me/grade', { grade: 5 });
+  assert.equal((await kid.call('PATCH', `/v1/users/${kid.profile.id}/grade`, { grade: 9 })).status, 403);
+  const admin = await as('admin');
+  const r = await admin.call('PATCH', `/v1/users/${kid.profile.id}/grade`, { grade: 9 });
+  assert.equal(r.status, 200);
+  assert.equal(((await r.json()) as { grade: number }).grade, 9);
+  assert.deepEqual(told.at(-1), [kid.profile.id, 9]);
+  assert.equal((await admin.call('PATCH', `/v1/users/${(await as('teacher')).profile.id}/grade`, { grade: 4 })).status, 404);
+});
+
+test('grade: if billing is down the grade is kept, the caller is told, and a retry works', async () => {
+  const { state, told } = withGradeSync();
+  const kid = await as('student');
+  state.fail = true;
+  const r = await kid.call('POST', '/v1/me/grade', { grade: 7 });
+  assert.equal(r.status, 502);
+  assert.equal(((await (await kid.call('GET', '/v1/me')).json()) as { grade: number }).grade, 7);
+  state.fail = false;
+  assert.equal((await kid.call('POST', '/v1/me/grade', { grade: 7 })).status, 200);
+  assert.deepEqual(told, [[kid.profile.id, 7]]);
+});
+
+test('service: billing can read a student\'s grade with the service key, nobody else can', async () => {
+  const kid = await as('student', { grade: 4 });
+  const get = (key?: string) => app.request(`/v1/service/students/${kid.profile.id}`, { headers: key ? { authorization: `Bearer ${key}` } : {} });
+  assert.deepEqual(await (await get(SERVICE_KEY)).json(), { grade: 4 });
+  assert.equal((await get()).status, 401);
+  assert.equal((await get(kid.jwt)).status, 401);
+});

@@ -14,7 +14,8 @@
 .qh-in { max-width: 1280px; margin: 0 auto; padding: 0 56px; height: 80px; display: flex; align-items: center; gap: 16px; }
 .qh-brand { display: flex; align-items: center; gap: 8px; font-size: 21px; color: var(--qh-primary) !important; }
 .qh-brand b { font-weight: 800; }
-.qh-role { display: inline-flex; background: #fff; border-radius: 999px; padding: 6px 14px; font-weight: 700; font-size: 12px; color: var(--qh-primary); box-shadow: var(--qh-lift); }
+.qh-id { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.qh-role { display: inline-flex; background: #fff; border-radius: 999px; padding: 1px 10px; margin-left: 40px; font-weight: 700; font-size: 11px; line-height: 16px; color: var(--qh-primary); box-shadow: var(--qh-lift); }
 .qh-tabs { display: flex; align-items: center; gap: 4px; margin: 0 auto; background: var(--qh-tabs); border-radius: 999px; padding: 6px; }
 .qh-tabs a { border: 0; background: none; border-radius: 999px; padding: 8px 16px; font-weight: 600; font-size: 13px; line-height: 1.2; color: var(--qh-ink-2); text-align: left; }
 .qh-tabs a[aria-current] { background: var(--qh-primary-2); color: #fff; font-weight: 700; }
@@ -37,7 +38,7 @@
   .qh-in { flex-wrap: wrap; height: auto; padding: 12px 24px; gap: 12px; }
   .qh-tabs { order: 5; width: 100%; margin: 0; overflow-x: auto; border-radius: 16px; }
   .qh-tabs a { white-space: nowrap; }
-  .qh-brand { margin-right: auto; }
+  .qh-id { margin-right: auto; }
 }
 @media (max-width: 640px) {
   .qh-in { padding: 10px 16px; }

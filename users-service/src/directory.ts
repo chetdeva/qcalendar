@@ -12,6 +12,10 @@ export interface Profile {
   guardian_email: string | null;
   /** When the profile picture was last set; null means there is none. Also the cache-busting version. */
   avatar_updated_at: string | null;
+  /** School grade 1-10 (students). Sets the price band, so it is not freely editable. */
+  grade: number | null;
+  /** The school year (the year it started, 1 August) in which the grade was last set or confirmed. */
+  grade_confirmed_year: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -51,6 +55,7 @@ export interface Directory {
   listProfiles(q: ProfileQuery): Promise<Profile[]>;
   updateProfile(id: string, patch: ProfilePatch): Promise<Profile | null>;
   setRole(id: string, role: Role): Promise<Profile | null>;
+  setGrade(id: string, grade: number, schoolYear: number): Promise<Profile | null>;
   setStatus(id: string, status: Status): Promise<Profile | null>;
   /** Blocks (or unblocks) sign-in at the auth layer, so a disabled user cannot refresh their session. */
   setBanned(id: string, banned: boolean): Promise<void>;

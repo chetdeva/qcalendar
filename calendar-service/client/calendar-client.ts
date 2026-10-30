@@ -1,7 +1,7 @@
 // Server-side only. Copy into a backend that talks to calendar-service with the service API key
 // (for example the future booking app), or pass a person's own access token to act as that person.
 // Env: CALENDAR_API_URL=https://calendar.example.com  CALENDAR_API_KEY=...
-export type EventCategory = 'tutoring' | 'office_hours' | 'personal';
+export type EventCategory = 'tutoring' | 'office_hours' | 'personal' | 'trial';
 export type ParticipantStatus = 'invited' | 'accepted' | 'declined';
 
 export interface Participant { id: string; userId: string | null; email: string; name: string | null; status: ParticipantStatus; respondedAt: string | null; note: string | null }

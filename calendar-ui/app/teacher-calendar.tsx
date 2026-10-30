@@ -5,17 +5,19 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import type { DateSelectArg, DatesSetArg, EventClickArg, EventDropArg, EventInput } from '@fullcalendar/core';
+import type { DateSelectArg, DatesSetArg, EventClickArg, EventContentArg, EventDropArg, EventInput } from '@fullcalendar/core';
 import type { EventResizeDoneArg } from '@fullcalendar/interaction';
 import type { CalendarEvent, CalendarSettings, Me, Participant, Person, Student } from '@/lib/calendar';
 import { answerSummary, capacityHours, hm, hoursByCategory, mergeSlots, minutesBetween, ymd } from '@/lib/format';
 import { api, ApiError } from './api-client';
 import { TopBar } from './components/top-bar';
 import { CalendarToolbar, type ViewType } from './components/calendar-toolbar';
+import { AdminViewing, type Viewing } from './components/admin-viewing';
 import { ChangeRequestBox } from './components/change-request-box';
 import { ClassesPanel, fetchUpcoming, upcomingOf } from './components/classes-panel';
 import { conflictMessage, CreateDrawer, DetailsDrawer, type Conflict, type LessonForm } from './components/lesson-drawer';
 import { dayHeader, makeEventContent } from './components/event-content';
+import { FreeClassRequests, type TrialRequestRow } from './components/free-class-requests';
 import { RoleBanner } from './components/role-banner';
 import { AppHeader } from '@components/app-header';
 
@@ -26,6 +28,7 @@ const blankForm = (): LessonForm => ({ title: '', date: ymd(new Date()), time: '
 
 const toConflict = (e: ApiError): Conflict | null =>
   e.code === 'conflict' ? { kind: 'owner', people: [] }
+  : e.code === 'outside_availability' ? { kind: 'hours', people: [] }
   : e.code === 'participant_conflict' ? { kind: 'students', people: Array.isArray(e.details) ? (e.details as string[]) : [] }
   : null;
 
@@ -53,6 +56,7 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
   const [busy, setBusy] = useState(false);
   const [showFree, setShowFree] = useState(true);
   const [tz, setTz] = useState('');
+  const [viewing, setViewing] = useState<Viewing>({ kind: 'all' }); // admins: whose classes the calendar shows
 
   const loadList = useCallback(() => {
     fetchUpcoming().then(setClasses, (e) => { setError((e as Error).message); setClasses([]); });
@@ -66,6 +70,36 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
     loadList();
   }, [admin, loadList]);
 
+  // Opened from the admin portal ("View calendar"): ?teacher=<id> or ?student=<email>.
+  const fromLink = useRef(false);
+  useEffect(() => {
+    if (!admin || fromLink.current) return;
+    const sp = new URLSearchParams(window.location.search);
+    const email = sp.get('student');
+    if (email) { fromLink.current = true; setViewing({ kind: 'student', students: [{ email, name: sp.get('name') }] }); return; }
+    const id = sp.get('teacher');
+    const t = id && teachers.find((x) => x.id === id);
+    if (t) { fromLink.current = true; setViewing({ kind: 'teacher', teacher: t }); }
+  }, [admin, teachers]);
+
+  // Changing who is being viewed reloads the calendar; looking at a teacher also makes them the teacher for new classes.
+  useEffect(() => {
+    if (!admin) return;
+    if (viewing.kind === 'teacher') setForm((f) => ({ ...f, teacher: viewing.teacher }));
+    setTimeout(refetch, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [admin, viewing]);
+
+  // Scheduling for a student who has an assigned teacher: start from that teacher (the admin can still change it).
+  const firstStudentId = form.students[0]?.userId;
+  useEffect(() => {
+    if (!admin || form.teacher || !firstStudentId) return;
+    void api<{ teacherId: string | null }>(`/api/students/${firstStudentId}/teacher`).then((r) => {
+      const t = teachers.find((x) => x.id === r.teacherId);
+      if (t) setForm((f) => (f.teacher ? f : { ...f, teacher: t }));
+    }, () => {});
+  }, [admin, form.teacher, firstStudentId, teachers]);
+
   // The loader reads these through refs so its identity never changes; a new function would make
   // FullCalendar treat it as a new event source and refetch on every keystroke or click.
   const showFreeRef = useRef(showFree);
@@ -75,12 +109,16 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
   durationRef.current = form.duration;
   teacherRef.current = form.teacher?.id;
 
+  const viewingRef = useRef(viewing);
+  viewingRef.current = viewing;
   const adminRef = useRef(admin);
   const meIdRef = useRef(me.id);
   const loadEvents = useCallback(async (info: { start: Date; end: Date }): Promise<EventInput[]> => {
     const qs = `from=${encodeURIComponent(info.start.toISOString())}&to=${encodeURIComponent(info.end.toISOString())}`;
+    const v = viewingRef.current;
+    const filter = v.kind === 'teacher' ? `&ownerId=${v.teacher.id}` : v.kind === 'student' && v.students.length ? `&participant=${encodeURIComponent(v.students.map((x) => x.email).join(','))}` : '';
     try {
-      const { events: list } = await api<{ events: CalendarEvent[] }>(`/api/events?${qs}`);
+      const { events: list } = await api<{ events: CalendarEvent[] }>(`/api/events?${qs}${filter}`);
       setEvents(list);
       const mine = (e: CalendarEvent) => adminRef.current || e.ownerId === meIdRef.current;
       const items: EventInput[] = list.map((e) => ({ id: e.id, title: e.title, start: e.start, end: e.end, extendedProps: { ev: e }, editable: mine(e) }));
@@ -111,12 +149,25 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
     setRange({ start: a.start, end: a.end });
   }, []);
 
-  const eventContent = useMemo(() => makeEventContent({ showTeacher: admin }), [admin]);
+  const eventContent = useMemo(() => {
+    const base = makeEventContent({ showTeacher: admin });
+    return (arg: EventContentArg) => (arg.event.extendedProps.ev ? base(arg) : arg.event.id === 'new-lesson' ? null : <div className="tent">{arg.event.title}</div>);
+  }, [admin]);
+
+  // Free trial class requests: listed in the side panel and drawn as dashed slots so clashes with the calendar are easy to see.
+  const [requests, setRequests] = useState<TrialRequestRow[]>([]);
+  useEffect(() => {
+    api<{ requests: TrialRequestRow[] }>('/api/trial-requests').then((r) => setRequests(r.requests), () => setRequests([]));
+  }, [classes]);
+  const sources = useMemo(
+    () => [eventSource, requests.filter((r) => r.start && r.end).map((r) => ({ id: `trial-request-${r.id}`, title: `Trial: ${r.studentName ?? r.studentEmail ?? 'student'}`, start: r.start!, end: r.end!, editable: false }))],
+    [eventSource, requests],
+  );
 
   const stats = useMemo(() => {
     const live = events.filter((e) => e.status === 'confirmed');
     const byCategory = hoursByCategory(live);
-    const booked = byCategory.tutoring + byCategory.office_hours + byCategory.personal;
+    const booked = byCategory.tutoring + byCategory.office_hours + byCategory.personal + byCategory.trial;
     return { sessions: live.length, byCategory, booked, capacity: admin ? null : range ? capacityHours(settings, range.start, range.end) : 0 };
   }, [events, settings, range, admin]);
 
@@ -125,7 +176,7 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
   if (!form.title.trim()) missing.push('a title');
   if (!form.date) missing.push('a date');
   if (!form.time) missing.push('a start time');
-  if (form.category === 'tutoring' && form.students.length === 0) missing.push('at least one student');
+  if ((form.category === 'tutoring' || form.category === 'trial') && form.students.length === 0) missing.push('at least one student');
 
   const openCreate = () => {
     setCreating(true);
@@ -137,10 +188,28 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
     openCreate();
     const d = info.start;
     if (info.allDay) setForm((f) => ({ ...f, date: ymd(d) }));
-    else setForm((f) => ({ ...f, date: ymd(d), time: hm(d), duration: Math.max(5, Math.round((info.end.getTime() - d.getTime()) / 60000)) }));
+    else setForm((f) => ({ ...f, date: ymd(d), time: hm(d), duration: f.category === 'trial' ? 30 : Math.max(5, Math.round((info.end.getTime() - d.getTime()) / 60000)) })); // a trial class is always 30 minutes
+    cal.current?.getApi().unselect(); // the placeholder is drawn from the form below, so changing the duration there moves it
   }
 
+  // The slot being booked: drawn from the form, so it follows the date, start time and duration as they are changed.
+  useEffect(() => {
+    const api = cal.current?.getApi();
+    if (!api) return;
+    api.getEventById('new-lesson')?.remove();
+    const start = form.date && form.time ? new Date(`${form.date}T${form.time}`) : null;
+    if (creating && start && !Number.isNaN(start.getTime())) {
+      api.addEvent({ id: 'new-lesson', start, end: new Date(start.getTime() + form.duration * 60_000), classNames: ['pending-slot'], editable: true, durationEditable: form.category !== 'trial' }); // drag to another time, resize to change the length (a trial stays 30 minutes)
+    }
+  }, [creating, form.date, form.time, form.duration, form.category]);
+
   async function move(info: EventDropArg | EventResizeDoneArg) {
+    if (info.event.id === 'new-lesson') { // the slot being booked: the form follows it
+      const s = info.event.start!;
+      const e = info.event.end;
+      setForm((f) => ({ ...f, date: ymd(s), time: hm(s), duration: f.category === 'trial' || !e ? f.duration : Math.max(5, Math.round((e.getTime() - s.getTime()) / 60000)) }));
+      return;
+    }
     const ev = info.event.extendedProps.ev as CalendarEvent;
     const start = info.event.start!;
     const end = info.event.end ?? new Date(start.getTime() + minutesBetween(ev.start, ev.end) * 60000);
@@ -178,7 +247,7 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
         body: JSON.stringify({
           title: form.title.trim(),
           start: new Date(`${form.date}T${form.time}`).toISOString(),
-          durationMinutes: form.duration,
+          durationMinutes: form.category === 'trial' ? 30 : form.duration,
           participants: participantsOut(form.students),
           meet: form.meet,
           category: form.category,
@@ -299,6 +368,7 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
         canShade={!admin || Boolean(form.teacher)}
         onShowFree={(v) => { setShowFree(v); setTimeout(refetch, 0); }}
         onQuickAdd={openCreate}
+        extra={admin ? <AdminViewing teachers={teachers} value={viewing} onApply={setViewing} /> : undefined}
       />
       <div className="work">
         <section className="gridwrap">
@@ -325,10 +395,10 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
                 dayHeaderContent={dayHeader}
                 eventContent={eventContent}
                 eventClassNames={(a) => (a.event.extendedProps.ev ? [`cat-${(a.event.extendedProps.ev as CalendarEvent).category}`] : [])}
-                events={eventSource}
+                eventSources={sources}
                 datesSet={onDates}
                 select={onSelect}
-                eventClick={(a: EventClickArg) => { open(a.event.extendedProps.ev as CalendarEvent); }}
+                eventClick={(a: EventClickArg) => { const ev = a.event.extendedProps.ev as CalendarEvent | undefined; if (ev) open(ev); }}
                 eventDrop={move}
                 eventResize={move}
               />
@@ -336,6 +406,20 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
           </div>
         </section>
         <div className="side">
+          <FreeClassRequests
+            requests={requests}
+            canConfirm={!admin}
+            onConfirmed={refetch}
+            onChangeTime={(student, start) => {
+              openCreate();
+              if (start) { // show the requested slot, an hour of context above it
+                const api = cal.current?.getApi();
+                api?.gotoDate(start);
+                api?.scrollToTime(`${String(Math.max(start.getHours() - 1, 0)).padStart(2, '0')}:00:00`);
+              }
+              setForm((f) => ({ ...f, title: 'Free trial class', category: 'trial', duration: 30, students: [student], ...(start ? { date: ymd(start), time: hm(start) } : {}) }));
+            }}
+          />
           {panel === 'details' && picked ? (
             <DetailsDrawer
               key={picked.id}

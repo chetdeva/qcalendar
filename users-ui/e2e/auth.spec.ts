@@ -8,6 +8,7 @@ const signupAs = async (page: import('@playwright/test').Page, email: string, pa
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByLabel('Confirm password').fill(password);
+  await page.getByLabel("Student's grade").selectOption('5');
   await page.getByRole('button', { name: 'Create account' }).click();
 };
 

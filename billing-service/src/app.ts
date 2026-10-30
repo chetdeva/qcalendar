@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { isManager, type Actor, type Authenticator } from './auth.ts';
+import { adjustCredits, history, payoutSummary, recordEarning, setRate, settle } from './admin.ts';
 import { balance, release, reserve } from './credits.ts';
 import type { Db } from './db.ts';
 import { HttpError } from './errors.ts';
@@ -37,6 +38,14 @@ const uuid = z.uuid();
 const ReserveBody = z.object({ userId: uuid, ref: z.string().min(1).max(200), endsAt: z.string().datetime({ offset: true }).optional() }).strict();
 const GradeBody = z.object({ userId: uuid, grade: z.number().int().min(1).max(10) }).strict();
 const BalancesBody = z.object({ userIds: z.array(uuid).min(1).max(100) }).strict();
+const AdjustBody = z.object({
+  userId: uuid, kind: z.enum(['student', 'teacher']), delta: z.number().int().min(-1000).max(1000).refine((n) => n !== 0, 'delta cannot be zero'),
+  reason: z.string().trim().min(3).max(200), requestId: uuid, days: z.number().int().min(1).max(365).optional(),
+}).strict();
+const LedgerQuery = z.object({ kind: z.enum(['student', 'teacher']), limit: z.coerce.number().int().min(1).max(100).default(25), offset: z.coerce.number().int().min(0).default(0) });
+const RateBody = z.object({ rateCents: z.number().int().min(0).max(100_000_000), currency: z.string().length(3) }).strict();
+const SettleBody = z.object({ reference: z.string().trim().min(1).max(200), notes: z.string().trim().max(500).optional() }).strict();
+const EarningBody = z.object({ teacherId: uuid, ref: z.string().min(1).max(200), earnedAt: z.string().datetime({ offset: true }) }).strict();
 const CheckoutBody = z.object({ interval: z.enum(['month', 'year']) }).strict();
 
 export function createApp(d: AppDeps): Hono<Env> {
@@ -76,14 +85,47 @@ export function createApp(d: AppDeps): Hono<Env> {
   };
 
   // --- the admin portal ------------------------------------------------------------------------------------------
-  // Spendable credits for a page of people at once (the Students tab).
+  // For a page of people at once: a student's spendable credits, a teacher's unsettled credits and when they were last paid.
   app.post('/v1/admin/balances', async (c) => {
     manager(c);
     const b = parse(BalancesBody, await c.req.json().catch(() => null));
     const now = new Date();
-    const balances: Record<string, { remaining: number; expiresAt: Date | null }> = {};
-    for (const id of b.userIds) balances[id] = await balance(d.db, id, now);
+    const owed = await d.db.query<{ teacher_id: string; n: number }>('select teacher_id, sum(credits)::int as n from billing.teacher_earnings where teacher_id = any($1::uuid[]) and payout_id is null group by teacher_id', [b.userIds]);
+    const paid = await d.db.query<{ teacher_id: string; at: Date }>('select teacher_id, max(paid_at) as at from billing.payouts where teacher_id = any($1::uuid[]) group by teacher_id', [b.userIds]);
+    const balances: Record<string, { remaining: number; expiresAt: Date | null; unsettled: number; lastPayoutAt: Date | null }> = {};
+    for (const id of b.userIds) {
+      const bal = await balance(d.db, id, now);
+      balances[id] = { ...bal, unsettled: owed.find((r) => r.teacher_id === id)?.n ?? 0, lastPayoutAt: paid.find((r) => r.teacher_id === id)?.at ?? null };
+    }
     return c.json({ balances });
+  });
+
+  // Credits by hand, with a mandatory reason; the history of a person's credits; teacher rates and payouts.
+  app.post('/v1/admin/credits/adjust', async (c) => {
+    manager(c);
+    const b = parse(AdjustBody, await c.req.json().catch(() => null));
+    const a = c.get('actor');
+    return c.json(await adjustCredits(d.db, { ...b, actorEmail: a.kind === 'user' ? a.email : 'service' }));
+  });
+  app.get('/v1/admin/credits/:id/ledger', async (c) => {
+    manager(c);
+    const q = parse(LedgerQuery, c.req.query());
+    return c.json({ entries: await history(d.db, parse(uuid, c.req.param('id')), q.kind, q.limit, q.offset) });
+  });
+  app.get('/v1/admin/teachers/:id/payout', async (c) => { manager(c); return c.json(await payoutSummary(d.db, parse(uuid, c.req.param('id')))); });
+  app.put('/v1/admin/teachers/:id/rate', async (c) => {
+    manager(c);
+    const b = parse(RateBody, await c.req.json().catch(() => null));
+    const a = c.get('actor');
+    const id = parse(uuid, c.req.param('id'));
+    await setRate(d.db, id, { ...b, by: a.kind === 'user' ? a.email : undefined });
+    return c.json(await payoutSummary(d.db, id));
+  });
+  app.post('/v1/admin/teachers/:id/payouts', async (c) => {
+    manager(c);
+    const b = parse(SettleBody, await c.req.json().catch(() => null));
+    const a = c.get('actor');
+    return c.json(await settle(d.db, parse(uuid, c.req.param('id')), { ...b, by: a.kind === 'user' ? a.email : undefined }), 201);
   });
 
   // --- called by calendar-service and users-service -------------------------------------------------------------
@@ -92,6 +134,11 @@ export function createApp(d: AppDeps): Hono<Env> {
     const b = parse(ReserveBody, await c.req.json().catch(() => null));
     const r = await reserve(d.db, b.userId, b.ref, new Date(), b.endsAt ? new Date(b.endsAt) : undefined);
     return r.ok ? c.json(r) : c.json({ error: { code: r.code, message: 'This student cannot book another lesson right now' } }, 402);
+  });
+  app.post('/v1/service/earnings', async (c) => {
+    service(c);
+    const b = parse(EarningBody, await c.req.json().catch(() => null));
+    return c.json({ recorded: await recordEarning(d.db, { teacherId: b.teacherId, ref: b.ref, earnedAt: new Date(b.earnedAt) }) });
   });
   app.post('/v1/service/credits/release', async (c) => {
     service(c);

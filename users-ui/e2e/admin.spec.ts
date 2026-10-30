@@ -49,8 +49,7 @@ test.describe('who can see the admin page', () => {
 
   test('an admin sees the Users page', async ({ page }) => {
     await logInAs(page, ADMIN);
-    await page.locator('.qh-me summary').click();
-    await page.getByRole('link', { name: 'Admin', exact: true }).click();
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Dashboard' }).click();
     await page.getByRole('link', { name: 'Users & invitations' }).click();
     await expect(page.getByRole('heading', { name: 'All users' })).toBeVisible();
     await expect(row(page, ADMIN.email)).toContainText('admin (you)');
@@ -195,8 +194,7 @@ test.describe('invitations', () => {
     await page.getByLabel('Confirm password').fill('welcome-pass-1');
     await page.getByRole('button', { name: 'Set password and continue' }).click();
     await expect(page.locator('.qh-role')).toHaveText('Admin');
-    await page.locator('.qh-me summary').click();
-    await page.getByRole('link', { name: 'Admin', exact: true }).click();
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Dashboard' }).click();
     await page.getByRole('link', { name: 'Users & invitations' }).click();
     await expect(page.getByRole('heading', { name: 'All users' })).toBeVisible();
   });

@@ -31,6 +31,14 @@ test.describe('admin sign-in page', () => {
     await signInAt(page, '/login/admin', ADMIN);
     await expect(page).toHaveURL(/\/admin\/teachers/);
     await expect(page.getByRole('heading', { name: 'Teachers', exact: true })).toBeVisible();
+    // the admin portal is the admin's dashboard: the Dashboard tab is highlighted on every admin page and leads here
+    const tab = page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Dashboard' });
+    await expect(tab).toHaveAttribute('aria-current', 'page');
+    await expect(tab).toHaveAttribute('href', /\/admin\/teachers$/);
+    await page.getByRole('link', { name: 'Users & invitations' }).click();
+    await expect(tab).toHaveAttribute('aria-current', 'page');
+    await page.goto('/profile');
+    await expect(tab).not.toHaveAttribute('aria-current', 'page'); // Account pages are not the dashboard
   });
 
   test('a teacher is turned away and signed out', async ({ page, request }) => {

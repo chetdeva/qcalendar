@@ -1,3 +1,4 @@
+import { headers } from 'next/headers';
 import Link from 'next/link';
 import { AppHeader } from '@components/app-header';
 import { SiteFooter } from '@components/site-footer';
@@ -17,9 +18,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     );
   }
   const { me } = result;
+  const onAdmin = me.role === 'admin' && (await headers()).get('x-pathname')?.startsWith('/admin');
   return (
     <div className="app-shell">
-      <AppHeader current="account" name={me.full_name || me.email} role={me.role} avatar={me.avatar_updated_at} menu={me.role === 'admin' ? <Link href="/admin">Admin</Link> : undefined} />
+      <AppHeader current={onAdmin ? 'dashboard' : 'account'} name={me.full_name || me.email} role={me.role} avatar={me.avatar_updated_at} />
       <div className="app-body">{children}</div>
       <SiteFooter />
     </div>

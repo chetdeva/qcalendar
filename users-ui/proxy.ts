@@ -10,6 +10,7 @@ const startsWith = (path: string, prefixes: string[]) => prefixes.some((p) => pa
 
 /** Refreshes the session cookie on every request and sends signed-out visitors to /login. */
 export async function proxy(request: NextRequest) {
+  request.headers.set('x-pathname', request.nextUrl.pathname); // for the layout: which header tab is this page under?
   let response = NextResponse.next({ request });
   const supabase = createServerClient(supabaseUrl, supabaseKey, {
     cookieOptions: cookieOptions(),

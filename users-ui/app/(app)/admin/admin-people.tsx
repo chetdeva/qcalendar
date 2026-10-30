@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { calendarUrl } from '@/lib/env';
 
 interface Person {
   id: string; email: string; full_name: string | null; role: 'student' | 'teacher' | 'admin'; status: 'active' | 'disabled';
@@ -9,6 +10,8 @@ interface Person {
 }
 interface Basic { id: string; email: string; full_name: string | null }
 const PAGE = 25;
+/** The calendar app, filtered to this person (an admin sees every class there). */
+const calendarLink = (p: Person) => `${calendarUrl}/?${p.role === 'teacher' ? `teacher=${p.id}` : `student=${encodeURIComponent(p.email)}${p.full_name ? `&name=${encodeURIComponent(p.full_name)}` : ''}`}`;
 const nameOf = (p: { full_name: string | null; email: string }) => p.full_name || p.email;
 async function assign(studentId: string, teacherId: string | null, note: string) {
   const res = await fetch(`/api/admin/students/${studentId}/teacher`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ teacherId, note }) });
@@ -101,6 +104,7 @@ export function AdminPeople({ role }: { role: 'teacher' | 'student' }) {
                 <td>{p.classes ? <>{p.classes.upcoming}{when(p.classes.nextAt) && <span className="muted small"> (next {when(p.classes.nextAt)})</span>}</> : dash}</td>
                 <td>
                   <div className="actions">
+                    {calendarUrl && <a className="btn btn-sm" href={calendarLink(p)} aria-label={`View calendar of ${p.email}`}>View calendar</a>}
                     {p.status === 'active' && (
                       <button type="button" className="btn btn-sm" aria-label={`${teacher ? 'Assign students to' : p.classes?.teacher ? 'Change teacher for' : 'Assign a teacher to'} ${p.email}`} onClick={() => setPanel(p)}>
                         {teacher ? 'Assign students' : p.classes?.teacher ? 'Change teacher' : 'Assign teacher'}

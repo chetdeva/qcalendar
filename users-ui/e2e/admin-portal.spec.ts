@@ -64,6 +64,7 @@ test.describe('teachers and students tabs', () => {
     await signInAt(page, '/login/admin', ADMIN);
     const tess = rowOf(page, 'Teachers', 'tess@example.test');
     await expect(tess).toContainText('Tess Teacher');
+    await expect(tess.getByRole('link', { name: 'View calendar of tess@example.test' })).toHaveAttribute('href', /\/\?teacher=[0-9a-f-]{36}$/);
     await expect(tess.locator('td').nth(3)).toHaveText('2'); // active students
     await expect(tess.locator('td').nth(4)).toContainText('1'); // upcoming classes
     await expect(rowOf(page, 'Teachers', 'tom@example.test').locator('td').nth(3)).toHaveText('0');

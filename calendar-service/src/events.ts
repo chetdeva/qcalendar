@@ -1,5 +1,5 @@
 import type { Actor } from './auth.ts';
-import { computeSlots, defaultSettings, type Settings } from './availability.ts';
+import { computeSlots, defaultSettings, withinWorkingHours, type Settings } from './availability.ts';
 import type { Db, Queryable } from './db.ts';
 import { HttpError } from './errors.ts';
 import type { BillingClient } from './billing.ts';
@@ -266,7 +266,12 @@ export async function createEvent(ctx: Ctx, actor: Actor, input: CreateInput) {
   const { start, end } = resolveTimes(input.start, input.end, input.durationMinutes);
   const people = normalize(input.participants);
   const meetingUrl = input.meetingUrl ?? (input.meet ? await newMeetingUrl(ctx, { title: input.title, start, end }) : null); // before the transaction: no network call while the calendar is locked
-  const timezone = input.timezone ?? (await getSettings(ctx.db, ownerId, ctx.defaultTimezone)).timezone;
+  const settings = await getSettings(ctx.db, ownerId, ctx.defaultTimezone);
+  const timezone = input.timezone ?? settings.timezone;
+  // An admin scheduling for a teacher is warned about times outside that teacher's working hours (force overrides, as for clashes).
+  if (actor.kind === 'user' && actor.role === 'admin' && !input.force && (input.category ?? 'tutoring') !== 'personal' && !withinWorkingHours(settings, Date.parse(start), Date.parse(end))) {
+    throw new HttpError(409, 'outside_availability', 'That time is outside the teacher\'s working hours', { timezone: settings.timezone, workingHours: settings.workingHours });
+  }
 
   const paid: PRow[] = [];
   let created: EventRow | undefined;

@@ -79,3 +79,27 @@ test('assigning is for admins only, and validates the request', async () => {
   assert.equal((await admin.call('PUT', `/v1/admin/students/${s.id}/teacher`, { teacherId: null, student: who(s, 'Sam'), teacher: who(t, 'Tess') })).status, 400);
   assert.equal((await admin.call('PUT', `/v1/admin/students/not-a-uuid/teacher`, body)).status, 400);
 });
+
+test('an admin scheduling for a teacher is stopped outside that teacher\'s working hours unless they force it; teachers and personal events are not checked', async () => {
+  const [t, s, admin] = [await h.person('teacher'), await h.person('student'), await h.person('admin')];
+  const create = (as: typeof admin, over: Record<string, unknown>) =>
+    as.call('POST', '/v1/events', { title: 'Algebra', ownerId: t.id, ownerEmail: t.email, participants: [{ email: s.email, userId: s.id }], ...over });
+
+  assert.equal((await create(admin, slot(10))).status, 201); // Monday 10:00 UTC, inside the default 09:00-17:00
+  const late = await create(admin, slot(20));
+  assert.equal(late.status, 409);
+  const body = await json(late);
+  assert.equal(body.error.code, 'outside_availability');
+  assert.deepEqual(body.error.details.workingHours.mon, [['09:00', '17:00']]);
+  assert.equal((await create(admin, { ...slot(16, 90), title: 'Runs past 17:00' })).status, 409); // must fit entirely inside
+  assert.equal((await create(admin, { ...slot(20), force: true })).status, 201);
+  assert.equal((await create(admin, { ...slot(21), category: 'personal', participants: [] })).status, 201);
+  assert.equal((await create(admin, slot(10, 60, 12))).status, 409); // Saturday: no hours at all
+
+  assert.equal((await t.call('POST', '/v1/events', { title: 'Own late class', ...slot(22), participants: [] })).status, 201); // a teacher books their own time as they like
+
+  // the teacher's own hours and zone decide: 08:00-12:00 in New York is 13:00-17:00 UTC
+  assert.equal((await t.call('PUT', '/v1/settings', { timezone: 'America/New_York', workingHours: { mon: [['08:00', '12:00']], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] } })).status, 200);
+  assert.equal((await create(admin, { ...slot(14), participants: [] })).status, 201);
+  assert.equal((await create(admin, { ...slot(18), participants: [] })).status, 409);
+});

@@ -68,7 +68,9 @@ const RespondBody = z.object({ response: z.enum(['accepted', 'declined']), note:
 const ChangeBody = z.object({ start: iso, note: note.optional() }).strict();
 
 const ListQuery = z.object({
-  from: iso.optional(), to: iso.optional(), ownerId: uuid.optional(), participant: email.optional(),
+  from: iso.optional(), to: iso.optional(), ownerId: uuid.optional(),
+  // One email, or several separated by commas (the admin's filter by students): classes any of them is in.
+  participant: z.string().max(3000).transform((v) => v.split(',').map((e) => e.trim()).filter(Boolean)).pipe(z.array(email).min(1).max(20)).optional(),
   externalRef: z.string().max(200).optional(), includeCancelled: z.enum(['true', 'false']).optional(),
 });
 const AvailabilityQuery = z.object({ teacherId: uuid.optional(), from: iso, to: iso, duration: z.coerce.number().int().min(5).max(480).default(60) });

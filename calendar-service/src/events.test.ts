@@ -220,6 +220,10 @@ test('listing filters: time window, externalRef, includeCancelled, and staff fil
   assert.deepEqual(await names(t, '?externalRef=session-1'), ['Mon']);
   assert.deepEqual(await names(admin, `?ownerId=${o.id}`), ['Other']);
   assert.deepEqual(await names(admin, `?participant=${s.email}`), ['Mon']);
+  const s2 = await h.person('student');
+  await mk(o, [s2], { title: 'Other2', ...slot(12, 60, 7) });
+  assert.deepEqual(await names(admin, `?participant=${s.email},${s2.email.toUpperCase()}`), ['Mon', 'Other2'], 'several students at once, any case');
+  assert.equal((await admin.call('GET', '/v1/events?participant=nope')).status, 400);
   assert.deepEqual(await names(t, `?ownerId=${o.id}`), ['Mon', 'Tue'], 'a teacher cannot widen their view with ownerId');
   await t.call('DELETE', `/v1/events/${mon.id}`);
   assert.deepEqual(await names(t), ['Tue']);

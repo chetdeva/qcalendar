@@ -299,7 +299,7 @@ export async function createEvent(ctx: Ctx, actor: Actor, input: CreateInput) {
   });
 }
 
-export interface ListFilters { from?: string; to?: string; ownerId?: string; participant?: string; externalRef?: string; includeCancelled?: boolean }
+export interface ListFilters { from?: string; to?: string; ownerId?: string; participant?: string[]; externalRef?: string; includeCancelled?: boolean }
 
 export async function listEvents(ctx: Ctx, actor: Actor, f: ListFilters) {
   await linkAccount(ctx.db, actor);
@@ -312,7 +312,7 @@ export async function listEvents(ctx: Ctx, actor: Actor, f: ListFilters) {
     where.push(actor.role === 'teacher' ? `(e.owner_id = ${uid} or ${mine})` : mine);
   } else {
     if (f.ownerId) where.push(`e.owner_id = ${arg(f.ownerId)}`);
-    if (f.participant) where.push(`exists (select 1 from calendar.event_participants p where p.event_id = e.id and lower(p.email) = ${arg(f.participant.toLowerCase())})`);
+    if (f.participant) where.push(`exists (select 1 from calendar.event_participants p where p.event_id = e.id and lower(p.email) = any(${arg(f.participant.map((e) => e.toLowerCase()))}::text[]))`);
   }
   if (f.from) where.push(`e.end_at > ${arg(f.from)}::timestamptz`);
   if (f.to) where.push(`e.start_at < ${arg(f.to)}::timestamptz`);

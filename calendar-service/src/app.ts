@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import type { Actor, Authenticator } from './auth.ts';
 import { isValidTz } from './availability.ts';
+import { adminSummary } from './admin.ts';
 import { HttpError } from './errors.ts';
 import * as svc from './events.ts';
 import * as trials from './trial-requests.ts';
@@ -128,6 +129,12 @@ export function createApp(deps: { ctx: svc.Ctx; authenticator: Authenticator }) 
   app.get('/v1/trial-requests/mine', async (c) => c.json({ request: await trials.myRequest(ctx, c.get('actor')) }));
   app.delete('/v1/trial-requests/mine', async (c) => { await trials.cancelMyRequest(ctx, c.get('actor')); return c.body(null, 204); });
   app.get('/v1/trial-requests', async (c) => c.json({ requests: await trials.openRequests(ctx, c.get('actor')) }));
+
+  // The admin portal's tables: classes and students per person, for a page of people at once.
+  app.post('/v1/admin/summary', async (c) => {
+    const b = parse(z.object({ userIds: z.array(uuid).min(1).max(100), role: z.enum(['teacher', 'student']) }).strict(), await body(c));
+    return c.json({ summary: await adminSummary(ctx, c.get('actor'), b) });
+  });
 
   // Who the caller shares a class with. chat-service uses it as its "may these two talk" rule.
   app.get('/v1/contacts', async (c) => c.json({ contacts: (await svc.contactIds(ctx, c.get('actor'))).map((id) => ({ id })) }));

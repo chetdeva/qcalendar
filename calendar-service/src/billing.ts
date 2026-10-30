@@ -9,6 +9,8 @@ export interface BillingClient {
   reserve(userId: string, ref: string, endsAt?: string): Promise<Reservation>;
   /** Idempotent. */
   release(userId: string, ref: string): Promise<void>;
+  /** One credit earned by a teacher for a student's seat in a class they taught. Idempotent. */
+  earn(teacherId: string, ref: string, earnedAt: string): Promise<void>;
 }
 
 export function createBillingClient(opts: { url: string; key: string }): BillingClient {
@@ -35,8 +37,12 @@ export function createBillingClient(opts: { url: string; key: string }): Billing
       const r = await call('/v1/service/credits/release', { userId, ref });
       if (!r.ok) throw new Error(`billing answered ${r.status}`);
     },
+    async earn(teacherId, ref, earnedAt) {
+      const r = await call('/v1/service/earnings', { teacherId, ref, earnedAt });
+      if (!r.ok) throw new Error(`billing answered ${r.status}`);
+    },
   };
 }
 
 /** For tests and for running without billing: every lesson is free and nothing is recorded. */
-export const noBilling: BillingClient = { reserve: async () => ({ ok: true }), release: async () => {} };
+export const noBilling: BillingClient = { reserve: async () => ({ ok: true }), release: async () => {}, earn: async () => {} };

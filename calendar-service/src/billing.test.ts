@@ -11,6 +11,7 @@ function fakeBilling() {
   const seats = new Set<string>();
   const state = { down: false };
   const client: BillingClient = {
+    async earn() {},
     async reserve(userId, ref) {
       if (state.down) throw new HttpError(503, 'billing_unavailable', 'down');
       if (seats.has(ref)) return { ok: true };
@@ -219,7 +220,7 @@ test('the lesson end time travels with the reservation, so billing knows when th
   const t = await h.person('teacher');
   const s = await h.person('student');
   const ends: (string | undefined)[] = [];
-  const spy = createHarness({ billing: { reserve: async (_u, _r, endsAt) => { ends.push(endsAt); return { ok: true }; }, release: async () => {} } });
+  const spy = createHarness({ billing: { reserve: async (_u, _r, endsAt) => { ends.push(endsAt); return { ok: true }; }, release: async () => {}, earn: async () => {} } });
   const h2 = await spy;
   const t2 = await h2.person('teacher');
   await t2.call('POST', '/v1/events', { title: 'Algebra', ...slot(10), participants: [{ email: s.email, userId: s.id, name: 'Sam' }] });

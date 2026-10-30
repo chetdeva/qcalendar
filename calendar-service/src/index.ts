@@ -5,6 +5,7 @@ import { createBillingClient } from './billing.ts';
 import { createPgDb, createPgliteDb, migrate, type SslMode } from './db.ts';
 import { HttpError } from './errors.ts';
 import { ConsoleMailer, createSmtpMailer } from './mail.ts';
+import { recordEarnings } from './earnings.ts';
 import { createMeetingProvider } from './meeting.ts';
 import { processOutbox } from './outbox.ts';
 import { processWebhooks } from './webhooks.ts';
@@ -53,6 +54,7 @@ const mailer = env.SMTP_URL ? createSmtpMailer(env.SMTP_URL, mailFrom) : new Con
 
 const tick = (name: string, fn: () => Promise<unknown>) => () => void fn().catch((e) => console.error(`${name} failed:`, e.message));
 setInterval(tick('email outbox', () => processOutbox(db, mailer, { fromEmail, calendarUrl: env.CALENDAR_URL })), 15_000);
+if (ctx.billing) setInterval(tick('teacher earnings', () => recordEarnings(ctx)), 10 * 60_000);
 if (webhookUrl) setInterval(tick('webhooks', () => processWebhooks(db, { url: webhookUrl, secret: env.WEBHOOK_SECRET ?? apiKey })), 10_000);
 
 serve({ fetch: app.fetch, port: Number(env.PORT ?? 3000) }, (i) => console.log(`calendar-service on :${i.port}`));

@@ -103,3 +103,39 @@ test('an admin scheduling for a teacher is stopped outside that teacher\'s worki
   assert.equal((await create(admin, { ...slot(14), participants: [] })).status, 201);
   assert.equal((await create(admin, { ...slot(18), participants: [] })).status, 409);
 });
+
+test('teacher earnings: ended tutoring and trial seats are reported once each; declined seats, upcoming and personal classes are not', async () => {
+  const { recordEarnings } = await import('./earnings.ts');
+  const reported: string[] = [];
+  const billing = { reserve: async () => ({ ok: true as const }), release: async () => {}, earn: async (teacher: string, ref: string) => { reported.push(`${teacher}|${ref}`); } };
+  const keep = h.ctx.billing;
+  h.ctx.billing = billing;
+  try {
+    const [t, a, b, c] = [await h.person('teacher'), await h.person('student'), await h.person('student'), await h.person('student')];
+    const book = async (title: string, hour: number, students: (typeof a)[], category = 'tutoring') => {
+      const r = await json(await t.call('POST', '/v1/events', { title, ...slot(hour), category, participants: students.map((s) => ({ email: s.email, userId: s.id })) }));
+      return r.id as string;
+    };
+    const group = await book('Group', 9, [a, b]);
+    const trial = await book('Trial', 11, [c], 'trial');
+    const upcoming = await book('Later', 13, [a]);
+    const personal = await book('Personal', 14, [], 'personal');
+    await b.call('POST', `/v1/events/${group}/respond`, { response: 'declined' });
+    // the first three and the personal one have ended; the one at 13:00 has not
+    await h.db.query(`update calendar.events set end_at = now() - interval '1 hour', start_at = now() - interval '2 hours' where id = any($1::uuid[])`, [[group, trial, personal]]);
+
+    assert.equal(await recordEarnings(h.ctx), 2); // a (group) and c (trial); b declined
+    assert.deepEqual(reported.sort(), [`${t.id}|${group}:${a.id}`, `${t.id}|${trial}:${c.id}`].sort());
+    assert.equal(await recordEarnings(h.ctx), 0); // nothing is reported twice
+    assert.equal(reported.length, 2);
+
+    await h.db.query(`update calendar.events set end_at = now() - interval '1 minute', start_at = now() - interval '1 hour' where id = $1`, [upcoming]);
+    assert.equal(await recordEarnings(h.ctx), 1); // it ended since: now it counts
+    h.ctx.billing = { ...billing, earn: async () => { throw new Error('billing down'); } };
+    await book('Another', 15, [a]);
+    await h.db.query(`update calendar.events set end_at = now() - interval '1 minute', start_at = now() - interval '1 hour' where title = 'Another'`);
+    await assert.rejects(recordEarnings(h.ctx), /billing down/); // left for the next run
+    h.ctx.billing = billing;
+    assert.equal(await recordEarnings(h.ctx), 1);
+  } finally { h.ctx.billing = keep; }
+});

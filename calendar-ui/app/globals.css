@@ -278,3 +278,11 @@ button:disabled { cursor: default; }
 .fc .fc-event.pending-slot { background: rgba(0, 97, 148, .18); border: 2px dashed #006194; border-radius: 6px; box-sizing: border-box; cursor: grab; }
 /* Over a trial request's own dashed slot (Change time starts on top of it), so the placeholder is the one that gets grabbed. */
 .fc .fc-timegrid-event-harness:has(.pending-slot) { z-index: 9 !important; } /* FullCalendar sets z-index inline */
+.viewing { display: flex; align-items: center; gap: 8px; padding: 8px 12px 0; font-size: 13px; flex-wrap: wrap; }
+.viewing label { font-weight: 600; color: var(--on-surface-variant, #404751); }
+.viewing select, .viewing input { border: 1px solid #c0c7d2; border-radius: 8px; padding: 4px 8px; font: inherit; background: #fff; }
+.viewing-chip { display: inline-flex; align-items: center; gap: 6px; background: #eff4ff; border-radius: 9999px; padding: 2px 10px; font-weight: 600; color: #006194; }
+.viewing-search { position: relative; }
+.viewing-results { position: absolute; z-index: 20; top: 100%; left: 0; min-width: 260px; margin: 4px 0 0; padding: 4px; list-style: none; background: #fff; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.15); }
+.viewing-results button { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 6px 8px; font: inherit; cursor: pointer; border-radius: 6px; }
+.viewing-results button:hover { background: #eff4ff; }

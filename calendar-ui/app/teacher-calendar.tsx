@@ -12,6 +12,7 @@ import { answerSummary, capacityHours, hm, hoursByCategory, mergeSlots, minutesB
 import { api, ApiError } from './api-client';
 import { TopBar } from './components/top-bar';
 import { CalendarToolbar, type ViewType } from './components/calendar-toolbar';
+import { AdminViewing, type Viewing } from './components/admin-viewing';
 import { ChangeRequestBox } from './components/change-request-box';
 import { ClassesPanel, fetchUpcoming, upcomingOf } from './components/classes-panel';
 import { conflictMessage, CreateDrawer, DetailsDrawer, type Conflict, type LessonForm } from './components/lesson-drawer';
@@ -27,6 +28,7 @@ const blankForm = (): LessonForm => ({ title: '', date: ymd(new Date()), time: '
 
 const toConflict = (e: ApiError): Conflict | null =>
   e.code === 'conflict' ? { kind: 'owner', people: [] }
+  : e.code === 'outside_availability' ? { kind: 'hours', people: [] }
   : e.code === 'participant_conflict' ? { kind: 'students', people: Array.isArray(e.details) ? (e.details as string[]) : [] }
   : null;
 
@@ -54,6 +56,7 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
   const [busy, setBusy] = useState(false);
   const [showFree, setShowFree] = useState(true);
   const [tz, setTz] = useState('');
+  const [viewing, setViewing] = useState<Viewing>({ kind: 'all' }); // admins: whose classes the calendar shows
 
   const loadList = useCallback(() => {
     fetchUpcoming().then(setClasses, (e) => { setError((e as Error).message); setClasses([]); });
@@ -67,6 +70,36 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
     loadList();
   }, [admin, loadList]);
 
+  // Opened from the admin portal ("View calendar"): ?teacher=<id> or ?student=<email>.
+  const fromLink = useRef(false);
+  useEffect(() => {
+    if (!admin || fromLink.current) return;
+    const sp = new URLSearchParams(window.location.search);
+    const email = sp.get('student');
+    if (email) { fromLink.current = true; setViewing({ kind: 'student', student: { email, name: sp.get('name') } }); return; }
+    const id = sp.get('teacher');
+    const t = id && teachers.find((x) => x.id === id);
+    if (t) { fromLink.current = true; setViewing({ kind: 'teacher', teacher: t }); }
+  }, [admin, teachers]);
+
+  // Changing who is being viewed reloads the calendar; looking at a teacher also makes them the teacher for new classes.
+  useEffect(() => {
+    if (!admin) return;
+    if (viewing.kind === 'teacher') setForm((f) => ({ ...f, teacher: viewing.teacher }));
+    setTimeout(refetch, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [admin, viewing]);
+
+  // Scheduling for a student who has an assigned teacher: start from that teacher (the admin can still change it).
+  const firstStudentId = form.students[0]?.userId;
+  useEffect(() => {
+    if (!admin || form.teacher || !firstStudentId) return;
+    void api<{ teacherId: string | null }>(`/api/students/${firstStudentId}/teacher`).then((r) => {
+      const t = teachers.find((x) => x.id === r.teacherId);
+      if (t) setForm((f) => (f.teacher ? f : { ...f, teacher: t }));
+    }, () => {});
+  }, [admin, form.teacher, firstStudentId, teachers]);
+
   // The loader reads these through refs so its identity never changes; a new function would make
   // FullCalendar treat it as a new event source and refetch on every keystroke or click.
   const showFreeRef = useRef(showFree);
@@ -76,12 +109,16 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
   durationRef.current = form.duration;
   teacherRef.current = form.teacher?.id;
 
+  const viewingRef = useRef(viewing);
+  viewingRef.current = viewing;
   const adminRef = useRef(admin);
   const meIdRef = useRef(me.id);
   const loadEvents = useCallback(async (info: { start: Date; end: Date }): Promise<EventInput[]> => {
     const qs = `from=${encodeURIComponent(info.start.toISOString())}&to=${encodeURIComponent(info.end.toISOString())}`;
+    const v = viewingRef.current;
+    const filter = v.kind === 'teacher' ? `&ownerId=${v.teacher.id}` : v.kind === 'student' && v.student.email ? `&participant=${encodeURIComponent(v.student.email)}` : '';
     try {
-      const { events: list } = await api<{ events: CalendarEvent[] }>(`/api/events?${qs}`);
+      const { events: list } = await api<{ events: CalendarEvent[] }>(`/api/events?${qs}${filter}`);
       setEvents(list);
       const mine = (e: CalendarEvent) => adminRef.current || e.ownerId === meIdRef.current;
       const items: EventInput[] = list.map((e) => ({ id: e.id, title: e.title, start: e.start, end: e.end, extendedProps: { ev: e }, editable: mine(e) }));
@@ -334,6 +371,7 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
       />
       <div className="work">
         <section className="gridwrap">
+          {admin && <AdminViewing teachers={teachers} value={viewing} onChange={setViewing} />}
           <CalendarToolbar title={title} view={view} tz={tz} onNav={nav} onView={(v) => cal.current?.getApi().changeView(v)} />
           <div className="fcbox">
             <div className="fchost">

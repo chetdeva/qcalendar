@@ -20,7 +20,7 @@ export interface LessonForm {
 }
 
 /** A 409 from the service: the teacher is busy, or some of the chosen students already are. */
-export type Conflict = { kind: 'owner' | 'students'; people: string[] };
+export type Conflict = { kind: 'owner' | 'students' | 'hours'; people: string[] };
 
 const DURATIONS = [30, 60, 75, 90];
 /** The free trial class is always this long. */
@@ -30,7 +30,9 @@ const iconFor = (c: EventCategory) => (c === 'tutoring' || c === 'trial' ? 'tuto
 export function conflictMessage(c: Conflict) {
   return c.kind === 'owner'
     ? 'That time overlaps another class on the calendar.'
-    : `Already in another class at this time: ${c.people.join(', ')}.`;
+    : c.kind === 'hours'
+      ? "That time is outside this teacher's working hours."
+      : `Already in another class at this time: ${c.people.join(', ')}.`;
 }
 
 interface CreateProps {

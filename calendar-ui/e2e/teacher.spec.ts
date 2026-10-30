@@ -473,6 +473,9 @@ test('a trial class offers only 30 minutes; other session types choose freely', 
   await expect(page.getByRole('group', { name: 'Duration' }).getByRole('button')).toHaveCount(4); // other types choose freely again
 });
 
+/** The week view's column next to a day (the one on its right, or on its left for Saturday, the last column). */
+const neighbour = (ymd: string) => { const d = new Date(`${ymd}T00:00:00Z`).getUTCDay(); return d === 6 ? 5 : d + 1; };
+
 test('the slot being booked is drawn on the calendar and follows the duration; a trial class is 30 minutes', async ({ context, request }) => {
   const teacher = await seed(request, 'teacher', 'Tess Teacher');
   const page = await openPage(context, request, teacher);
@@ -488,7 +491,7 @@ test('the slot being booked is drawn on the calendar and follows the duration; a
   await expect.poll(height).toBeCloseTo(half, 0); // back to 30 minutes
   const day = await field.date(page).inputValue();
   const before = await slot.boundingBox();
-  const col = (await page.locator('.fc-timegrid-col[data-date]').nth(5).boundingBox())!;
+  const col = (await page.locator('.fc-timegrid-col[data-date]').nth(neighbour(day)).boundingBox())!;
   await page.mouse.move(before!.x + before!.width / 2, before!.y + 10);
   await page.mouse.down();
   await page.mouse.move(col.x + col.width / 2, before!.y + 10 - 76, { steps: 10 }); // another day, an hour or so earlier
@@ -519,7 +522,7 @@ test('the slot being booked can be dragged to another time and day; the form fol
   await expect.poll(async () => mins(time) - mins(await field.start(page).inputValue())).toBeGreaterThanOrEqual(45);
   await expect.poll(async () => mins(time) - mins(await field.start(page).inputValue())).toBeLessThanOrEqual(75);
   await expect(field.date(page)).toHaveValue(date);
-  await drag(box.width + 4, 0); // the next day, same time
+  await drag(new Date(`${date}T00:00:00Z`).getUTCDay() === 6 ? -(box.width + 4) : box.width + 4, 0); // the next day over, same time
   await expect(field.date(page)).not.toHaveValue(date);
   await expect(slot).toHaveCount(1); // still one placeholder, now at the new place
 });
@@ -536,8 +539,9 @@ test('after Change time on a trial request, the slot can be dragged too (a trial
   const b = (await slot.boundingBox())!;
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
   await page.mouse.down();
-  await page.mouse.move(b.x + b.width / 2 + 60, b.y + b.height / 2 + 1, { steps: 5 });
-  await page.mouse.move(b.x + b.width + b.width / 2 - 20, b.y + b.height / 2 + 1, { steps: 5 });
+  const dx = new Date(`${date}T00:00:00Z`).getUTCDay() === 6 ? -1 : 1; // Saturday is the last column: go left
+  await page.mouse.move(b.x + b.width / 2 + dx * 60, b.y + b.height / 2 + 1, { steps: 5 });
+  await page.mouse.move(b.x + b.width / 2 + dx * (b.width + 4), b.y + b.height / 2 + 1, { steps: 5 });
   await page.mouse.up();
   await expect(field.date(page)).not.toHaveValue(date);
   await expect(field.duration(page, 30)).toHaveAttribute('aria-pressed', 'true');

@@ -27,7 +27,7 @@ test('creating on a teacher\'s behalf: a teacher must be chosen, and only teache
   await seed(request, 'admin', 'Other Admin');
   const page = await openPage(context, request, await seed(request, 'admin', 'Ada Admin'));
   await openForm(page);
-  await expect(page.locator('select option')).toHaveText(['Choose a teacher', 'Tess Teacher', 'Tom Teacher']);
+  await expect(teacherSelect(page).locator('option')).toHaveText(['Choose a teacher', 'Tess Teacher', 'Tom Teacher']);
 
   await page.getByRole('button', { name: 'Personal' }).click();
   await page.getByLabel('Event Title *').fill('Planning block');
@@ -100,4 +100,73 @@ test('free-time shading follows the teacher chosen in the form', async ({ contex
   await teacherSelect(page).selectOption({ label: 'Tess Teacher' });
   await expect(page.getByLabel('Shade free times for this duration')).toBeVisible();
   await expect(page.locator('.fc-bg-event.free').first()).toBeVisible();
+});
+
+test('an admin can look at one teacher\'s or one student\'s calendar, and open it from a link', async ({ context, request }) => {
+  const [t1, t2] = [await seed(request, 'teacher', 'Tess Teacher'), await seed(request, 'teacher', 'Tom Teacher')];
+  const sam = await seed(request, 'student', 'Sam Student');
+  await (await as(request, t1)).create({ title: 'Tess class', start: at(10), durationMinutes: 60 });
+  await (await as(request, t2)).create({ title: 'Tom class', start: at(12), durationMinutes: 60, participants: [{ email: sam.email, userId: sam.id }] });
+  const page = await openPage(context, request, await seed(request, 'admin', 'Ada Admin'));
+  const [tess, tom] = [page.locator('.fc-event', { hasText: 'Tess class' }), page.locator('.fc-event', { hasText: 'Tom class' })];
+  await expect(tess).toBeVisible();
+  await expect(tom).toBeVisible();
+
+  await page.getByLabel('Viewing').selectOption('teacher');
+  await page.getByLabel('Teacher', { exact: true }).selectOption({ label: 'Tess Teacher' });
+  await expect(tom).toHaveCount(0);
+  await expect(tess).toBeVisible();
+
+  await page.getByLabel('Viewing').selectOption('student');
+  await page.getByLabel('Find a student').fill('sam');
+  await page.getByRole('option', { name: /Sam Student/ }).click();
+  await expect(tess).toHaveCount(0);
+  await expect(tom).toBeVisible();
+
+  await page.getByLabel('Viewing').selectOption('all');
+  await expect(tess).toBeVisible();
+
+  await page.goto(`/?teacher=${t2.id}`); // the link from the admin portal
+  await expect(page.getByLabel('Teacher', { exact: true })).toHaveValue(t2.id);
+  await expect(tess).toHaveCount(0);
+  await expect(tom).toBeVisible();
+  await page.goto(`/?student=${encodeURIComponent(sam.email)}&name=Sam%20Student`);
+  await expect(page.locator('.viewing-chip')).toContainText('Sam Student');
+  await expect(tom).toBeVisible();
+  await expect(tess).toHaveCount(0);
+});
+
+test('scheduling for a teacher outside their working hours asks first; "Book anyway" goes ahead', async ({ context, request }) => {
+  await seed(request, 'teacher', 'Tess Teacher'); // default hours: 09:00 to 17:00 on weekdays
+  await seed(request, 'student', 'Sam Student');
+  const page = await openPage(context, request, await seed(request, 'admin', 'Ada Admin'));
+  await openForm(page);
+  await teacherSelect(page).selectOption({ label: 'Tess Teacher' });
+  await page.getByRole('button', { name: 'Tutoring' }).click();
+  await page.getByRole('combobox', { name: /Students/ }).fill('sam');
+  await page.getByRole('option', { name: /Sam Student/ }).click();
+  await page.getByLabel('Event Title *').fill('Late class');
+  await page.getByLabel('Date *').fill(todayUtc());
+  await page.getByLabel('Start Time *').fill('22:00');
+  await page.getByRole('button', { name: 'Create & Send Invites' }).click();
+  await expect(page.getByText("outside this teacher's working hours")).toBeVisible();
+  await expect(page.locator('.fc-event', { hasText: 'Late class' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Book anyway' }).click();
+  await expect(page.locator('.fc-event', { hasText: 'Late class' })).toBeVisible();
+});
+
+test('scheduling for a student starts from their assigned teacher', async ({ context, request }) => {
+  const [tess] = [await seed(request, 'teacher', 'Tess Teacher'), await seed(request, 'teacher', 'Tom Teacher')];
+  const sam = await seed(request, 'student', 'Sam Student');
+  const admin = await seed(request, 'admin', 'Ada Admin');
+  const put = await (await as(request, admin)).call('PUT', `/v1/admin/students/${sam.id}/teacher`, {
+    teacherId: tess.id, student: { email: sam.email, name: 'Sam Student' }, teacher: { email: tess.email, name: 'Tess Teacher' },
+  });
+  expect(put.status).toBe(200);
+  const page = await openPage(context, request, admin);
+  await openForm(page);
+  await expect(teacherSelect(page)).toHaveValue('');
+  await page.getByRole('combobox', { name: /Students/ }).fill('sam');
+  await page.getByRole('option', { name: /Sam Student/ }).click();
+  await expect(teacherSelect(page)).toHaveValue(tess.id);
 });

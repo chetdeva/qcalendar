@@ -41,6 +41,7 @@ services:
       SMTP_URL: ${SMTP_URL:-} # empty = invitation emails are only logged
       MAIL_FROM: ${MAIL_FROM:-SyncSchedule <no-reply@localhost>}
       CALENDAR_URL: http://localhost:3002
+      LEADS_TO: ${LEADS_TO:-} # who gets the website's free-class requests; empty = the default in leads.ts
       BILLING_URL: ${BILLING_SERVICE_KEY:+http://billing-service:3012} # empty = billing is off and every lesson is free
       BILLING_SERVICE_KEY: ${BILLING_SERVICE_KEY:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-} # all three set = classes get Google Meet links, else Jitsi

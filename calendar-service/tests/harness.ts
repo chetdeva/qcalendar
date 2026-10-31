@@ -10,6 +10,7 @@ import { processOutbox } from '../src/outbox.ts';
 
 export const ISS = 'https://project.supabase.co/auth/v1';
 export const API_KEY = 'k'.repeat(32);
+export const LEADS_KEY = 'w'.repeat(32);
 const { publicKey, privateKey } = await generateKeyPair('ES256');
 export const foreignKey = (await generateKeyPair('ES256')).privateKey;
 
@@ -26,7 +27,7 @@ export interface Person { id: string; email: string; token: string; call: Call }
 export async function createHarness(opts: { webhooks?: boolean; billing?: BillingClient } = {}) {
   const db = createPgliteDb();
   await migrate(db);
-  const ctx: Ctx = { db, defaultTimezone: 'UTC', webhooks: opts.webhooks ?? false, meetingBaseUrl: 'https://meet.example.test', billing: opts.billing };
+  const ctx: Ctx = { db, leadsKey: LEADS_KEY, defaultTimezone: 'UTC', webhooks: opts.webhooks ?? false, meetingBaseUrl: 'https://meet.example.test', billing: opts.billing };
   const app = createApp({ ctx, authenticator: createAuthenticator({ apiKey: API_KEY, getKey: async () => publicKey, issuer: ISS }) });
   const mailer = new MemoryMailer();
 
@@ -43,6 +44,8 @@ export async function createHarness(opts: { webhooks?: boolean; billing?: Billin
   return {
     app, db, ctx, mailer, person,
     service: caller(API_KEY),
+    /** The website's narrow key, as its server sends it. */
+    website: caller(LEADS_KEY),
     withToken: caller,
     outbox: () => processOutbox(db, mailer, { fromEmail: 'no-reply@example.test', calendarUrl: 'https://calendar.example.test' }),
     async reset() {

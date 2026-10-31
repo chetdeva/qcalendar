@@ -42,6 +42,7 @@ services:
       MAIL_FROM: ${MAIL_FROM:-SyncSchedule <no-reply@localhost>}
       CALENDAR_URL: http://localhost:3002
       LEADS_TO: ${LEADS_TO:-} # who gets the website's free-class requests; empty = the default in leads.ts
+      LEADS_API_KEY: ${LEADS_API_KEY:-} # the website's narrow key for POST /v1/leads (openssl rand -hex 32); empty = the free-class form is not saved
       BILLING_URL: ${BILLING_SERVICE_KEY:+http://billing-service:3012} # empty = billing is off and every lesson is free
       BILLING_SERVICE_KEY: ${BILLING_SERVICE_KEY:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-} # all three set = classes get Google Meet links, else Jitsi
@@ -195,7 +196,10 @@ services:
       args:
         APP: home-ui
         NEXT_PUBLIC_ACCOUNTS_URL: http://localhost:3003 # the Login button goes to users-ui (opened in the browser, so localhost)
-    depends_on: [users-ui] # so `docker compose up home-ui` also starts the login page
+    environment:
+      CALENDAR_API_URL: http://calendar-service:3000 # the free-class form is saved there (POST /v1/leads)
+      LEADS_API_KEY: ${LEADS_API_KEY:-} # same value as calendar-service; empty = the form falls back to WhatsApp
+    depends_on: [users-ui, calendar-service] # users-ui so `docker compose up home-ui` also starts the login page; calendar-service saves the form
     ports: ["3004:3004"]
 
 volumes:

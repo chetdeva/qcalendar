@@ -124,38 +124,49 @@ test('every "book" button scrolls to the inline booking form; there is no pop-up
   await expect(page.getByRole('button', { name: /Claim your child/ })).toBeVisible();
 });
 
-test('booking form opens WhatsApp with the details filled in', async ({ page, context }) => {
+test('booking form saves the request, then shows a confirmation with WhatsApp as a second choice', async ({ page, context }) => {
   await context.route('https://wa.me/**', (r) => r.fulfill({ body: 'ok' }));
+  let posted: Record<string, unknown> | null = null;
+  await page.route('**/api/leads', async (route) => { posted = route.request().postDataJSON(); await route.fulfill({ status: 201, contentType: 'application/json', body: '{"ok":true}' }); });
   await page.goto('/');
   const form = page.locator('#book form');
   await form.getByRole('button', { name: /Claim your child/ }).click();
   await expect(form.getByRole('radio', { name: /Grades 1–2/ })).toBeFocused(); // blocked by the browser: a grade is required
   await form.locator('.tile', { hasText: 'Grades 3–5' }).click();
+  await form.locator('.goal', { hasText: 'Building Confidence' }).click();
   await form.getByLabel('Parent Full Name').fill('Jessica Miller');
   await form.getByLabel('Parent Email').fill('jessica@example.com');
-  const send = async () => {
-    const [popup] = await Promise.all([context.waitForEvent('page'), form.getByRole('button', { name: /Claim your child/ }).click()]);
-    await popup.waitForLoadState();
-    const url = new URL(popup.url());
-    expect(url.host).toBe('wa.me');
-    expect(url.pathname).toBe(`/${WA}`);
-    await popup.close();
-    return url.searchParams.get('text')!;
-  };
-  // Goal and phone are optional: send without them first.
-  const without = await send();
-  expect(without).toContain('Parent: Jessica Miller');
-  expect(without).toContain('Email: jessica@example.com');
-  expect(without).toContain('Grade: Grades 3–5 (Fractions & Logic)');
-  expect(without).not.toContain('Phone');
-  expect(without).not.toContain('Biggest goal');
-
-  await form.locator('.goal', { hasText: 'Building Confidence' }).click();
   await form.getByLabel('Phone Number').fill('(555) 123-4567');
-  const withAll = await send();
-  expect(withAll).toContain('Phone: (555) 123-4567');
-  expect(withAll).toContain('Biggest goal: Building Confidence');
+  await form.getByRole('button', { name: /Claim your child/ }).click();
+  await expect(page.getByRole('status')).toContainText('Thank you, Jessica! Your request is in.');
+  await expect(page.getByRole('status')).toContainText('jessica@example.com');
+  expect(posted).toMatchObject({ parentName: 'Jessica Miller', email: 'jessica@example.com', phone: '(555) 123-4567', grade: 'Grades 3–5', goal: 'Building Confidence', page: '/', website: '' });
+  expect(typeof (posted as { timeZone?: unknown } | null)?.timeZone).toBe('string');
+  // WhatsApp is still there, with the details in the message.
+  const [popup] = await Promise.all([context.waitForEvent('page'), page.getByRole('button', { name: /Prefer WhatsApp/ }).click()]);
+  await popup.waitForLoadState();
+  const url = new URL(popup.url());
+  expect(url.pathname).toBe(`/${WA}`);
+  expect(url.searchParams.get('text')).toContain('Parent: Jessica Miller');
+  expect(url.searchParams.get('text')).toContain('Grade: Grades 3–5 (Fractions & Logic)');
 });
+
+test('if saving fails the parent sees why and can still send the details on WhatsApp', async ({ page, context }) => {
+  await context.route('https://wa.me/**', (r) => r.fulfill({ body: 'ok' }));
+  await page.route('**/api/leads', (route) => route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":{"message":"down"}}' }));
+  await page.goto('/');
+  const form = page.locator('#book form');
+  await form.locator('.tile', { hasText: 'Grades 6–8' }).click();
+  await form.getByLabel('Parent Full Name').fill('Sam Lee');
+  await form.getByLabel('Parent Email').fill('sam@example.com');
+  await form.getByRole('button', { name: /Claim your child/ }).click();
+  await expect(form.getByRole('alert')).toContainText('We couldn’t save your request');
+  await expect(form.getByLabel('Parent Email')).toHaveValue('sam@example.com'); // nothing the parent typed is lost
+  const [popup] = await Promise.all([context.waitForEvent('page'), form.getByRole('button', { name: /send it to Princy on WhatsApp/ }).click()]);
+  await popup.waitForLoadState();
+  expect(new URL(popup.url()).searchParams.get('text')).toContain('Email: sam@example.com');
+});
+
 
 test('picking a grade or a goal selects exactly one, and a selected tile looks selected', async ({ page }) => {
   await page.goto('/');

@@ -368,3 +368,6 @@ h1 em img { position: absolute; left: 0; right: 0; bottom: -8px; width: 100%; he
 .legal p, .legal li { font-size: 16px; line-height: 1.65; color: #1e293b; }
 .legal ul { padding-left: 22px; margin: 8px 0; }
 .legal-updated { color: var(--muted); margin-bottom: 24px; }
+
+.book-error { color: #b3261e; font-weight: 600; font-size: 14px; line-height: 1.5; margin: 4px 0 12px; }
+.linklike { background: none; border: 0; padding: 0; font: inherit; color: var(--blue); text-decoration: underline; cursor: pointer; }

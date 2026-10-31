@@ -1,6 +1,5 @@
 import type { Actor } from './auth.ts';
 import { requireAdmin } from './admin.ts';
-import { HttpError } from './errors.ts';
 import type { Ctx } from './events.ts';
 import { enqueueLeadMail } from './outbox.ts';
 
@@ -14,8 +13,7 @@ export interface LeadInput {
  * Saves a free-class request from the website and queues two emails: one to the teacher, one confirming to the parent.
  * The same email twice on one (UTC) day is one request, so a double click sends nothing new.
  */
-export async function createLead(ctx: Ctx, actor: Actor, input: LeadInput) {
-  if (actor.kind !== 'service') throw new HttpError(403, 'forbidden', 'Only the website backend may submit requests');
+export async function createLead(ctx: Ctx, input: LeadInput) {
   const email = input.email.trim();
   return ctx.db.tx(async (q) => {
     await q.query('select pg_advisory_xact_lock(hashtext($1))', [`lead:${email.toLowerCase()}`]);

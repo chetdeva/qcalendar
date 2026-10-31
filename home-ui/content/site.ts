@@ -156,7 +156,7 @@ export const booking = {
   goals: ['Bridging Gaps', 'Building Confidence', 'Olympiad / Competitions', 'School Homework'],
   submit: 'Claim your child’s free 1:1 session 🎁',
   reassure: ['Takes 60 seconds', 'No credit card required', 'Free first class'],
-  note: 'This opens WhatsApp with your details filled in. Nothing is stored on this site.',
+  note: 'Your details go only to Quanttoria, to schedule your free class (see our Privacy Policy).',
 };
 
 export const footer = {

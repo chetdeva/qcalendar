@@ -14,7 +14,7 @@ export type Actor =
 
 export const isManager = (a: Actor) => a.kind === 'service' || a.role === 'admin';
 
-const safeEqual = (a: string, b: string) => {
+export const safeEqual = (a: string, b: string) => {
   const x = Buffer.from(a);
   const y = Buffer.from(b);
   return x.length === y.length && timingSafeEqual(x, y);

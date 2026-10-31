@@ -1,4 +1,5 @@
 import { SiteFooter } from '@components/site-footer';
+import { homeUrl } from '@/lib/env';
 import { HelpBanner } from './_parts/help-banner';
 import { Story } from './_parts/story';
 import { TopBar } from './_parts/top-bar';
@@ -21,7 +22,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <HelpBanner />
         </div>
       </main>
-      <SiteFooter />
+      <SiteFooter homeUrl={homeUrl} />
     </div>
   );
 }

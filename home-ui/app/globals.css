@@ -357,3 +357,33 @@ h1 em img { position: absolute; left: 0; right: 0; bottom: -8px; width: 100%; he
   html { scroll-behavior: auto; }
   .btn, .review { transition: none; }
 }
+
+.who a { color: var(--blue); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+.float { transition: opacity .2s, transform .2s; }
+.float.is-away { opacity: 0; transform: translateY(12px); pointer-events: none; }
+
+.legal { max-width: 760px; padding-block: 48px 72px; }
+.legal h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.15; margin-bottom: 8px; }
+.legal h2 { font-size: 22px; margin: 32px 0 8px; scroll-margin-top: 90px; }
+.legal p, .legal li { font-size: 16px; line-height: 1.65; color: #1e293b; }
+.legal ul { padding-left: 22px; margin: 8px 0; }
+.legal-updated { color: var(--muted); margin-bottom: 24px; }
+
+.book-error { color: #b3261e; font-weight: 600; font-size: 14px; line-height: 1.5; margin: 4px 0 12px; }
+.linklike { background: none; border: 0; padding: 0; font: inherit; color: var(--blue); text-decoration: underline; cursor: pointer; }
+
+/* FAQ, price table and SEO landing pages */
+.faq { width: 100%; max-width: 760px; display: flex; flex-direction: column; gap: 10px; }
+.faq details { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 18px; }
+.faq summary { font-weight: 700; cursor: pointer; }
+.faq details p { margin-top: 8px; line-height: 1.6; color: #1e293b; }
+.price { width: 100%; border-collapse: collapse; margin-top: 12px; }
+.price caption { text-align: left; font-weight: 700; padding-bottom: 6px; }
+.price th, .price td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; }
+.seo-links { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; list-style: none; padding: 0; }
+.seo-links a { background: #fff; border: 2px solid var(--sky-2); border-radius: 999px; padding: 8px 16px; font-weight: 700; color: var(--blue); }
+.legal.seo { max-width: 820px; }
+.legal.seo .lede { margin-bottom: 8px; }
+.legal.seo ol { padding-left: 22px; }
+.legal.seo dt { font-weight: 700; margin-top: 12px; }
+.legal.seo dd { margin: 4px 0 0; line-height: 1.6; }

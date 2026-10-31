@@ -17,6 +17,10 @@ export interface Ctx {
   newMeeting?: NewMeeting;
   /** Who pays for tutoring lessons. Unset: lessons are free (billing is off). */
   billing?: BillingClient;
+  /** Who gets the website's free-class requests. Unset: the default in leads.ts. */
+  leadsTo?: string;
+  /** The website's own key for POST /v1/leads (LEADS_API_KEY). Unset = that route is off. It is not the service API key, so it can do nothing else. */
+  leadsKey?: string;
 }
 
 export interface ParticipantInput { userId?: string; email: string; name?: string }

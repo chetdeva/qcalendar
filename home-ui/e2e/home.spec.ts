@@ -9,7 +9,7 @@ test('renders every section, the real content and the header links', async ({ pa
   await expect(page.getByText('MathExcellence')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: /tailored approach/ })).toBeVisible();
   await expect(page.locator('#how-it-works ol > li')).toHaveCount(4);
-  await expect(page.getByRole('heading', { name: 'Pprincy Sugandhh' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Princy Sugandh' })).toBeVisible();
   await expect(page.getByRole('heading', { name: /our family is part of the journey/ })).toBeVisible();
   // The sections of the Figma design, each with its own content.
   await expect(page.locator('#why .vs')).toHaveCount(2); // old rote way vs the Quanttoria way
@@ -49,17 +49,60 @@ test('WhatsApp links use the Quanttoria number', async ({ page }) => {
   for (const l of await links.all()) await expect(l).toHaveAttribute('href', new RegExp(`^https://wa\\.me/${WA}\\?text=`));
 });
 
-test('Trustpilot links use the Quanttoria review URL', async ({ page }) => {
+test('reviews are word for word, say where they come from, and link to their own Trustpilot review', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('link', { name: /Read all reviews/ })).toHaveAttribute('href', /trustpilot\.com\/review\/byjusfutureschool\.com\?search=princy/);
+  const section = page.locator('#reviews');
+  await expect(section).toContainText('13 five-star reviews of Princy’s teaching');
+  await expect(section).toContainText('BYJU’S FutureSchool');
+  // The two quotes the audit found reworded, as the parents wrote them (school name kept).
+  await expect(section).toContainText('I started BYJU with a demo class with Ms Princy Sugandh.');
+  await expect(section).toContainText('BYJU Future School is extraordinary!');
+  await expect(section).toContainText('Mr. Princy is an amazing teacher');
+  for (const link of await section.getByRole('link', { name: /^Read .* on Trustpilot$/ }).all()) {
+    await expect(link).toHaveAttribute('href', /^https:\/\/www\.trustpilot\.com\/reviews\/[0-9a-f]{24}$/);
+    await expect(link).toHaveAttribute('rel', /noopener/);
+  }
+  await expect(section.getByRole('link', { name: /See them on Trustpilot/ })).toHaveAttribute('href', /trustpilot\.com\/review\/byjusfutureschool\.com\?search=princy/);
+  await expect(page.getByText('Rated 5 stars on Trustpilot')).toHaveCount(0);
 });
 
-test('the founder\'s "Rated 5 stars on Trustpilot" links to the Trustpilot reviews', async ({ page }) => {
+test('the founder rating jumps to the reviews on this page', async ({ page }) => {
   await page.goto('/');
-  const link = page.locator('#tutor').getByRole('link', { name: 'Rated 5 stars on Trustpilot' });
-  await expect(link).toHaveAttribute('href', /trustpilot\.com\/review\/byjusfutureschool\.com\?search=princy&stars=5#search-reviews$/);
-  await expect(link).toHaveAttribute('target', '_blank');
-  await expect(link).toHaveAttribute('rel', /noopener/);
+  await expect(page.locator('#tutor').getByRole('link', { name: '13 five-star parent reviews' })).toHaveAttribute('href', '#reviews');
+});
+
+test('US spelling and one name, in the page and in the search metadata', async ({ page }) => {
+  await page.goto('/');
+  const text = await page.locator('body').innerText();
+  expect(text).not.toMatch(/\bmaths\b/i);
+  expect(text).not.toMatch(/personalis/i);
+  expect(text).not.toContain('Pprincy');
+  await expect(page).toHaveTitle(/Online Math Tutor for Kids/);
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /1-on-1 online math tutoring/);
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /^https:\/\/www\.quanttoria\.com\/?$/);
+  await expect(page.locator('meta[property="og:image"]')).toHaveCount(1);
+  const ld = JSON.parse(await page.locator('script[type="application/ld+json"]').innerText());
+  expect(ld['@graph'].map((n: { '@type': string }) => n['@type'])).toEqual(['EducationalOrganization', 'FAQPage', 'Person']);
+});
+
+test('robots.txt, sitemap.xml and llms.txt are served for search engines and AI tools', async ({ request }) => {
+  const robots = await (await request.get('/robots.txt')).text();
+  expect(robots).toMatch(/Allow: \//);
+  expect(robots).toContain('Sitemap: https://www.quanttoria.com/sitemap.xml');
+  const sitemap = await (await request.get('/sitemap.xml')).text();
+  for (const p of ['/', '/privacy', '/terms']) expect(sitemap).toContain(`<loc>https://www.quanttoria.com${p === '/' ? '' : p}`);
+  expect((await request.get('/llms.txt')).ok()).toBe(true);
+});
+
+test('privacy and terms pages exist and the footer links to them', async ({ page }) => {
+  await page.goto('/');
+  const f = page.getByRole('contentinfo');
+  await f.getByRole('link', { name: 'Privacy Policy' }).click();
+  await expect(page).toHaveURL(/\/privacy$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Privacy Policy' })).toBeVisible();
+  await expect(page.locator('#parental-consent')).toBeVisible();
+  await page.goto('/terms');
+  await expect(page.getByRole('heading', { level: 1, name: 'Terms of Use' })).toBeVisible();
 });
 
 test('header anchors scroll to their section', async ({ page }) => {
@@ -81,38 +124,49 @@ test('every "book" button scrolls to the inline booking form; there is no pop-up
   await expect(page.getByRole('button', { name: /Claim your child/ })).toBeVisible();
 });
 
-test('booking form opens WhatsApp with the details filled in', async ({ page, context }) => {
+test('booking form saves the request, then shows a confirmation with WhatsApp as a second choice', async ({ page, context }) => {
   await context.route('https://wa.me/**', (r) => r.fulfill({ body: 'ok' }));
+  let posted: Record<string, unknown> | null = null;
+  await page.route('**/api/leads', async (route) => { posted = route.request().postDataJSON(); await route.fulfill({ status: 201, contentType: 'application/json', body: '{"ok":true}' }); });
   await page.goto('/');
   const form = page.locator('#book form');
   await form.getByRole('button', { name: /Claim your child/ }).click();
   await expect(form.getByRole('radio', { name: /Grades 1–2/ })).toBeFocused(); // blocked by the browser: a grade is required
   await form.locator('.tile', { hasText: 'Grades 3–5' }).click();
+  await form.locator('.goal', { hasText: 'Building Confidence' }).click();
   await form.getByLabel('Parent Full Name').fill('Jessica Miller');
   await form.getByLabel('Parent Email').fill('jessica@example.com');
-  const send = async () => {
-    const [popup] = await Promise.all([context.waitForEvent('page'), form.getByRole('button', { name: /Claim your child/ }).click()]);
-    await popup.waitForLoadState();
-    const url = new URL(popup.url());
-    expect(url.host).toBe('wa.me');
-    expect(url.pathname).toBe(`/${WA}`);
-    await popup.close();
-    return url.searchParams.get('text')!;
-  };
-  // Goal and phone are optional: send without them first.
-  const without = await send();
-  expect(without).toContain('Parent: Jessica Miller');
-  expect(without).toContain('Email: jessica@example.com');
-  expect(without).toContain('Grade: Grades 3–5 (Fractions & Logic)');
-  expect(without).not.toContain('Phone');
-  expect(without).not.toContain('Biggest goal');
-
-  await form.locator('.goal', { hasText: 'Building Confidence' }).click();
   await form.getByLabel('Phone Number').fill('(555) 123-4567');
-  const withAll = await send();
-  expect(withAll).toContain('Phone: (555) 123-4567');
-  expect(withAll).toContain('Biggest goal: Building Confidence');
+  await form.getByRole('button', { name: /Claim your child/ }).click();
+  await expect(page.getByRole('status')).toContainText('Thank you, Jessica! Your request is in.');
+  await expect(page.getByRole('status')).toContainText('jessica@example.com');
+  expect(posted).toMatchObject({ parentName: 'Jessica Miller', email: 'jessica@example.com', phone: '(555) 123-4567', grade: 'Grades 3–5', goal: 'Building Confidence', page: '/', website: '' });
+  expect(typeof (posted as { timeZone?: unknown } | null)?.timeZone).toBe('string');
+  // WhatsApp is still there, with the details in the message.
+  const [popup] = await Promise.all([context.waitForEvent('page'), page.getByRole('button', { name: /Prefer WhatsApp/ }).click()]);
+  await popup.waitForLoadState();
+  const url = new URL(popup.url());
+  expect(url.pathname).toBe(`/${WA}`);
+  expect(url.searchParams.get('text')).toContain('Parent: Jessica Miller');
+  expect(url.searchParams.get('text')).toContain('Grade: Grades 3–5 (Fractions & Logic)');
 });
+
+test('if saving fails the parent sees why and can still send the details on WhatsApp', async ({ page, context }) => {
+  await context.route('https://wa.me/**', (r) => r.fulfill({ body: 'ok' }));
+  await page.route('**/api/leads', (route) => route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":{"message":"down"}}' }));
+  await page.goto('/');
+  const form = page.locator('#book form');
+  await form.locator('.tile', { hasText: 'Grades 6–8' }).click();
+  await form.getByLabel('Parent Full Name').fill('Sam Lee');
+  await form.getByLabel('Parent Email').fill('sam@example.com');
+  await form.getByRole('button', { name: /Claim your child/ }).click();
+  await expect(form.getByRole('alert')).toContainText('We couldn’t save your request');
+  await expect(form.getByLabel('Parent Email')).toHaveValue('sam@example.com'); // nothing the parent typed is lost
+  const [popup] = await Promise.all([context.waitForEvent('page'), form.getByRole('button', { name: /send it to Princy on WhatsApp/ }).click()]);
+  await popup.waitForLoadState();
+  expect(new URL(popup.url()).searchParams.get('text')).toContain('Email: sam@example.com');
+});
+
 
 test('picking a grade or a goal selects exactly one, and a selected tile looks selected', async ({ page }) => {
   await page.goto('/');
@@ -159,7 +213,7 @@ test('footer: the shared site footer, with the contact row kept under its legal 
   await page.goto('/');
   const f = page.getByRole('contentinfo');
   await expect(f).toContainText('COPPA & FERPA Compliant Security');
-  for (const l of ['Privacy Policy', 'Parental Consent & Rights', 'Student Data Safety']) await expect(f.getByRole('button', { name: l })).toBeDisabled();
+  for (const l of ['Privacy Policy', 'Parental Consent & Rights', 'Student Data Safety', 'Terms of Use']) await expect(f.getByRole('link', { name: l })).toBeVisible();
   await expect(f).toContainText('For support, mail us at pprincyaaghaww@quanttoria.com');
   await expect(f.getByRole('link', { name: 'pprincyaaghaww@quanttoria.com' })).toHaveAttribute('href', 'mailto:pprincyaaghaww@quanttoria.com');
   await expect(f).not.toContainText('gmail.com');
@@ -232,4 +286,32 @@ test('"Book a free demo" animates on hover and press like the other primary butt
     expect(hover.s, `${name} shadow shrinks on hover`).not.toBe(rest.s);
     await page.mouse.move(0, 400);
   }
+});
+
+const SEO_SLUGS = ['grades-1-2', 'grades-3-5', 'grades-6-8', 'grades-9-10', 'closing-gaps', 'confidence-and-math-anxiety', 'math-olympiad-coaching', 'common-core-math-help'];
+
+test('home has an FAQ, a price table and links to every grade and goal page', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#faq details')).not.toHaveCount(0);
+  await expect(page.locator('#faq .price')).toContainText('$300 a month');
+  for (const s of SEO_SLUGS) await expect(page.locator(`#faq a[href="/math-tutoring/${s}"]`)).toHaveCount(1);
+  const ld = await page.locator('script[type="application/ld+json"]').first().textContent();
+  expect(JSON.parse(ld!)['@graph'].some((n: { '@type': string }) => n['@type'] === 'FAQPage')).toBe(true);
+});
+
+test('each grade and goal page has one H1, its own title, a booking form and valid JSON-LD', async ({ page, request }) => {
+  const titles = new Set<string>();
+  for (const s of SEO_SLUGS) {
+    await page.goto(`/math-tutoring/${s}`);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
+    titles.add(await page.title());
+    await expect(page.locator('#book')).toBeVisible();
+    expect(await page.locator('link[rel="canonical"]').getAttribute('href')).toBe(`https://www.quanttoria.com/math-tutoring/${s}`);
+    JSON.parse((await page.locator('script[type="application/ld+json"]').first().textContent())!);
+    expect(await page.locator('body').innerText()).not.toMatch(/\bmaths\b|personalised/i);
+  }
+  expect(titles.size).toBe(SEO_SLUGS.length);
+  const sitemap = await (await request.get('/sitemap.xml')).text();
+  for (const s of SEO_SLUGS) expect(sitemap).toContain(`/math-tutoring/${s}`);
+  expect((await request.get('/math-tutoring/nope')).status()).toBe(404);
 });

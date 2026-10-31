@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import Link from 'next/link';
 import { AppHeader } from '@components/app-header';
 import { SiteFooter } from '@components/site-footer';
+import { homeUrl } from '@/lib/env';
 import { getMe } from '@/lib/me';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -23,7 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="app-shell">
       <AppHeader current={onAdmin ? 'dashboard' : 'account'} name={me.full_name || me.email} role={me.role} avatar={me.avatar_updated_at} />
       <div className="app-body">{children}</div>
-      <SiteFooter />
+      <SiteFooter homeUrl={homeUrl} />
     </div>
   );
 }

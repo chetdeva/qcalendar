@@ -16,6 +16,7 @@ const apiKey = env.API_KEY ?? '';
 const fail = (msg: string): never => { console.error(msg); process.exit(1); };
 
 if (apiKey && apiKey.length < 24) fail('API_KEY must be at least 24 characters (try: openssl rand -hex 32)');
+if (env.LEADS_API_KEY && env.LEADS_API_KEY.length < 24) fail('LEADS_API_KEY must be at least 24 characters (try: openssl rand -hex 32)');
 if (production && !env.DATABASE_URL) fail('DATABASE_URL is required in production');
 if (production && !env.SUPABASE_URL) fail('SUPABASE_URL is required in production (it is where login tokens are verified)');
 if (!env.SUPABASE_URL && !apiKey) fail('Set SUPABASE_URL (people sign in with Supabase tokens) and/or API_KEY (trusted backends).');
@@ -43,6 +44,8 @@ const ctx = {
   meetingBaseUrl,
   newMeeting: createMeetingProvider({ jitsiBase: meetingBaseUrl, google }),
   // Unset BILLING_URL = lessons are free (no billing service to ask).
+  leadsTo: env.LEADS_TO,
+  leadsKey: env.LEADS_API_KEY,
   billing: env.BILLING_URL ? createBillingClient({ url: env.BILLING_URL, key: env.BILLING_SERVICE_KEY ?? '' }) : undefined,
 };
 const app = createApp({ ctx, authenticator });

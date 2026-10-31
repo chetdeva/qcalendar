@@ -2,7 +2,7 @@ import type { Db, Queryable } from './db.ts';
 import { buildIcs } from './ics.ts';
 import type { Mailer, MailMessage } from './mail.ts';
 
-export type MailKind = 'invite' | 'update' | 'cancel' | 'declined' | 'change_request' | 'teacher_assigned';
+export type MailKind = 'invite' | 'update' | 'cancel' | 'declined' | 'change_request' | 'teacher_assigned' | 'lead' | 'lead_confirmation';
 
 /** Everything needed to write one person's email, frozen when the change happened. */
 export interface OutboxPayload {
@@ -31,6 +31,30 @@ export async function enqueueAssignmentMail(q: Queryable, payloads: AssignmentPa
   for (const p of payloads) {
     await q.query(`insert into calendar.email_outbox (kind, event_id, to_email, payload) values ('teacher_assigned', null, $1, $2)`, [p.recipient.email, JSON.stringify(p)]);
   }
+}
+
+/** A website request for the free class, told to the teacher ('lead') and confirmed to the parent ('lead_confirmation'). */
+export interface LeadPayload {
+  parentName: string; email: string; phone?: string; grade: string; goal?: string; timeZone?: string; source?: string; page?: string;
+}
+
+export async function enqueueLeadMail(q: Queryable, lead: LeadPayload, teacherEmail: string) {
+  for (const [kind, to] of [['lead', teacherEmail], ['lead_confirmation', lead.email]] as const) {
+    await q.query('insert into calendar.email_outbox (kind, event_id, to_email, payload) values ($1, null, $2, $3)', [kind, to, JSON.stringify(lead)]);
+  }
+}
+
+function renderLead(kind: 'lead' | 'lead_confirmation', p: LeadPayload, to: string): MailMessage {
+  const details = [
+    `Name: ${oneLine(p.parentName)}`, `Email: ${oneLine(p.email)}`, ...(p.phone ? [`Phone: ${oneLine(p.phone)}`] : []), `Grade: ${oneLine(p.grade)}`,
+    ...(p.goal ? [`Goal: ${oneLine(p.goal)}`] : []), ...(p.timeZone ? [`Time zone: ${oneLine(p.timeZone)}`] : []),
+  ];
+  if (kind === 'lead') return { to, replyTo: p.email, subject: `Free class request: ${oneLine(p.parentName)} (${oneLine(p.grade)})`, text: ['A new free class request came in from the website:', '', ...details].join('\n') };
+  return {
+    to,
+    subject: 'We received your free class request',
+    text: [`Hi ${oneLine(p.parentName)},`, '', 'Thank you for requesting a free class at Quanttoria. Your teacher will reply within one business day to arrange a time.', '', 'What you sent us:', ...details, '', 'If anything is wrong, just reply to this email.'].join('\n'),
+  };
 }
 
 function renderAssignment(p: AssignmentPayload, opts: { calendarUrl?: string }): MailMessage {
@@ -92,12 +116,13 @@ function renderStudentNote(kind: 'declined' | 'change_request', p: OutboxPayload
   };
 }
 
-export function renderMail(kind: MailKind, p: OutboxPayload | AssignmentPayload, opts: { fromEmail: string; calendarUrl?: string }): MailMessage {
+export function renderMail(kind: MailKind, p: OutboxPayload | AssignmentPayload | LeadPayload, opts: { fromEmail: string; calendarUrl?: string }, to = ''): MailMessage {
+  if (kind === 'lead' || kind === 'lead_confirmation') return renderLead(kind, p as LeadPayload, to);
   if (kind === 'teacher_assigned') return renderAssignment(p as AssignmentPayload, opts);
   return renderEventMail(kind, p as OutboxPayload, opts);
 }
 
-function renderEventMail(kind: Exclude<MailKind, 'teacher_assigned'>, p: OutboxPayload, opts: { fromEmail: string; calendarUrl?: string }): MailMessage {
+function renderEventMail(kind: Exclude<MailKind, 'teacher_assigned' | 'lead' | 'lead_confirmation'>, p: OutboxPayload, opts: { fromEmail: string; calendarUrl?: string }): MailMessage {
   const { event: e, recipient: r } = p;
   const w = when(e.start, e.end, e.timezone);
   if (kind === 'declined' || kind === 'change_request') return renderStudentNote(kind, p, w, opts);
@@ -148,16 +173,16 @@ const MAX_ATTEMPTS = 8;
  * worker will not send the same one twice.
  */
 export async function processOutbox(db: Db, mailer: Mailer, opts: { fromEmail: string; calendarUrl?: string; batch?: number }) {
-  const rows = await db.query<{ id: string; kind: MailKind; payload: OutboxPayload | AssignmentPayload; attempts: number }>(
+  const rows = await db.query<{ id: string; kind: MailKind; to_email: string; payload: OutboxPayload | AssignmentPayload | LeadPayload; attempts: number }>(
     `update calendar.email_outbox set next_at = now() + interval '2 minutes'
       where id in (select id from calendar.email_outbox where status = 'pending' and next_at <= now() order by id limit $1 for update skip locked)
-      returning id, kind, payload, attempts`,
+      returning id, kind, to_email, payload, attempts`,
     [opts.batch ?? 20],
   );
   let sent = 0;
   for (const row of rows.sort((a, b) => Number(a.id) - Number(b.id))) {
     try {
-      await mailer.send(renderMail(row.kind, row.payload, opts));
+      await mailer.send(renderMail(row.kind, row.payload, opts, row.to_email));
       await db.query(`update calendar.email_outbox set status = 'sent', sent_at = now(), attempts = attempts + 1, last_error = null where id = $1`, [row.id]);
       sent++;
     } catch (e) {

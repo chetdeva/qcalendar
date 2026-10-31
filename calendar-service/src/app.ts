@@ -5,6 +5,8 @@ import { isValidTz } from './availability.ts';
 import { adminSummary } from './admin.ts';
 import { assignmentHistory, assignTeacher } from './assignments.ts';
 import { HttpError } from './errors.ts';
+import { safeEqual } from './auth.ts';
+import { createLead, listLeads } from './leads.ts';
 import * as svc from './events.ts';
 import * as trials from './trial-requests.ts';
 
@@ -106,6 +108,24 @@ export function createApp(deps: { ctx: svc.Ctx; authenticator: Authenticator }) 
 
   app.get('/health', (c) => c.json({ ok: true }));
 
+  // The public website's free-class form. Its server calls this with its own narrow key (LEADS_API_KEY), not the service API key, so
+  // it is registered before the sign-in middleware below and can do nothing but add a request.
+  const GRADES = ['Grades 1–2', 'Grades 3–5', 'Grades 6–8', 'Grades 9–10'] as const;
+  const GOALS = ['Bridging Gaps', 'Building Confidence', 'Olympiad / Competitions', 'School Homework'] as const;
+  const LeadSchema = z.object({
+    parentName: name, email, phone: z.string().trim().max(30).optional(), grade: z.enum(GRADES), goal: z.enum(GOALS).optional(), timeZone: tz.optional(),
+    source: z.string().trim().max(100).optional(), page: z.string().trim().max(300).optional(),
+    website: z.string().optional(), // honeypot: real visitors never see this field
+  }).strict();
+  app.post('/v1/leads', async (c) => {
+    const token = c.req.header('authorization')?.replace(/^Bearer /, '') ?? '';
+    if (!ctx.leadsKey || !safeEqual(token, ctx.leadsKey)) throw new HttpError(401, 'unauthorized', 'Missing or invalid key');
+    const { website, ...b } = parse(LeadSchema, await c.req.json().catch(() => null));
+    if (website) return c.json({ ok: true }, 201);
+    await createLead(ctx, b);
+    return c.json({ ok: true }, 201);
+  });
+
   app.use('/v1/*', async (c, next) => {
     c.set('actor', await authenticator.authenticate(c.req.header('authorization')));
     await next();
@@ -150,6 +170,11 @@ export function createApp(deps: { ctx: svc.Ctx; authenticator: Authenticator }) 
     return c.json(await assignTeacher(ctx, c.get('actor'), id(c.req.param('id')), b));
   });
   app.get('/v1/admin/students/:id/assignments', async (c) => c.json(await assignmentHistory(ctx, c.get('actor'), id(c.req.param('id')))));
+
+  app.get('/v1/admin/leads', async (c) => {
+    const q = parse(z.object({ limit: z.coerce.number().int().min(1).max(100).default(50), offset: z.coerce.number().int().min(0).default(0) }), c.req.query());
+    return c.json(await listLeads(ctx, c.get('actor'), q));
+  });
 
   // Who the caller shares a class with. chat-service uses it as its "may these two talk" rule.
   app.get('/v1/contacts', async (c) => c.json({ contacts: (await svc.contactIds(ctx, c.get('actor'))).map((id) => ({ id })) }));

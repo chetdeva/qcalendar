@@ -1,10 +1,12 @@
 import BookingForm from '@/components/BookingForm';
 import Classroom from '@/components/Classroom';
-import { Footer, Founder, Framework, Header, Hero, Reviews, Why } from '@/components/Sections';
+import JsonLd from '@/components/JsonLd';
+import { Faq, Footer, Founder, Framework, Header, Hero, Reviews, Why } from '@/components/Sections';
 
 export default function Home() {
   return (
     <div id="top">
+      <JsonLd />
       <Header />
       <main>
         <Hero />
@@ -13,6 +15,7 @@ export default function Home() {
         <Classroom />
         <Founder />
         <Reviews />
+        <Faq />
         <BookingForm />
       </main>
       <Footer />

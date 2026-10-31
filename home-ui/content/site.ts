@@ -2,20 +2,23 @@
 // and components/*). Keep it in sync by hand; there is no shared source.
 
 export const BRAND = 'Quanttoria';
+/** The public address search engines and link previews use (the site's canonical host). */
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.quanttoria.com';
 export const ACCOUNTS_URL = process.env.NEXT_PUBLIC_ACCOUNTS_URL ?? 'http://localhost:3003';
 
 export const site = {
   owner: {
-    name: 'Pprincy Sugandhh',
+    name: 'Princy Sugandh',
     role: 'Founder & Lead Math Educator',
     hours: '20000+',
     linkedinUrl: 'https://www.linkedin.com/in/princysugandh/',
   },
   whatsappNumber: '919119571369',
   whatsappDisplay: '+91 91195 71369',
-  emails: ['pprincyaaghaww@quanttoria.com', 'pprincyaaghaww@gmail.com'],
-  // As used on the Quanttoria site (a Trustpilot search for Princy's reviews).
-  trustpilotUrl: 'https://www.trustpilot.com/review/byjusfutureschool.com?search=princy&stars=5#search-reviews',
+  emails: ['pprincyaaghaww@quanttoria.com'],
+  // Parents wrote these reviews on Trustpilot about classes with Princy at BYJU'S FutureSchool; this is that school's page filtered to her name.
+  // It is not a Quanttoria Trustpilot page (there is none yet), so the page says where the reviews come from.
+  reviewsSourceUrl: 'https://www.trustpilot.com/review/byjusfutureschool.com?search=princy&stars=5#search-reviews',
   whatsappMessage: "Hi Princy! I'd like to customize a personalized learning plan for my child. My child is in Grade ___.",
 };
 
@@ -28,17 +31,18 @@ export const nav = [
   { label: 'Live classroom', href: '#classroom' },
   { label: 'Meet our founder', href: '#tutor' },
   { label: 'Why parents trust us', href: '#reviews' },
+  { label: 'FAQ', href: '#faq' },
   { label: 'Contact', href: '#contact' },
 ];
 
 // Layout and wording follow the Figma design. Numbers and credentials are only ones the site already stated
-// (20000+ hours, Grades 1 to 10, Trustpilot 5 stars); invented figures from the mock-up are not used.
+// (20000+ hours, Grades 1 to 10, 13 five-star parent reviews); invented figures from the mock-up are not used.
 export const hero = {
   banner: { lead: 'Personalized 1:1 learning', range: 'Grades 1–10', free: 'First class free! ✨' },
   eyebrow: 'Premier 1:1 mathematical mentorship',
   title: ['Confidence', 'unlocked.'],
   pills: [
-    { icon: '★★★★★', text: 'Rated 5 stars on Trustpilot', tone: 'sun' },
+    { icon: '★★★★★', text: '13 five-star parent reviews', tone: 'sun' },
     { icon: '🇺🇸', text: 'US curriculum support', tone: 'sky' },
     { icon: '⚡', text: '20,000+ teaching hours', tone: 'mint' },
   ],
@@ -53,7 +57,7 @@ export const hero = {
 
 export const why = {
   eyebrow: '🦸 The secret sauce: math super-resilience',
-  title: 'Children are not bad or weak at maths. They just need a tailored approach.',
+  title: 'Children are not bad or weak at math. They just need a tailored approach.',
   subtitle: 'We meet children where they are, bridge their foundational gaps, and equip them with strategies to stay persistent and analyze challenging problems with confidence.',
   old: {
     icon: '😴', title: 'The old rote way', sub: 'Mechanical drills, blind memorization & test panic',
@@ -81,7 +85,7 @@ export const framework = {
   intro: 'Personalized learning is more than a worksheet with a name on it. We combine a thoughtful teacher, the right challenge and regular parent feedback to make every lesson count.',
   stages: [
     { icon: '🧭', tone: 'sky', title: 'Tell us about your child', text: 'Share their strengths, struggles, interests and goals. We listen before we teach.', chip: '🎯 Starts from where your child is' },
-    { icon: '🧬', tone: 'sun', title: 'Build your learning plan', text: 'We match your child with a vetted maths coach tailored to their needs with their pace and lesson style.', chip: '✨ A coach matched to your child' },
+    { icon: '🧬', tone: 'sun', title: 'Build your learning plan', text: 'We match your child with a vetted math coach tailored to their needs with their pace and lesson style.', chip: '✨ A coach matched to your child' },
     { icon: '🚀', tone: 'violet', title: 'Your first demo lecture is free', text: 'Meet your teacher in a live, personalized session. No obligation.', chip: '🎨 Live and hands-on' },
     { icon: '🔁', tone: 'mint', title: 'Learn, track, and grow', text: 'Parents get clear feedback while children build skills, confidence and independence.', chip: '💛 Clear feedback for parents' },
   ],
@@ -94,7 +98,7 @@ export const classroom = {
   features: [
     { icon: '📐', tone: 'sky', title: 'Interactive visualizers', text: 'Shapes, coordinate grids, and curves move live so algebra turns into spatial intuition.' },
     { icon: '✏️', tone: 'sun', title: 'Shared whiteboard', text: 'Student and coach write, draw, and brainstorm together in real time.' },
-    { icon: '🏆', tone: 'mint', title: 'US curriculum alignment', text: 'Common Core, AP Calculus, AP Statistics and state standards, from Grade 1 to 10.' },
+    { icon: '🏆', tone: 'mint', title: 'US curriculum alignment', text: 'Common Core and state standards for Grades 1 to 10, with a clear path toward AP Calculus and AP Statistics.' },
   ],
   board: {
     title: 'Quanttoria Interactive Sandbox — Lesson: Coordinate Geometry',
@@ -110,10 +114,10 @@ export const founder = {
   eyebrow: '🍎 Academic rigor & big heart',
   title: 'Meet our founder',
   intro: 'Over 20,000 hours of 1:1 teaching across Grades 1 to 10, turning math dread into math triumphs!',
-  tags: ['🍎 Founder & Lead Math Educator', 'Personalised Maths Coach', 'Common Core + AP'],
-  role: 'Private 1:1 maths coaching for Grades 1 to 10 · US Common Core and AP pathways',
+  tags: ['🍎 Founder & Lead Math Educator', 'Personalized Math Coach', 'Common Core + AP path'],
+  role: 'Private 1:1 math coaching for Grades 1 to 10 · US Common Core and AP pathways',
   quote: 'As educators, we have to envision the future and work backwards from there. Today, more than ever, students need the ability to think logically, solve problems, and approach challenges with confidence. Throughout my career, I’ve had the privilege of guiding hundreds of students, nurturing their passion for mathematics and inspiring them to reach for advanced learning and bigger goals.',
-  rating: 'Rated 5 stars on Trustpilot',
+  rating: '13 five-star parent reviews',
   stats: [
     { value: '20000+', label: 'Teaching hours' },
     { value: '1 to 10', label: 'Grades taught' },
@@ -124,15 +128,19 @@ export const founder = {
 export const reviews = {
   eyebrow: 'Why parents trust us',
   title: 'Progress feels better when our family is part of the journey.',
-  banner: { title: 'Rated 5 stars on Trustpilot', sub: 'Real reviews from parents on Trustpilot' },
-  all: 'Read all reviews',
+  banner: {
+    title: '13 five-star reviews of Princy’s teaching',
+    sub: 'Parents wrote them on Trustpilot in 2022 and 2023, about classes with Princy at BYJU’S FutureSchool. Quanttoria’s own reviews are coming.',
+  },
+  all: 'See them on Trustpilot',
+  // Word for word, as the parent wrote them (spelling included), with the reviewer's Trustpilot name, date and a link to that review.
   list: [
-    { name: 'Chandan Kumar Anjani', where: 'United States', text: 'I started with a demo class with Ms Princy Sugandh. My daughters got so much involved in the first class that she wanted to join because of the demo class only. We are close to completing 1 year with Princy. I felt she pushes my daughter to get the best out of her and sets a pretty high standard in teaching. She puts a lot of effort not only into improving her in the subject she is teaching, but otherwise as well. She appreciates a good job and gives feedback to parents when needed to help improve as well. Thanks for being her teacher.' },
-    { name: 'Parent', where: 'United States', text: 'Ms Princy Sugandh has been our son’s math teacher for the past year. We have seen our child’s math skill set improve considerably under her guidance. She is punctual, stern, helps him problem solve as well as encourages him to critically think before tackling problems. She has set high expectations for our child and puts a lot of effort into her teaching each class. We are very grateful to having her as our son’s teacher, for her expertise and her commitment towards our child.' },
-    { name: 'Shilpi', where: 'United States', text: 'Thank you Miss Princy Sugandh for teaching my kid math in an amazing style. He is very happy to learn all the new techniques. Thank you once again.' },
-    { name: 'Georgene Rondero', where: 'United States', text: 'My son, who is autistic with learning disabilities, is really doing well all due to his fantastic instructor, Princy Sugandh. She is so patient and kind, but firm and demands that he always performs his best. I would wholeheartedly recommend this program for anyone!' },
-    { name: 'Parent', where: 'United States', text: 'Ms Princy Sugandh was my son’s teacher. She was an excellent teacher, very patient with my son — he is autistic, it was challenging during some classes but she handled it very well. My son loved her classes and she became a trusted advisor for me as well in regards to ways of handling his condition. She is very detailed. Thank you Ms Princy for being a part of his learning!' },
-    { name: 'Gaya N.', where: 'Canada', text: 'Princy is an amazing teacher, very assertive and goal oriented with my son. She challenges him to be his best.' },
+    { name: 'Chandan Kumar Anjani', date: 'Mar 2023', url: 'https://www.trustpilot.com/reviews/6420df6c056eb195adcf987c', text: 'I started BYJU with a demo class with Ms Princy Sugandh. My daughters got so much involved in the first class as she wanted to join BYJU because of the DEMO class only. We are close to complete 1 year with Princy. I felt she pushes my daughter to get best out of her and set pretty high standard in teaching. She puts lot of effort not on improving her in the subject she is teaching but otherwise as well. She appreciate when good job and gives feedback to parents when needed to help improve as well. Thanks for being her teacher.' },
+    { name: 'Worldwidetraveler', date: 'Mar 2023', url: 'https://www.trustpilot.com/reviews/641b65dbd294dce647fba70e', text: 'Ms Princy Sugandh has been our son’s math teacher for the past year. We have seen our child’s math skill set improve considerably under her guidance. She is punctual, stern, helps him problem solve as well as encourages him to critically think before tackling problems. She has set high expectations for our child and puts a lot of efforts into her teaching each class. We are very grateful to having her as our son’s teacher, for her expertise and her commitment towards our child.' },
+    { name: 'Shilpi', date: 'Mar 2023', url: 'https://www.trustpilot.com/reviews/641cb677328e2bd094e34513', text: 'Thank you Miss Princy Sugandha to teach my kid math in an amazing style.He is very happy to learn all the new techniques..Thank you once again.' },
+    { name: 'Georgene Rondero', date: 'May 2022', url: 'https://www.trustpilot.com/reviews/627c621d166eb7ecbf444cf1', text: 'BYJU Future School is extraordinary! My son, who is autistic with learning disabilities, is really doing well all due to his fantastic instructor, Princy Sugandh. She is so patient and kind, but firm and demands that he always performs his best. I would wholeheartedly recommend this program for anyone!' },
+    { name: 'customer', date: 'Dec 2022', url: 'https://www.trustpilot.com/reviews/63a132b22338b6d417a12c9e', text: 'Ms Princy Sugandh was my son’s Byjus teacher. She was an excellent teacher, very patient with my son, he is autistic, it was challenging during some classes but she handled it very well. My son loved her classes and she became a trusted advisor for me as well in regards to ways of handling his condition. She is very detailed. Thank you Ms Princy for being a part of his learning! My best wishes and prayers to you always.' },
+    { name: 'Gaya N', date: 'Mar 2023', url: 'https://www.trustpilot.com/reviews/641cd3f3a40c1ff2c910b100', text: 'Mr. Princy is an amazing teacher, very assertive and goal oriented with my son. She challenges him to be his best.' },
   ],
 };
 
@@ -149,11 +157,32 @@ export const booking = {
   goals: ['Bridging Gaps', 'Building Confidence', 'Olympiad / Competitions', 'School Homework'],
   submit: 'Claim your child’s free 1:1 session 🎁',
   reassure: ['Takes 60 seconds', 'No credit card required', 'Free first class'],
-  note: 'This opens WhatsApp with your details filled in. Nothing is stored on this site.',
+  note: 'Your details go only to Quanttoria, to schedule your free class (see our Privacy Policy).',
 };
 
 export const footer = {
-  about: 'Personalized online maths learning for US students in Grades 1 to 10.',
+  about: 'Personalized online math learning for US students in Grades 1 to 10.',
 };
 
 export const fill = (s: string) => s.replaceAll('{brand}', BRAND);
+
+// Prices come from billing.plans (checked in production 2026-10-31): 15 one-hour classes a month. Update here if the plans change.
+export const pricing = {
+  from: '$20',
+  note: 'Your first class is free. After that, plans start at $300 a month for 15 classes (about $20 each), billed monthly, with 20% off when paid yearly.',
+  plans: [
+    { grades: 'Grades 1–5', monthly: '$300', perClass: '$20' },
+    { grades: 'Grades 6–8', monthly: '$350', perClass: 'about $23' },
+    { grades: 'Grades 9–10', monthly: '$400', perClass: 'about $27' },
+  ],
+};
+
+export const faq = [
+  { q: 'Is the first class really free?', a: 'Yes. You meet the teacher in a live one-to-one class with no credit card and no obligation, and decide afterwards.' },
+  { q: 'How much do classes cost after that?', a: pricing.note },
+  { q: 'How long is a class and how often do we meet?', a: 'Classes are one hour, live and one-to-one. Most families start with two or three a week and adjust as their child grows in confidence.' },
+  { q: 'Which time zones do you work with?', a: 'Families across the US: Eastern, Central, Mountain and Pacific. Tell us your time zone on the booking form and we offer times that suit your child’s school day.' },
+  { q: 'Which grades and curricula do you cover?', a: 'Grades 1 to 10, following Common Core and state standards, with a path toward AP Calculus and AP Statistics.' },
+  { q: 'What happens after the free class?', a: 'You get honest feedback on where your child is and a suggested plan. If you want to continue, we set up a regular weekly schedule; if not, there is nothing more to do.' },
+  { q: 'Can you teach children who learn differently or feel anxious about math?', a: 'Yes. Princy has taught children with autism and learning differences and children with math anxiety; parents describe her as patient, kind and firm. Tell us about your child on the form so the first class fits them.' },
+];

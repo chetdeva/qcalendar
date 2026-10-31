@@ -36,6 +36,7 @@ DATABASE_URL=<Supabase session pooler connection string, with the database passw
 # Optional: SMTP_URL=<AWS SES SMTP url>  MAIL_FROM="Quanttoria <no-reply@quanttoria.com>"  DEFAULT_TIMEZONE=America/New_York
 # Optional: USERS_SERVICE_API_KEY=<random secret, openssl rand -hex 32>  lets the dashboard email a student's guardian when a grade is
 #           published (users-service and dashboard-service both read it). Without it grades still publish; parents are not emailed.
+# Cloudflare Web Analytics (cookie-free visit counts, www only; public id, not a secret): CF_ANALYTICS_TOKEN=9b781c9d867646d9b2f8308e45a2e51e
 # Optional (billing, off by default): BILLING_SERVICE_KEY=<openssl rand -hex 32>  COMPOSE_PROFILES=billing  BILLING_GATEWAY=<gateway name>
 #   plus that gateway's own keys. Needs USERS_SERVICE_API_KEY too. Run migration users-service/migrations/0003_grade.sql first. Without
 #   BILLING_SERVICE_KEY the billing service does not start and every lesson stays free. Webhook URL to give the gateway:

@@ -17,6 +17,7 @@ import { ChangeRequestBox } from './components/change-request-box';
 import { ClassesPanel, fetchUpcoming, upcomingOf } from './components/classes-panel';
 import { conflictMessage, CreateDrawer, DetailsDrawer, type Conflict, type LessonForm } from './components/lesson-drawer';
 import { dayHeader, makeEventContent } from './components/event-content';
+import { WebsiteLeads } from './components/website-leads';
 import { FreeClassRequests, type TrialRequestRow } from './components/free-class-requests';
 import { RoleBanner } from './components/role-banner';
 import { AppHeader } from '@components/app-header';
@@ -406,6 +407,7 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
           </div>
         </section>
         <div className="side">
+          {admin && <WebsiteLeads />}
           <FreeClassRequests
             requests={requests}
             canConfirm={!admin}

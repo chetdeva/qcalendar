@@ -195,6 +195,7 @@ services:
       dockerfile: docker/next.Dockerfile
       args:
         APP: home-ui
+        NEXT_PUBLIC_PLAUSIBLE_DOMAIN: ${PLAUSIBLE_DOMAIN:-} # cookie-free visit counts (plausible.io); empty = no analytics script
         NEXT_PUBLIC_ACCOUNTS_URL: http://localhost:3003 # the Login button goes to users-ui (opened in the browser, so localhost)
     environment:
       CALENDAR_API_URL: http://calendar-service:3000 # the free-class form is saved there (POST /v1/leads)

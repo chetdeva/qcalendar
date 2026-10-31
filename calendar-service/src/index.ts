@@ -43,6 +43,7 @@ const ctx = {
   meetingBaseUrl,
   newMeeting: createMeetingProvider({ jitsiBase: meetingBaseUrl, google }),
   // Unset BILLING_URL = lessons are free (no billing service to ask).
+  leadsTo: env.LEADS_TO,
   billing: env.BILLING_URL ? createBillingClient({ url: env.BILLING_URL, key: env.BILLING_SERVICE_KEY ?? '' }) : undefined,
 };
 const app = createApp({ ctx, authenticator });

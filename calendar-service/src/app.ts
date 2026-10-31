@@ -5,6 +5,7 @@ import { isValidTz } from './availability.ts';
 import { adminSummary } from './admin.ts';
 import { assignmentHistory, assignTeacher } from './assignments.ts';
 import { HttpError } from './errors.ts';
+import { createLead, listLeads } from './leads.ts';
 import * as svc from './events.ts';
 import * as trials from './trial-requests.ts';
 
@@ -150,6 +151,25 @@ export function createApp(deps: { ctx: svc.Ctx; authenticator: Authenticator }) 
     return c.json(await assignTeacher(ctx, c.get('actor'), id(c.req.param('id')), b));
   });
   app.get('/v1/admin/students/:id/assignments', async (c) => c.json(await assignmentHistory(ctx, c.get('actor'), id(c.req.param('id')))));
+
+  // The public website's free-class form (called by the website's server with the service key), and the admin's list of requests.
+  const GRADES = ['Grades 1–2', 'Grades 3–5', 'Grades 6–8', 'Grades 9–10'] as const;
+  const GOALS = ['Bridging Gaps', 'Building Confidence', 'Olympiad / Competitions', 'School Homework'] as const;
+  const LeadSchema = z.object({
+    parentName: name, email, phone: z.string().trim().max(30).optional(), grade: z.enum(GRADES), goal: z.enum(GOALS).optional(), timeZone: tz.optional(),
+    source: z.string().trim().max(100).optional(), page: z.string().trim().max(300).optional(),
+    website: z.string().optional(), // honeypot: real visitors never see this field
+  }).strict();
+  app.post('/v1/leads', async (c) => {
+    const { website, ...b } = parse(LeadSchema, await body(c));
+    if (website) return c.json({ ok: true }, 201);
+    await createLead(ctx, c.get('actor'), b);
+    return c.json({ ok: true }, 201);
+  });
+  app.get('/v1/admin/leads', async (c) => {
+    const q = parse(z.object({ limit: z.coerce.number().int().min(1).max(100).default(50), offset: z.coerce.number().int().min(0).default(0) }), c.req.query());
+    return c.json(await listLeads(ctx, c.get('actor'), q));
+  });
 
   // Who the caller shares a class with. chat-service uses it as its "may these two talk" rule.
   app.get('/v1/contacts', async (c) => c.json({ contacts: (await svc.contactIds(ctx, c.get('actor'))).map((id) => ({ id })) }));

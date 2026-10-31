@@ -11,9 +11,9 @@ const fresh = async () => { const db = createPgliteDb(); await migrate(db); retu
 
 test('migrations apply once and are recorded; running them again does nothing', async () => {
   const db = createPgliteDb();
-  assert.deepEqual(await migrate(db), ['0001_calendar', '0002_responses', '0003_trial_requests', '0004_trial_request_time', '0005_trial_category', '0006_assignments', '0007_earnings']);
+  assert.deepEqual(await migrate(db), ['0001_calendar', '0002_responses', '0003_trial_requests', '0004_trial_request_time', '0005_trial_category', '0006_assignments', '0007_earnings', '0008_leads']);
   assert.deepEqual(await migrate(db), []);
-  assert.deepEqual((await db.query('select name from calendar.schema_migrations')).map((r) => r.name), ['0001_calendar', '0002_responses', '0003_trial_requests', '0004_trial_request_time', '0005_trial_category', '0006_assignments', '0007_earnings']);
+  assert.deepEqual((await db.query('select name from calendar.schema_migrations')).map((r) => r.name), ['0001_calendar', '0002_responses', '0003_trial_requests', '0004_trial_request_time', '0005_trial_category', '0006_assignments', '0007_earnings', '0008_leads']);
   await db.close();
 });
 
@@ -21,7 +21,7 @@ test('every calendar table has row level security switched on', async () => {
   const db = await fresh();
   const rows = await db.query<{ relname: string; relrowsecurity: boolean }>(
     `select c.relname, c.relrowsecurity from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'calendar' and c.relkind = 'r' order by 1`);
-  assert.deepEqual(rows.map((r) => r.relname), ['change_requests', 'email_outbox', 'event_participants', 'events', 'schema_migrations', 'student_teacher', 'teacher_settings', 'trial_requests', 'webhook_queue']);
+  assert.deepEqual(rows.map((r) => r.relname), ['change_requests', 'email_outbox', 'event_participants', 'events', 'leads', 'schema_migrations', 'student_teacher', 'teacher_settings', 'trial_requests', 'webhook_queue']);
   assert.ok(rows.every((r) => r.relrowsecurity), JSON.stringify(rows));
   await db.close();
 });

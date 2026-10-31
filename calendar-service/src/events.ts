@@ -17,6 +17,8 @@ export interface Ctx {
   newMeeting?: NewMeeting;
   /** Who pays for tutoring lessons. Unset: lessons are free (billing is off). */
   billing?: BillingClient;
+  /** Who gets the website's free-class requests. Unset: the default in leads.ts. */
+  leadsTo?: string;
 }
 
 export interface ParticipantInput { userId?: string; email: string; name?: string }

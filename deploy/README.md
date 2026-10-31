@@ -15,11 +15,13 @@ Login is shared across the subdomains through a cookie on `.<domain>`.
 
 ## 1. Server (already created)
 
-EC2 `quanttoria-prod` (t4g.small, Ubuntu 24.04, 2 GB + 2 GB swap), Elastic IP `13.61.93.133`, security group `quanttoria-web`
-(80/443 open, SSH only from the owner's IP), key `~/.ssh/quanttoria-prod.pem`. Docker and git are installed.
+EC2 `quanttoria-web` in **us-west-1** (N. California), t4g.small, Ubuntu 24.04, 2 GB + 2 GB swap, Elastic IP `184.169.166.191`,
+security group `quanttoria-web` (80/443 open, SSH only from the owner's IP), key `~/.ssh/quanttoria-prod.pem`. Docker is installed.
+It sits next to the Supabase database (also us-west-1), so a query takes 1-2 ms instead of ~175 ms from Europe, and the users are in the US.
+The first server was in eu-north-1 (Stockholm) and was retired on 2026-10-31.
 
 ```bash
-ssh -i ~/.ssh/quanttoria-prod.pem ubuntu@13.61.93.133
+ssh -i ~/.ssh/quanttoria-prod.pem ubuntu@184.169.166.191
 ```
 
 ## 2. Settings on the server
@@ -56,10 +58,12 @@ From your Mac, in the repo root:
 
 ```bash
 rsync -az --exclude node_modules --exclude .next --exclude .next-e2e --exclude .git --exclude '*/data' \
-  -e "ssh -i ~/.ssh/quanttoria-prod.pem" ./ ubuntu@13.61.93.133:~/app/
+  -e "ssh -i ~/.ssh/quanttoria-prod.pem" ./ ubuntu@184.169.166.191:~/app/
 ```
 
-On the server (build one image at a time; the instance has 2 GB):
+**Do not build on the server.** Two gigabytes is not enough for the Next.js builds: a second build exhausted memory and took the site down.
+Build the images on your Mac (it is arm64, like the server) and send them instead, see "Deploying without building on the server" below.
+The `--build` steps in this README are only for a first setup on a bigger machine. On the server (one image at a time):
 
 ```bash
 cd ~/app
@@ -73,12 +77,12 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
 
 | Name | Type | Value |
 |---|---|---|
-| `@` (root) | A | `13.61.93.133` |
-| `www` | A | `13.61.93.133` |
-| `accounts` | A | `13.61.93.133` |
-| `calendar` | A | `13.61.93.133` |
-| `chat` | A | `13.61.93.133` |
-| `dashboard` | A | `13.61.93.133` |
+| `@` (root) | A | `184.169.166.191` |
+| `www` | A | `184.169.166.191` |
+| `accounts` | A | `184.169.166.191` |
+| `calendar` | A | `184.169.166.191` |
+| `chat` | A | `184.169.166.191` |
+| `dashboard` | A | `184.169.166.191` |
 
 **Dry run first:** set `DOMAIN=test.quanttoria.com`, add `test`, `www.test`, `accounts.test`, `calendar.test`, `chat.test`, `dashboard.test` A records the same way,
 rebuild (`--build`) and check the whole flow. Then switch `DOMAIN` to `quanttoria.com`, rebuild, and change the real records.
@@ -89,6 +93,20 @@ Changing the root and `www` replaces the live Vercel site: note their current va
 - **Supabase** (Authentication, URL configuration): Site URL `https://accounts.<domain>`; redirect URLs
   `https://accounts.<domain>/**`, `https://calendar.<domain>/**`, `https://chat.<domain>/**` and `https://dashboard.<domain>/**`. Google sign-in: add the same redirect URLs in the Google console.
 - **Email:** verify `<domain>` in Amazon SES and add its DNS records in Cloudflare; put the SES SMTP URL in `.env`.
+
+## Deploying without building on the server
+
+Build with the prod compose files from a clean copy of the repo (`git archive HEAD`) with the server's `.env` next to it, so the `NEXT_PUBLIC_*` values are the real https ones, then ship each image and restart that service:
+
+```bash
+docker compose -p syncschedule -f docker-compose.yml -f docker-compose.prod.yml build
+docker save syncschedule-<service> | gzip | ssh -i ~/.ssh/quanttoria-prod.pem ubuntu@184.169.166.191 'gunzip | docker load'
+ssh -i ~/.ssh/quanttoria-prod.pem ubuntu@184.169.166.191 'cd ~/app && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build --no-deps <service>'
+```
+
+Send the compose files with `git archive HEAD | ssh ... 'cd ~/app && tar -x'` (never rsync over `.env`). Each web image is ~1 GB, so the upload takes a few minutes per app.
+Every container has a memory cap in `docker-compose.prod.yml` (`mem_limit` plus `NODE_OPTIONS=--max-old-space-size`); if one restarts on its own, check `docker ps` and raise its cap.
+Billing is on (`COMPOSE_PROFILES=billing`, Cashfree sandbox keys); its webhook is `https://accounts.<domain>/api/webhooks/billing/cashfree`.
 
 ## Operating it
 

@@ -1,9 +1,10 @@
 import type { MetadataRoute } from 'next';
+import { pages } from '@/content/pages';
 import { SITE_URL } from '@/content/site';
 
-// Every public page. Add the grade and goal pages here as they are built.
-const PATHS = ['/', '/privacy', '/terms'];
+// Every public page. 
+const PATHS = ['/', ...pages.map((p) => `/math-tutoring/${p.slug}`), '/privacy', '/terms'];
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  return PATHS.map((p) => ({ url: `${SITE_URL}${p}`, changeFrequency: p === '/' ? 'weekly' : 'yearly', priority: p === '/' ? 1 : 0.3 }));
+  return PATHS.map((p) => ({ url: `${SITE_URL}${p}`, changeFrequency: p === '/' ? 'weekly' : 'monthly', priority: p === '/' ? 1 : p.startsWith('/math') ? 0.8 : 0.3 }));
 }

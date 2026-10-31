@@ -1,7 +1,7 @@
 import BookingForm from '@/components/BookingForm';
 import Classroom from '@/components/Classroom';
 import JsonLd from '@/components/JsonLd';
-import { Footer, Founder, Framework, Header, Hero, Reviews, Why } from '@/components/Sections';
+import { Faq, Footer, Founder, Framework, Header, Hero, Reviews, Why } from '@/components/Sections';
 
 export default function Home() {
   return (
@@ -15,6 +15,7 @@ export default function Home() {
         <Classroom />
         <Founder />
         <Reviews />
+        <Faq />
         <BookingForm />
       </main>
       <Footer />

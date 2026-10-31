@@ -82,7 +82,7 @@ test('US spelling and one name, in the page and in the search metadata', async (
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /^https:\/\/www\.quanttoria\.com\/?$/);
   await expect(page.locator('meta[property="og:image"]')).toHaveCount(1);
   const ld = JSON.parse(await page.locator('script[type="application/ld+json"]').innerText());
-  expect(ld['@graph'].map((n: { '@type': string }) => n['@type'])).toEqual(['EducationalOrganization', 'Person']);
+  expect(ld['@graph'].map((n: { '@type': string }) => n['@type'])).toEqual(['EducationalOrganization', 'FAQPage', 'Person']);
 });
 
 test('robots.txt, sitemap.xml and llms.txt are served for search engines and AI tools', async ({ request }) => {
@@ -286,4 +286,32 @@ test('"Book a free demo" animates on hover and press like the other primary butt
     expect(hover.s, `${name} shadow shrinks on hover`).not.toBe(rest.s);
     await page.mouse.move(0, 400);
   }
+});
+
+const SEO_SLUGS = ['grades-1-2', 'grades-3-5', 'grades-6-8', 'grades-9-10', 'closing-gaps', 'confidence-and-math-anxiety', 'math-olympiad-coaching', 'common-core-math-help'];
+
+test('home has an FAQ, a price table and links to every grade and goal page', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#faq details')).not.toHaveCount(0);
+  await expect(page.locator('#faq .price')).toContainText('$300 a month');
+  for (const s of SEO_SLUGS) await expect(page.locator(`#faq a[href="/math-tutoring/${s}"]`)).toHaveCount(1);
+  const ld = await page.locator('script[type="application/ld+json"]').first().textContent();
+  expect(JSON.parse(ld!)['@graph'].some((n: { '@type': string }) => n['@type'] === 'FAQPage')).toBe(true);
+});
+
+test('each grade and goal page has one H1, its own title, a booking form and valid JSON-LD', async ({ page, request }) => {
+  const titles = new Set<string>();
+  for (const s of SEO_SLUGS) {
+    await page.goto(`/math-tutoring/${s}`);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
+    titles.add(await page.title());
+    await expect(page.locator('#book')).toBeVisible();
+    expect(await page.locator('link[rel="canonical"]').getAttribute('href')).toBe(`https://www.quanttoria.com/math-tutoring/${s}`);
+    JSON.parse((await page.locator('script[type="application/ld+json"]').first().textContent())!);
+    expect(await page.locator('body').innerText()).not.toMatch(/\bmaths\b|personalised/i);
+  }
+  expect(titles.size).toBe(SEO_SLUGS.length);
+  const sitemap = await (await request.get('/sitemap.xml')).text();
+  for (const s of SEO_SLUGS) expect(sitemap).toContain(`/math-tutoring/${s}`);
+  expect((await request.get('/math-tutoring/nope')).status()).toBe(404);
 });

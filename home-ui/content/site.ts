@@ -31,6 +31,7 @@ export const nav = [
   { label: 'Live classroom', href: '#classroom' },
   { label: 'Meet our founder', href: '#tutor' },
   { label: 'Why parents trust us', href: '#reviews' },
+  { label: 'FAQ', href: '#faq' },
   { label: 'Contact', href: '#contact' },
 ];
 
@@ -164,3 +165,24 @@ export const footer = {
 };
 
 export const fill = (s: string) => s.replaceAll('{brand}', BRAND);
+
+// Prices come from billing.plans (checked in production 2026-10-31): 15 one-hour classes a month. Update here if the plans change.
+export const pricing = {
+  from: '$20',
+  note: 'Your first class is free. After that, plans start at $300 a month for 15 classes (about $20 each), billed monthly, with 20% off when paid yearly.',
+  plans: [
+    { grades: 'Grades 1–5', monthly: '$300', perClass: '$20' },
+    { grades: 'Grades 6–8', monthly: '$350', perClass: 'about $23' },
+    { grades: 'Grades 9–10', monthly: '$400', perClass: 'about $27' },
+  ],
+};
+
+export const faq = [
+  { q: 'Is the first class really free?', a: 'Yes. You meet the teacher in a live one-to-one class with no credit card and no obligation, and decide afterwards.' },
+  { q: 'How much do classes cost after that?', a: pricing.note },
+  { q: 'How long is a class and how often do we meet?', a: 'Classes are one hour, live and one-to-one. Most families start with two or three a week and adjust as their child grows in confidence.' },
+  { q: 'Which time zones do you work with?', a: 'Families across the US: Eastern, Central, Mountain and Pacific. Tell us your time zone on the booking form and we offer times that suit your child’s school day.' },
+  { q: 'Which grades and curricula do you cover?', a: 'Grades 1 to 10, following Common Core and state standards, with a path toward AP Calculus and AP Statistics.' },
+  { q: 'What happens after the free class?', a: 'You get honest feedback on where your child is and a suggested plan. If you want to continue, we set up a regular weekly schedule; if not, there is nothing more to do.' },
+  { q: 'Can you teach children who learn differently or feel anxious about math?', a: 'Yes. Princy has taught children with autism and learning differences and children with math anxiety; parents describe her as patient, kind and firm. Tell us about your child on the form so the first class fits them.' },
+];

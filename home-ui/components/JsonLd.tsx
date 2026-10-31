@@ -1,4 +1,4 @@
-import { BRAND, SITE_URL, site } from '@/content/site';
+import { BRAND, SITE_URL, faq, site } from '@/content/site';
 
 /** Structured data for Google and AI assistants: who Quanttoria is, who teaches, and how they relate. */
 export default function JsonLd() {
@@ -16,6 +16,7 @@ export default function JsonLd() {
         founder: { '@id': `${SITE_URL}/#teacher` },
         areaServed: { '@type': 'Country', name: 'United States' },
       },
+      { '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) },
       {
         '@type': 'Person',
         '@id': `${SITE_URL}/#teacher`,

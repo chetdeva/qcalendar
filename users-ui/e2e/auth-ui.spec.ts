@@ -41,11 +41,12 @@ test.describe('sign-in screens', () => {
     for (const name of ['Need help? / Parent Support', 'Connect on WhatsApp']) {
       await expect(page.getByRole('link', { name })).toHaveAttribute('href', /^https:\/\/wa\.me\/919119571369\?text=/);
     }
-    for (const name of ['Call us', 'Privacy Policy']) {
-      const b = page.getByRole('button', { name });
-      await expect(b).toBeDisabled();
-      await expect(b).toHaveAttribute('title', 'Coming soon');
-    }
+    const call = page.getByRole('button', { name: 'Call us' });
+    await expect(call).toBeDisabled();
+    await expect(call).toHaveAttribute('title', 'Coming soon');
+    // the legal pages are real now and live on the website
+    await expect(page.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', 'http://localhost:3004/privacy');
+    await expect(page.getByRole('link', { name: 'Terms of Use' })).toHaveAttribute('href', 'http://localhost:3004/terms');
     await expect(page.getByText('Back to Website')).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Chat with Advisor' })).toHaveCount(0);
     // the safe-learning note sits above the streak banner

@@ -9,7 +9,7 @@ test('renders every section, the real content and the header links', async ({ pa
   await expect(page.getByText('MathExcellence')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: /tailored approach/ })).toBeVisible();
   await expect(page.locator('#how-it-works ol > li')).toHaveCount(4);
-  await expect(page.getByRole('heading', { name: 'Pprincy Sugandhh' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Princy Sugandh' })).toBeVisible();
   await expect(page.getByRole('heading', { name: /our family is part of the journey/ })).toBeVisible();
   // The sections of the Figma design, each with its own content.
   await expect(page.locator('#why .vs')).toHaveCount(2); // old rote way vs the Quanttoria way
@@ -49,17 +49,60 @@ test('WhatsApp links use the Quanttoria number', async ({ page }) => {
   for (const l of await links.all()) await expect(l).toHaveAttribute('href', new RegExp(`^https://wa\\.me/${WA}\\?text=`));
 });
 
-test('Trustpilot links use the Quanttoria review URL', async ({ page }) => {
+test('reviews are word for word, say where they come from, and link to their own Trustpilot review', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('link', { name: /Read all reviews/ })).toHaveAttribute('href', /trustpilot\.com\/review\/byjusfutureschool\.com\?search=princy/);
+  const section = page.locator('#reviews');
+  await expect(section).toContainText('13 five-star reviews of Princy’s teaching');
+  await expect(section).toContainText('BYJU’S FutureSchool');
+  // The two quotes the audit found reworded, as the parents wrote them (school name kept).
+  await expect(section).toContainText('I started BYJU with a demo class with Ms Princy Sugandh.');
+  await expect(section).toContainText('BYJU Future School is extraordinary!');
+  await expect(section).toContainText('Mr. Princy is an amazing teacher');
+  for (const link of await section.getByRole('link', { name: /^Read .* on Trustpilot$/ }).all()) {
+    await expect(link).toHaveAttribute('href', /^https:\/\/www\.trustpilot\.com\/reviews\/[0-9a-f]{24}$/);
+    await expect(link).toHaveAttribute('rel', /noopener/);
+  }
+  await expect(section.getByRole('link', { name: /See them on Trustpilot/ })).toHaveAttribute('href', /trustpilot\.com\/review\/byjusfutureschool\.com\?search=princy/);
+  await expect(page.getByText('Rated 5 stars on Trustpilot')).toHaveCount(0);
 });
 
-test('the founder\'s "Rated 5 stars on Trustpilot" links to the Trustpilot reviews', async ({ page }) => {
+test('the founder rating jumps to the reviews on this page', async ({ page }) => {
   await page.goto('/');
-  const link = page.locator('#tutor').getByRole('link', { name: 'Rated 5 stars on Trustpilot' });
-  await expect(link).toHaveAttribute('href', /trustpilot\.com\/review\/byjusfutureschool\.com\?search=princy&stars=5#search-reviews$/);
-  await expect(link).toHaveAttribute('target', '_blank');
-  await expect(link).toHaveAttribute('rel', /noopener/);
+  await expect(page.locator('#tutor').getByRole('link', { name: '13 five-star parent reviews' })).toHaveAttribute('href', '#reviews');
+});
+
+test('US spelling and one name, in the page and in the search metadata', async ({ page }) => {
+  await page.goto('/');
+  const text = await page.locator('body').innerText();
+  expect(text).not.toMatch(/\bmaths\b/i);
+  expect(text).not.toMatch(/personalis/i);
+  expect(text).not.toContain('Pprincy');
+  await expect(page).toHaveTitle(/Online Math Tutor for Kids/);
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /1-on-1 online math tutoring/);
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /^https:\/\/www\.quanttoria\.com\/?$/);
+  await expect(page.locator('meta[property="og:image"]')).toHaveCount(1);
+  const ld = JSON.parse(await page.locator('script[type="application/ld+json"]').innerText());
+  expect(ld['@graph'].map((n: { '@type': string }) => n['@type'])).toEqual(['EducationalOrganization', 'Person']);
+});
+
+test('robots.txt, sitemap.xml and llms.txt are served for search engines and AI tools', async ({ request }) => {
+  const robots = await (await request.get('/robots.txt')).text();
+  expect(robots).toMatch(/Allow: \//);
+  expect(robots).toContain('Sitemap: https://www.quanttoria.com/sitemap.xml');
+  const sitemap = await (await request.get('/sitemap.xml')).text();
+  for (const p of ['/', '/privacy', '/terms']) expect(sitemap).toContain(`<loc>https://www.quanttoria.com${p === '/' ? '' : p}`);
+  expect((await request.get('/llms.txt')).ok()).toBe(true);
+});
+
+test('privacy and terms pages exist and the footer links to them', async ({ page }) => {
+  await page.goto('/');
+  const f = page.getByRole('contentinfo');
+  await f.getByRole('link', { name: 'Privacy Policy' }).click();
+  await expect(page).toHaveURL(/\/privacy$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Privacy Policy' })).toBeVisible();
+  await expect(page.locator('#parental-consent')).toBeVisible();
+  await page.goto('/terms');
+  await expect(page.getByRole('heading', { level: 1, name: 'Terms of Use' })).toBeVisible();
 });
 
 test('header anchors scroll to their section', async ({ page }) => {
@@ -159,7 +202,7 @@ test('footer: the shared site footer, with the contact row kept under its legal 
   await page.goto('/');
   const f = page.getByRole('contentinfo');
   await expect(f).toContainText('COPPA & FERPA Compliant Security');
-  for (const l of ['Privacy Policy', 'Parental Consent & Rights', 'Student Data Safety']) await expect(f.getByRole('button', { name: l })).toBeDisabled();
+  for (const l of ['Privacy Policy', 'Parental Consent & Rights', 'Student Data Safety', 'Terms of Use']) await expect(f.getByRole('link', { name: l })).toBeVisible();
   await expect(f).toContainText('For support, mail us at pprincyaaghaww@quanttoria.com');
   await expect(f.getByRole('link', { name: 'pprincyaaghaww@quanttoria.com' })).toHaveAttribute('href', 'mailto:pprincyaaghaww@quanttoria.com');
   await expect(f).not.toContainText('gmail.com');

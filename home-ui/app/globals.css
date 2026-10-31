@@ -357,3 +357,14 @@ h1 em img { position: absolute; left: 0; right: 0; bottom: -8px; width: 100%; he
   html { scroll-behavior: auto; }
   .btn, .review { transition: none; }
 }
+
+.who a { color: var(--blue); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+.float { transition: opacity .2s, transform .2s; }
+.float.is-away { opacity: 0; transform: translateY(12px); pointer-events: none; }
+
+.legal { max-width: 760px; padding-block: 48px 72px; }
+.legal h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.15; margin-bottom: 8px; }
+.legal h2 { font-size: 22px; margin: 32px 0 8px; scroll-margin-top: 90px; }
+.legal p, .legal li { font-size: 16px; line-height: 1.65; color: #1e293b; }
+.legal ul { padding-left: 22px; margin: 8px 0; }
+.legal-updated { color: var(--muted); margin-bottom: 24px; }

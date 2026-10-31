@@ -1,5 +1,6 @@
 import Image from 'next/image';
-import { CalendarCheck, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
+import FloatBook from './FloatBook';
 import MobileNav from './MobileNav';
 import { SiteFooter } from '@components/site-footer';
 import { ACCOUNTS_URL, BRAND, founder, framework, hero, nav, reviews, site, whatsappLink, why } from '@/content/site';
@@ -157,7 +158,7 @@ export function Founder() {
         <div className="coach">
           <div className="coach-photo">
             <div className="frame"><Image className="founder-img" src="/images/princy.jpg" alt={`Portrait of ${site.owner.name}`} width={225} height={225} /></div>
-            <a className="rating" href={site.trustpilotUrl} target="_blank" rel="noopener noreferrer"><img src="/figma/star.svg" alt="" width={14} height={13} />{founder.rating}</a>
+            <a className="rating" href="#reviews"><img src="/figma/star.svg" alt="" width={14} height={13} />{founder.rating}</a>
           </div>
           <div className="coach-body">
             <ul className="tags">
@@ -194,16 +195,16 @@ export function Reviews() {
             <span className="icon-box icon-white" aria-hidden>💛</span>
             <div><h3>{reviews.banner.title} <span className="stars" role="img" aria-label="5 out of 5 stars">★★★★★</span></h3><p>{reviews.banner.sub}</p></div>
           </div>
-          <a className="btn btn-white btn-sm" href={site.trustpilotUrl} target="_blank" rel="noopener noreferrer">{reviews.all} <ExternalLink size={14} aria-hidden /></a>
+          <a className="btn btn-white btn-sm" href={site.reviewsSourceUrl} target="_blank" rel="noopener noreferrer">{reviews.all} <ExternalLink size={14} aria-hidden /></a>
         </div>
-        <ul className="rev-list" aria-label="Parent testimonials">
+        <ul className="rev-list" aria-label="Parent reviews">
           {reviews.list.map((r, i) => (
-            <li key={r.name + r.text.slice(0, 20)}>
-              <a className={`review tone-${(['sun', 'sky', 'violet'] as const)[i % 3]}`} href={site.trustpilotUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open ${r.name}’s review on Trustpilot`}>
+            <li key={r.url}>
+              <article className={`review tone-${(['sun', 'sky', 'violet'] as const)[i % 3]}`}>
                 <span className="stars" role="img" aria-label="5 out of 5 stars">★★★★★</span>
                 <blockquote>“{r.text}”</blockquote>
-                <span className="who"><b>{r.name}</b><span>{r.where}</span></span>
-              </a>
+                <span className="who"><b>{r.name}</b><span>{r.date} · <a href={r.url} target="_blank" rel="noopener noreferrer" aria-label={`Read ${r.name}’s review on Trustpilot`}>Read on Trustpilot</a></span></span>
+              </article>
             </li>
           ))}
         </ul>
@@ -218,7 +219,7 @@ export function Footer() {
       <div className="foot-clear"> {/* room under the footer so the floating Book button never covers it */}
         <SiteFooter id="contact" />
       </div>
-      <a className="float btn btn-primary" href="#book"><CalendarCheck size={18} aria-hidden /> Book a free demo</a>
+      <FloatBook />
     </>
   );
 }

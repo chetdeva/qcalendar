@@ -11,7 +11,8 @@
 .sf-copy p { font-size: 14px; line-height: 20px; font-weight: 500; color: var(--sf-muted); }
 .sf-links { display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .sf-links nav, .sf-contact { display: flex; gap: 6px 20px; flex-wrap: wrap; justify-content: center; }
-.sf-links nav button { background: none; border: 0; padding: 0; font: inherit; font-size: 11px; line-height: 14px; font-weight: 800; letter-spacing: .44px; color: var(--sf-muted); opacity: .62; cursor: not-allowed; }
+.sf-links nav a { font-size: 11px; line-height: 14px; font-weight: 800; letter-spacing: .44px; color: var(--sf-muted); text-decoration: none; }
+.sf-links nav a:hover { color: #006194; text-decoration: underline; }
 .sf-contact { font-size: 13px; line-height: 16px; font-weight: 600; color: var(--sf-muted); }
 .sf-contact a { font-size: 13px; line-height: 16px; font-weight: 700; letter-spacing: .26px; color: var(--sf-muted); text-decoration: none; }
 .sf-contact a:hover { color: #006194; }

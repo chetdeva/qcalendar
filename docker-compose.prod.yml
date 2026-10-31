@@ -6,6 +6,8 @@
 # Differences from local: nothing is published to the host except Caddy (80/443), every app restarts on
 # reboot, and the browser-facing addresses are the real https ones. NEXT_PUBLIC_* values are baked into the
 # web apps at build time, so changing DOMAIN needs a rebuild (--build).
+# Every app also has a memory cap: mem_limit for the container and NODE_OPTIONS=--max-old-space-size so Node collects
+# garbage before it reaches the cap, instead of one app growing until the 2 GB server runs out and everything stalls.
 
 x-domain: &domain ${DOMAIN:?set DOMAIN in .env, e.g. quanttoria.com}
 
@@ -13,6 +15,7 @@ services:
   caddy:
     image: caddy:2
     restart: unless-stopped
+    mem_limit: 64m
     ports: ["80:80", "443:443", "443:443/udp"]
     environment:
       DOMAIN: *domain
@@ -24,15 +27,19 @@ services:
 
   users-service:
     restart: unless-stopped
+    mem_limit: 192m
     ports: !reset []
     environment:
+      NODE_OPTIONS: --max-old-space-size=96
       NODE_ENV: production
       INVITE_REDIRECT_URL: https://accounts.${DOMAIN}/accept-invite
 
   calendar-service:
     restart: unless-stopped
+    mem_limit: 192m
     ports: !reset []
     environment:
+      NODE_OPTIONS: --max-old-space-size=96
       NODE_ENV: production # makes it refuse to start without DATABASE_URL and SUPABASE_URL
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env (Supabase session pooler string)}
       CALENDAR_URL: https://calendar.${DOMAIN}
@@ -40,20 +47,26 @@ services:
 
   billing-service:
     restart: unless-stopped
+    mem_limit: 192m
     environment:
+      NODE_OPTIONS: --max-old-space-size=96
       NODE_ENV: production # refuses to start without DATABASE_URL and SUPABASE_URL, and refuses the fake gateway
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env (Supabase session pooler string)} # same database as calendar, its own "billing" schema
       BILLING_RETURN_URL: https://accounts.${DOMAIN}/billing
 
   chat-service:
     restart: unless-stopped
+    mem_limit: 192m
     environment:
+      NODE_OPTIONS: --max-old-space-size=96
       NODE_ENV: production # makes it refuse to start without DATABASE_URL and SUPABASE_URL
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env (Supabase session pooler string)} # same database as calendar, its own "chat" schema
 
   dashboard-service:
     restart: unless-stopped
+    mem_limit: 192m
     environment:
+      NODE_OPTIONS: --max-old-space-size=96
       NODE_ENV: production # makes it refuse to start without DATABASE_URL
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env (Supabase session pooler string)} # same database as calendar, its own "dashboard" schema
       DASHBOARD_URL: https://dashboard.${DOMAIN}
@@ -61,6 +74,9 @@ services:
 
   users-ui:
     restart: unless-stopped
+    mem_limit: 320m
+    environment:
+      NODE_OPTIONS: --max-old-space-size=128
     ports: !reset []
     build:
       args:
@@ -75,6 +91,9 @@ services:
 
   calendar-ui:
     restart: unless-stopped
+    mem_limit: 320m
+    environment:
+      NODE_OPTIONS: --max-old-space-size=128
     ports: !reset []
     build:
       args:
@@ -87,6 +106,9 @@ services:
 
   chat-ui:
     restart: unless-stopped
+    mem_limit: 320m
+    environment:
+      NODE_OPTIONS: --max-old-space-size=128
     ports: !reset []
     build:
       args:
@@ -99,6 +121,9 @@ services:
 
   dashboard-ui:
     restart: unless-stopped
+    mem_limit: 320m
+    environment:
+      NODE_OPTIONS: --max-old-space-size=128
     ports: !reset []
     build:
       args:
@@ -111,6 +136,9 @@ services:
 
   home-ui:
     restart: unless-stopped
+    mem_limit: 320m
+    environment:
+      NODE_OPTIONS: --max-old-space-size=128
     ports: !reset []
     build:
       args:

@@ -5,9 +5,6 @@ import { booking as bk, site, whatsappLink } from '@/content/site';
 
 const ICONS = ['lock', 'no-card', 'verified'];
 
-/** Cookie-free custom event for Plausible; does nothing when analytics is off. */
-const track = (name: string) => (window as unknown as { plausible?: (n: string) => void }).plausible?.(name);
-
 type Sent = { name: string; email: string; message: string };
 
 /** Where the visitor came from, as a short label: a utm_source, the referring site, or "direct". */
@@ -55,13 +52,12 @@ export default function BookingForm() {
         }),
       });
       setState(res.ok ? 'sent' : 'failed');
-      if (res.ok) track('form_submit');
     } catch {
       setState('failed');
     }
   }
 
-  const openWhatsApp = (message: string) => { track('whatsapp_click'); const w = window.open(whatsappLink(message), '_blank'); if (w) w.opener = null; };
+  const openWhatsApp = (message: string) => { const w = window.open(whatsappLink(message), '_blank'); if (w) w.opener = null; };
 
   if (state === 'sent' && sent) {
     return (

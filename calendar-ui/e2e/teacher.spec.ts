@@ -433,6 +433,21 @@ test.describe('lesson dialog', () => {
     expect(f.x >= s.x + s.width || f.x + f.width <= s.x).toBe(true); // opened beside the clicked slot, not over it
   });
 
+  test('on a short window the dialog stays inside it and scrolls to its last buttons', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    await (await mine(request, teacher)).create({ title: 'Geometry', start: inDays(1, 10), durationMinutes: 60 });
+    const page = await openPage(context, request, teacher);
+    await page.setViewportSize({ width: 1200, height: 560 });
+    await page.locator('.fc-event', { hasText: 'Geometry' }).click();
+    const d = page.getByRole('complementary', { name: 'Lesson details' });
+    await expect(d).toBeVisible();
+    const box = (await d.boundingBox())!;
+    expect(box.y + box.height).toBeLessThanOrEqual(560); // not cut off by the bottom of the window
+    await expect(d.getByRole('button', { name: 'Cancel lesson' })).not.toBeInViewport();
+    await d.locator('.d-body').evaluate((e) => { e.scrollTop = e.scrollHeight; });
+    await expect(d.getByRole('button', { name: 'Cancel lesson' })).toBeInViewport(); // reachable by scrolling inside the dialog
+  });
+
   test('clicking a class opens its dialog beside that class', async ({ context, request }) => {
     const teacher = await seed(request, 'teacher', 'Tess Teacher');
     await (await mine(request, teacher)).create({ title: 'Geometry', start: inDays(1, 10), durationMinutes: 60 });

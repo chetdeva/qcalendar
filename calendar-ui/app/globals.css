@@ -171,14 +171,25 @@ button:disabled { cursor: default; }
 .cat-office_hours { --accent: var(--primary); --ev-bg: #e6effe; --badge-bg: #d8e2ff; --badge-fg: #001a41; }
 .cat-trial { --accent: #0b7a75; --ev-bg: #e6f6f4; --badge-bg: #c6ece7; --badge-fg: #00201d; }
 .cat-personal { --accent: var(--ink-3); --ev-bg: #e5eeff; --badge-bg: transparent; --badge-fg: var(--ink-2); }
-.ec { padding: 4px 4px 4px 12px; height: 100%; display: flex; flex-direction: column; gap: 1px; overflow: hidden; }
+.ec { container-type: inline-size; padding: 3px 4px 3px 10px; height: 100%; display: flex; flex-direction: column; gap: 1px; overflow: hidden; }
+.ec > * { flex-shrink: 0; }
 .ec-top { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
-.ec-badge { display: inline-flex; align-items: center; gap: 2px; max-width: 100%; background: var(--badge-bg); color: var(--badge-fg); border-radius: 4px; padding: 2px 4px; font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: 0.33px; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
-.ec-pending { font-size: 10px; line-height: 14px; font-weight: 600; color: #854f0b; text-transform: uppercase; letter-spacing: 0.3px; }
-.ec-title { font-size: 14px; line-height: 20px; font-weight: 600; letter-spacing: 0.07px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ec-sub { font-size: 12px; line-height: 16px; letter-spacing: 0.12px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ec-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 4px; }
-.ec-time { font-size: 13px; line-height: 16px; font-weight: 500; letter-spacing: -0.13px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ec-badge { display: inline-flex; align-items: center; gap: 2px; min-width: 0; background: var(--badge-bg); color: var(--badge-fg); border-radius: 4px; padding: 1px 4px; font-size: 10px; line-height: 12px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
+.ec-pending { font-size: 10px; line-height: 12px; font-weight: 600; color: #854f0b; text-transform: uppercase; letter-spacing: 0.3px; }
+.ec-title { font-size: 13px; line-height: 17px; font-weight: 600; letter-spacing: 0.07px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ec > .ec-sub { flex-shrink: 1; min-height: 0; font-size: 12px; line-height: 15px; letter-spacing: 0.12px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } /* the first thing to go when the slot is short */
+.ec-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 4px; min-width: 0; }
+.ec-time { min-width: 0; font-size: 12px; line-height: 15px; font-weight: 500; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ec-start { display: none; }
+/* narrow columns (week view on a small screen): icon-only category, and the start time instead of the full range, so nothing is cut mid-word */
+@container (max-width: 125px) {
+  .ec-badge-label { display: none; }
+  .ec-range { display: none; }
+  .ec-start { display: inline; }
+  .ec-time { font-size: 11px; letter-spacing: -0.2px; }
+  .ec-foot > :not(.ec-time) { display: none; } /* the video icon: the class dialog has the meeting link */
+  .ec-top, .ec-title, .ec-foot, .ec > .ec-sub { margin-left: -4px; }
+}
 .ec-compact { flex-direction: row; align-items: center; gap: 6px; padding-top: 2px; padding-bottom: 2px; }
 .ec-compact .ec-title { font-size: 13px; line-height: 16px; min-width: 0; }
 .mc { display: flex; align-items: center; gap: 4px; padding: 1px 4px; font-size: 12px; line-height: 16px; color: var(--ink); overflow: hidden; }

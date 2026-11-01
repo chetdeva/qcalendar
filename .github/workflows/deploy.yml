@@ -1,0 +1,105 @@
+# Test, build arm64 images on a GitHub runner, push them to GHCR, then deploy to the EC2 server.
+# Run it from the Actions tab ("Run workflow"). Setup and secrets: deploy/README.md, "Deploying from GitHub Actions".
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      services:
+        description: 'Space-separated services to deploy, or "all"'
+        default: all
+      ref_tag:
+        description: 'Redeploy images already built for this git sha (rollback). Empty = build the current commit'
+        default: ''
+
+concurrency: deploy-production
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write # AWS OIDC
+
+env:
+  ALL: users-service calendar-service billing-service chat-service dashboard-service users-ui calendar-ui chat-ui dashboard-ui home-ui
+  AWS_REGION: us-west-1
+
+jobs:
+  test:
+    if: inputs.ref_tag == ''
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: true
+      matrix:
+        svc: [users-service, calendar-service, billing-service, chat-service, dashboard-service]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: npm ci && npm test
+        working-directory: ${{ matrix.svc }}
+
+  deploy:
+    needs: test
+    # run when tests passed, or when the test job was skipped for a rollback
+    if: ${{ !cancelled() && (needs.test.result == 'success' || needs.test.result == 'skipped') }}
+    runs-on: ubuntu-24.04-arm
+    environment: production
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}
+      SHA: ${{ inputs.ref_tag || github.sha }}
+      SVCS: ${{ inputs.services == 'all' && '' || inputs.services }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pick services
+        run: echo "SVCS=${SVCS:-$ALL}" >> "$GITHUB_ENV"
+
+      - name: Build and push images
+        if: inputs.ref_tag == ''
+        env:
+          DOMAIN: ${{ secrets.DOMAIN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          CF_ANALYTICS_TOKEN: ${{ secrets.CF_ANALYTICS_TOKEN }}
+          DATABASE_URL: unused-at-build # only needed so compose can parse the file
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker compose -p syncschedule -f docker-compose.yml -f docker-compose.prod.yml build $SVCS
+          for s in $SVCS; do
+            docker tag syncschedule-$s $IMAGE-$s:$SHA
+            docker push $IMAGE-$s:$SHA
+          done
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Open SSH for this runner
+        run: |
+          echo "RUNNER_IP=$(curl -s https://checkip.amazonaws.com)" >> "$GITHUB_ENV"
+          aws ec2 authorize-security-group-ingress --group-id "${{ secrets.SG_ID }}" --protocol tcp --port 22 \
+            --cidr "$(curl -s https://checkip.amazonaws.com)/32"
+
+      - name: Deploy
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+        run: |
+          install -m 600 /dev/null key && echo "${{ secrets.SSH_PRIVATE_KEY }}" > key
+          SSH="ssh -i key -o StrictHostKeyChecking=accept-new ubuntu@$HOST"
+          scp -i key -o StrictHostKeyChecking=accept-new docker-compose.yml docker-compose.prod.yml ubuntu@$HOST:app/
+          scp -i key -r deploy ubuntu@$HOST:app/
+          $SSH "set -e; cd ~/app
+            for s in $SVCS; do docker pull $IMAGE-\$s:$SHA && docker tag $IMAGE-\$s:$SHA syncschedule-\$s; done
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build --no-deps $SVCS
+            sleep 10; docker ps --format '{{.Names}} {{.Status}}'"
+
+      - name: Check the site
+        run: |
+          curl -fsS --retry 6 --retry-delay 5 -o /dev/null https://www.${{ secrets.DOMAIN }}
+          curl -fsS --retry 6 --retry-delay 5 -o /dev/null https://accounts.${{ secrets.DOMAIN }}/login
+
+      - name: Close SSH again
+        if: always()
+        run: |
+          [ -n "$RUNNER_IP" ] && aws ec2 revoke-security-group-ingress --group-id "${{ secrets.SG_ID }}" \
+            --protocol tcp --port 22 --cidr "$RUNNER_IP/32" || true

@@ -463,14 +463,14 @@ test.describe('lesson dialog', () => {
     await field.date(page).fill(inDays(1, 10).slice(0, 10));
     await field.start(page).fill('10:00');
     await pickStudent(page, 'sam', /Sam Student/);
-    await expect(chips(page).first()).toContainText('3:30 PM GMT+5:30'); // 10:00 UTC is 15:30 in Kolkata
+    await expect(chips(page).first()).toContainText('3:30 PM · Kolkata'); // 10:00 UTC is 15:30 in Kolkata
     await field.start(page).fill('12:00');
-    await expect(chips(page).first()).toContainText('5:30 PM GMT+5:30'); // follows the start time
+    await expect(chips(page).first()).toContainText('5:30 PM · Kolkata'); // follows the start time
     await page.getByRole('button', { name: 'Close panel' }).click();
 
     await page.getByRole('article', { name: /Algebra/ }).click();
     const d = page.getByRole('complementary', { name: 'Lesson details' });
-    await expect(d.getByRole('listitem').filter({ hasText: 'Sam Student' })).toContainText('3:30 PM GMT+5:30');
+    await expect(d.getByRole('listitem').filter({ hasText: 'Sam Student' })).toContainText('3:30 PM · Kolkata');
   });
 });
 

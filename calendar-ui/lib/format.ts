@@ -5,11 +5,17 @@ export const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${p
 export const hm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
 const clock = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-/** What a class start reads as on a student's clock, e.g. "Mon 8:00 PM EDT"; '' when they have no (or an unknown) time zone. */
+/**
+ * What a class start reads as on a student's clock, e.g. "Mon, 8:00 PM · EDT" or "Fri, 9:00 AM · Kolkata"; '' when they have no
+ * (or an unknown) time zone. Browsers only know a plain offset ("GMT+5:30") for many zones, which is unclear, so those show the city instead.
+ */
 export function zoneTime(at: Date, timeZone?: string | null): string {
   if (!timeZone || Number.isNaN(at.getTime())) return '';
   try {
-    return at.toLocaleString('en-US', { timeZone, weekday: 'short', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+    const when = at.toLocaleString('en-US', { timeZone, weekday: 'short', hour: 'numeric', minute: '2-digit' });
+    const abbr = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'short' }).formatToParts(at).find((p) => p.type === 'timeZoneName')?.value ?? '';
+    const name = !abbr || /^GMT[+-]/.test(abbr) ? (timeZone.split('/').pop() ?? timeZone).replace(/_/g, ' ') : abbr;
+    return `${when} · ${name}`;
   } catch {
     return '';
   }

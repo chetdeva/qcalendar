@@ -35,7 +35,7 @@ function parse<T extends z.ZodType>(schema: T, data: unknown): z.infer<T> {
 }
 
 const uuid = z.uuid();
-const ReserveBody = z.object({ userId: uuid, ref: z.string().min(1).max(200), endsAt: z.string().datetime({ offset: true }).optional() }).strict();
+const ReserveBody = z.object({ userId: uuid, ref: z.string().min(1).max(200), endsAt: z.string().datetime({ offset: true }).optional(), trial: z.boolean().optional() }).strict();
 const GradeBody = z.object({ userId: uuid, grade: z.number().int().min(1).max(10) }).strict();
 const BalancesBody = z.object({ userIds: z.array(uuid).min(1).max(100) }).strict();
 const AdjustBody = z.object({
@@ -132,7 +132,7 @@ export function createApp(d: AppDeps): Hono<Env> {
   app.post('/v1/service/credits/reserve', async (c) => {
     service(c);
     const b = parse(ReserveBody, await c.req.json().catch(() => null));
-    const r = await reserve(d.db, b.userId, b.ref, new Date(), b.endsAt ? new Date(b.endsAt) : undefined);
+    const r = await reserve(d.db, b.userId, b.ref, new Date(), b.endsAt ? new Date(b.endsAt) : undefined, b.trial);
     return r.ok ? c.json(r) : c.json({ error: { code: r.code, message: 'This student cannot book another lesson right now' } }, 402);
   });
   app.post('/v1/service/earnings', async (c) => {

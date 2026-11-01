@@ -6,7 +6,8 @@ export type Reservation = { ok: true } | { ok: false; code: Refusal };
 /** Pays for / gives back one student's seat in one lesson. billing-service decides; this service only asks. */
 export interface BillingClient {
   /** Idempotent: asking again for the same ref does not spend twice. */
-  reserve(userId: string, ref: string, endsAt?: string): Promise<Reservation>;
+  /** trial: the lesson is a Trial session, the only kind someone without a subscription may book (once). */
+  reserve(userId: string, ref: string, endsAt?: string, trial?: boolean): Promise<Reservation>;
   /** Idempotent. */
   release(userId: string, ref: string): Promise<void>;
   /** One credit earned by a teacher for a student's seat in a class they taught. Idempotent. */
@@ -27,8 +28,8 @@ export function createBillingClient(opts: { url: string; key: string }): Billing
     }
   };
   return {
-    async reserve(userId, ref, endsAt) {
-      const r = await call('/v1/service/credits/reserve', { userId, ref, endsAt });
+    async reserve(userId, ref, endsAt, trial) {
+      const r = await call('/v1/service/credits/reserve', { userId, ref, endsAt, trial: trial || undefined });
       if (r.ok) return { ok: true };
       if (r.status === 402) return { ok: false, code: ((await r.json().catch(() => ({}))) as { error?: { code?: Refusal } }).error?.code ?? 'no_credits' };
       throw new HttpError(503, 'billing_unavailable', 'Billing is unavailable right now. Please try again in a moment.');

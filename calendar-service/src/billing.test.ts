@@ -228,3 +228,15 @@ test('the lesson end time travels with the reservation, so billing knows when th
   await h2.close();
   void t;
 });
+
+test('only a Trial session is booked as the free class; tutoring is not', async () => {
+  const s = await h.person('student');
+  const seen: (boolean | undefined)[] = [];
+  const h2 = await createHarness({ billing: { reserve: async (_u, _r, _e, trial) => { seen.push(trial); return { ok: true }; }, release: async () => {}, earn: async () => {} } });
+  const t2 = await h2.person('teacher');
+  const body = { ...slot(10), participants: [{ email: s.email, userId: s.id, name: 'Sam' }] };
+  await t2.call('POST', '/v1/events', { title: 'Algebra', ...body });
+  await t2.call('POST', '/v1/events', { title: 'Free class', ...slot(12), participants: body.participants, category: 'trial' });
+  assert.deepEqual(seen, [false, true]);
+  await h2.close();
+});

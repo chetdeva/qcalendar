@@ -46,17 +46,18 @@ describe('pricing', () => {
 });
 
 describe('trial', () => {
-  it('first lesson is free once, then a subscription is required', async () => {
+  it('only a Trial lesson is free, once; every other lesson needs a subscription', async () => {
     const u = randomUUID();
-    assert.deepEqual(await reserve(db, u, 'lesson-1', T0), { ok: true, source: 'trial' });
-    assert.deepEqual(await reserve(db, u, 'lesson-1', T0), { ok: true, source: 'trial' }); // idempotent
-    assert.deepEqual(await reserve(db, u, 'lesson-2', T0), { ok: false, code: 'subscription_required' });
+    assert.deepEqual(await reserve(db, u, 'tutoring-1', T0), { ok: false, code: 'subscription_required' }); // not a Trial session
+    assert.deepEqual(await reserve(db, u, 'lesson-1', T0, undefined, true), { ok: true, source: 'trial' });
+    assert.deepEqual(await reserve(db, u, 'lesson-1', T0, undefined, true), { ok: true, source: 'trial' }); // idempotent
+    assert.deepEqual(await reserve(db, u, 'lesson-2', T0, undefined, true), { ok: false, code: 'subscription_required' }); // the one free class is used
   });
   it('cancelling the trial lesson gives the trial back', async () => {
     const u = randomUUID();
-    await reserve(db, u, 'lesson-1', T0);
+    await reserve(db, u, 'lesson-1', T0, undefined, true);
     await release(db, u, 'lesson-1');
-    assert.deepEqual(await reserve(db, u, 'lesson-2', T0), { ok: true, source: 'trial' });
+    assert.deepEqual(await reserve(db, u, 'lesson-2', T0, undefined, true), { ok: true, source: 'trial' });
   });
 });
 

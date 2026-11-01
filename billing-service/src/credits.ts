@@ -58,9 +58,10 @@ async function refState(q: Queryable, userId: string, ref: string) {
 
 /**
  * Pays for one lesson (ref = a stable id for lesson + student). Idempotent: asking again for a lesson that is already
- * paid for succeeds without spending twice. The first lesson of someone who never subscribed is the free trial.
+ * paid for succeeds without spending twice. Someone who never subscribed can only book the free trial class (`trial`: the
+ * lesson is a Trial session), once; any other lesson needs a subscription.
  */
-export function reserve(db: Db, userId: string, ref: string, now = new Date(), endsAt?: Date): Promise<Reservation> {
+export function reserve(db: Db, userId: string, ref: string, now = new Date(), endsAt?: Date, trial = false): Promise<Reservation> {
   return db.tx(async (q) => {
     await lock(q, userId);
     const st = await refState(q, userId, ref);
@@ -69,6 +70,7 @@ export function reserve(db: Db, userId: string, ref: string, now = new Date(), e
 
     const [sub] = await q.query<{ status: string }>('select status from billing.subscriptions where user_id = $1 order by created_at desc limit 1', [userId]);
     if (!sub) {
+      if (!trial) return { ok: false, code: 'subscription_required' };
       const [t] = await q.query('insert into billing.trials (user_id, event_id, lesson_end) values ($1, $2, $3) on conflict do nothing returning user_id', [userId, ref, endsAt ?? null]);
       return t ? { ok: true, source: 'trial' } : { ok: false, code: 'subscription_required' };
     }

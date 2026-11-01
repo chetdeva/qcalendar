@@ -215,13 +215,13 @@ async function emit(ctx: Ctx, q: Queryable, type: string, e: EventRow, parts: PR
 
 const seatRef = (eventId: string, userId: string) => `${eventId}:${userId}`;
 const REFUSALS = {
-  subscription_required: 'has not subscribed yet and has used their free class.',
+  subscription_required: 'has not subscribed yet. Until they do, only a free Trial class can be booked, and only once.',
   payment_required: 'has a failed payment. They need to update their payment method.',
   no_credits: 'has no classes left this month.',
 } as const;
 
 /**
- * A tutoring lesson costs each student one class (the first ever is free). Called inside the booking transaction, so a
+ * A tutoring lesson costs each student one class; a Trial lesson is the one free class of someone who has not subscribed. Called inside the booking transaction, so a
  * refusal rolls the booking back. Every seat paid so far is pushed onto `paid`, so the caller can give them back if
  * anything later in the request fails.
  */
@@ -230,7 +230,7 @@ async function charge(ctx: Ctx, e: EventRow, parts: PRow[], paid: PRow[]) {
   for (const p of parts) {
     const who = p.name || p.email;
     if (!p.user_id) throw new HttpError(422, 'student_account_required', `${who} has not created an account yet. Choose students who have signed up.`, { participant: who });
-    const r = await ctx.billing.reserve(p.user_id, seatRef(e.id, p.user_id), new Date(e.end_at).toISOString());
+    const r = await ctx.billing.reserve(p.user_id, seatRef(e.id, p.user_id), new Date(e.end_at).toISOString(), e.category === 'trial');
     if (!r.ok) throw new HttpError(402, r.code, `${who} ${REFUSALS[r.code]}`, { participant: who });
     paid.push(p);
   }

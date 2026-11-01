@@ -18,6 +18,9 @@ import { createAuthenticator as createBillingAuth } from '../../billing-service/
 import { addMonths } from '../../billing-service/src/credits.ts';
 import { createPgliteDb, migrate as migrateBilling } from '../../billing-service/src/db.ts';
 import { createFakeGateway } from '../../billing-service/src/gateways/fake.ts';
+import { createApp as createDashboardApp } from '../../dashboard-service/src/app.ts';
+import { createAuthenticator as createDashboardAuth } from '../../dashboard-service/src/auth.ts';
+import { createPgliteDb as createDashboardDb, migrate as migrateDashboard } from '../../dashboard-service/src/db.ts';
 import { createApp as createCalendarApp } from '../../calendar-service/src/app.ts';
 import { createAuthenticator as createCalendarAuth } from '../../calendar-service/src/auth.ts';
 import { createPgliteDb as createCalendarDb, migrate as migrateCalendar } from '../../calendar-service/src/db.ts';
@@ -26,6 +29,7 @@ const AUTH_PORT = 58731;
 const USERS_PORT = 58732;
 const BILLING_PORT = 58735;
 const CALENDAR_PORT = 58736;
+const DASHBOARD_PORT = 58737;
 const AUTH_URL = `http://localhost:${AUTH_PORT}`;
 const ISS = `${AUTH_URL}/auth/v1`;
 const WEB = 'http://localhost:58733';
@@ -286,6 +290,14 @@ const billingApp = createBillingApp({
   authenticator: createBillingAuth({ apiKey: 'b'.repeat(32), getKey: async () => publicKey, issuer: ISS }),
   users: { grade: async (id) => directory.profiles.get(id)?.grade ?? null },
 });
+// dashboard-service holds the teacher's mentor profile; the profile page reads and writes it. Its other sources are not used here.
+const dashboardDb = createDashboardDb();
+await migrateDashboard(dashboardDb);
+const dashboardApp = createDashboardApp({
+  ctx: { db: dashboardDb, sources: { events: async () => [], contacts: async () => [], people: async () => new Map(), guardian: async () => null }, now: () => new Date(), dashboardUrl: WEB },
+  authenticator: createDashboardAuth({ getKey: async () => publicKey, issuer: ISS }),
+});
+serve({ fetch: dashboardApp.fetch, port: DASHBOARD_PORT }, (i) => console.log(`dashboard-service (real code, in-memory database) on :${i.port}`));
 const calendarDb = createCalendarDb();
 await migrateCalendar(calendarDb);
 const calendarApp = createCalendarApp({

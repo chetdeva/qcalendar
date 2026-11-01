@@ -1,5 +1,6 @@
 import { getMe } from '@/lib/me';
 import { dashboardUrl } from '@/lib/env';
+import { MentorProfileCard } from './mentor-profile-card';
 import { ProfileForm } from './profile-form';
 import { Hero } from './_parts/hero';
 import { HomeIcon } from './_parts/icons';
@@ -26,7 +27,10 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
         {sp.updated === 'password' && <div className="alert alert-ok" role="status">Your password was updated.</div>}
         <Hero me={me} />
         <div className="pf-grid">
-          <ProfileForm me={me} />
+          <div className="pf-main">
+            <ProfileForm me={me} />
+            {me.role === 'teacher' && <MentorProfileCard />}
+          </div>
           <SideCards me={me} />
         </div>
       </div>

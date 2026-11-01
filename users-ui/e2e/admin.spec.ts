@@ -23,7 +23,7 @@ test.describe('who can see the admin page', () => {
     });
   }
 
-  test('students cannot list users at all; teachers get only active students, name and email', async ({ page, request }) => {
+  test('students cannot list users at all; teachers get only active students, name, email and time zone', async ({ page, request }) => {
     await seedUser(request, { email: 'student@example.test', password: 'pass-12345' });
     await seedUser(request, { email: 'teacher@example.test', password: 'pass-12345', role: 'teacher' });
     await seedUser(request, { email: 'kid@example.test', name: 'Kid One' });
@@ -36,7 +36,7 @@ test.describe('who can see the admin page', () => {
     const res = await page.request.get('/api/admin/users');
     expect(res.status()).toBe(200);
     const { users } = (await res.json()) as { users: Record<string, unknown>[] };
-    expect(users.every((u) => Object.keys(u).sort().join() === 'email,full_name,id')).toBeTruthy();
+    expect(users.every((u) => Object.keys(u).sort().join() === 'email,full_name,id,timezone')).toBeTruthy();
     expect(users.map((u) => u.email).sort()).toEqual(['kid@example.test', 'student@example.test']); // no staff, no guardian emails
   });
 

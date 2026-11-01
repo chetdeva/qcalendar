@@ -4,6 +4,7 @@ import { currentSession } from './supabase/server.ts';
 const base = () => (process.env.USERS_SERVICE_URL ?? 'http://localhost:3010').replace(/\/$/, '');
 const billingBase = () => (process.env.BILLING_API_URL ?? 'http://localhost:3012').replace(/\/$/, '');
 
+const dashboardBase = () => (process.env.DASHBOARD_API_URL ?? 'http://localhost:3007').replace(/\/$/, '');
 const calendarBase = () => (process.env.CALENDAR_API_URL ?? 'http://localhost:3000').replace(/\/$/, '');
 
 type Reply<T> = { status: number; json: T | { error: { code: string; message: string } } };
@@ -13,6 +14,9 @@ export const callUsersService = <T = unknown>(method: string, path: string, body
 
 /** Same, for billing-service (plans, credits, checkout). */
 export const callBilling = <T = unknown>(method: string, path: string, body?: unknown) => callService<T>(billingBase(), 'billing', method, path, body);
+
+/** Same, for dashboard-service (a teacher's mentor profile). */
+export const callDashboard = <T = unknown>(method: string, path: string, body?: unknown) => callService<T>(dashboardBase(), 'dashboard', method, path, body);
 
 /** Same, for calendar-service (classes per person in the admin tables). */
 export const callCalendar = <T = unknown>(method: string, path: string, body?: unknown) => callService<T>(calendarBase(), 'calendar', method, path, body);
@@ -35,6 +39,11 @@ async function callService<T>(origin: string, what: string, method: string, path
 
 export async function forward(method: string, path: string, body?: unknown) {
   const { status, json } = await callUsersService(method, path, body);
+  return NextResponse.json(json, { status });
+}
+
+export async function forwardDashboard(method: string, path: string, body?: unknown) {
+  const { status, json } = await callDashboard(method, path, body);
   return NextResponse.json(json, { status });
 }
 

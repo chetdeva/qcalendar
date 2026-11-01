@@ -98,3 +98,14 @@
   .pf-actions { flex-direction: column-reverse; align-items: stretch; }
   .pf-save { width: 100%; padding-inline: 20px; }
 }
+
+/* the teacher's mentor card, below the account details */
+.pf-main { display: flex; flex-direction: column; gap: 32px; min-width: 0; }
+.pf-plain input, .pf-plain textarea { width: 100%; background: var(--pf-tint); border: 2px solid transparent; border-radius: 8px; padding: 12px 14px; font: inherit; font-size: 14px; line-height: 20px; color: var(--pf-ink); resize: vertical; }
+.pf-plain input:focus, .pf-plain textarea:focus { outline: 0; border-color: var(--pf-primary-2); background: #fff; }
+.pf-plain input::placeholder, .pf-plain textarea::placeholder { color: #9ca3af; }
+.pf-levels { border: 0; padding: 0; margin: 0; min-width: 0; }
+.pf-levels legend { padding: 0; margin-bottom: 6px; font-size: 12px; line-height: 16px; font-weight: 700; color: var(--pf-ink); }
+.pf-chip[aria-pressed='true'] { background: var(--pf-primary); color: #fff; }
+.pf-check { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--pf-ink); }
+.pf-check input { width: 18px; height: 18px; accent-color: var(--pf-primary); }

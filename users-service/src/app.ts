@@ -158,6 +158,16 @@ export function createApp({ verifier, directory, inviteRedirectTo, serviceApiKey
     return c.json(me);
   });
 
+  // The browser's time zone, sent on the first page after sign-up or sign-in. It only fills an empty time zone, so a zone the
+  // person chose themselves (profile page) is never overwritten, and a bad value is ignored rather than shown as an error.
+  app.post('/v1/me/timezone-hint', async (c) => {
+    const body = parse(z.object({ timezone: z.string().refine(isTz, 'Unknown timezone') }).strict(), await c.req.json().catch(() => null));
+    const id = c.get('principal').id;
+    const me = await directory.getProfile(id);
+    if (!me) throw new HttpError(404, 'not_found', 'Profile not found');
+    return c.json(me.timezone ? me : (await directory.updateProfile(id, { timezone: body.timezone })) ?? me);
+  });
+
   // ---- grade: sets the price band, so it is not part of PATCH /v1/me ----
   /** Saves the grade, then tells billing. If billing is down the grade is kept and the caller may retry (it is idempotent). */
   const applyGrade = async (id: string, grade: number) => {

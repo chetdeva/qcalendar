@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import mark from './quanttoria-mark.png';
 import { calendarUrl, chatUrl, dashboardUrl, usersUiUrl } from './links';
+import { TimezoneHint } from './timezone-hint';
 import './header.css';
 
 export type HeaderTab = 'dashboard' | 'calendar' | 'assignments' | 'chat' | 'account';
@@ -23,6 +24,7 @@ export function AppHeader({ current, name, role, left, afterBrand, right, menu, 
   const home = role === 'admin' ? `${usersUiUrl}/admin/teachers` : dashboardUrl;
   return (
     <header className="qh">
+      <TimezoneHint />
       <div className="qh-in">
         <div className="qh-id">
           <a className="qh-brand" href={home} aria-label="Quanttoria dashboard">

@@ -605,3 +605,20 @@ test('after Change time on a trial request, the slot can be dragged too (a trial
   await expect(field.date(page)).not.toHaveValue(date);
   await expect(field.duration(page, 30)).toHaveAttribute('aria-pressed', 'true');
 });
+
+test.describe('time zone from the browser', () => {
+  test.use({ timezoneId: 'America/Denver' });
+  test('the first signed-in page saves the browser time zone when the profile has none, and keeps a chosen one', async ({ context, request }) => {
+    const mia = await seed(request, 'student', 'Mia Student');
+    const zoneOf = async (u: User) => (await (await request.get(`${USERS_URL}/v1/me`, { headers: { authorization: `Bearer ${await tokenFor(request, u)}` } })).json()).timezone;
+    expect(await zoneOf(mia)).toBeNull();
+    const page = await openPage(context, request, mia);
+    await expect.poll(() => zoneOf(mia)).toBe('America/Denver');
+
+    const chosen = await seed(request, 'student', 'Kai Student');
+    await request.fetch(`${USERS_URL}/v1/me`, { method: 'PATCH', data: { timezone: 'Asia/Kolkata' }, headers: { authorization: `Bearer ${await tokenFor(request, chosen)}` } });
+    await openPage(context, request, chosen);
+    await page.waitForTimeout(500);
+    expect(await zoneOf(chosen)).toBe('Asia/Kolkata'); // never overwritten
+  });
+});

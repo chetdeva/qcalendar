@@ -79,6 +79,15 @@ test('/me: read and update name, timezone and guardian email; clear with null', 
   assert.equal((await call('PATCH', '/v1/me', {})).status, 200);
 });
 
+test('/me/timezone-hint: fills an empty time zone from the browser, never overwrites a chosen one, ignores nothing silently', async () => {
+  const { call } = await as('student');
+  assert.equal((await (await call('POST', '/v1/me/timezone-hint', { timezone: 'America/Chicago' })).json()).timezone, 'America/Chicago');
+  assert.equal((await (await call('POST', '/v1/me/timezone-hint', { timezone: 'Asia/Kolkata' })).json()).timezone, 'America/Chicago'); // already set
+  assert.equal((await call('POST', '/v1/me/timezone-hint', { timezone: 'Mars/Base' })).status, 400);
+  assert.equal((await call('POST', '/v1/me/timezone-hint', {})).status, 400);
+  assert.equal((await (await call('PATCH', '/v1/me', { timezone: 'Asia/Kolkata' })).json()).timezone, 'Asia/Kolkata'); // the profile page still changes it
+});
+
 test('/me: rejects role, status, email, id and other unknown fields, and bad values', async () => {
   const { call, profile } = await as('student');
   for (const body of [{ role: 'admin' }, { status: 'active' }, { email: 'new@example.test' }, { id: 'x' }, { full_name: 'ok', is_admin: true }]) {

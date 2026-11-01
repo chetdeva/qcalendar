@@ -44,18 +44,18 @@ export function makeEventContent(opts: { showTeacher?: boolean; showStudents?: b
       );
     }
     return (
-      <div className="ec">
+      <div className="ec" title={`${ev.title}, ${rangeLabel(ev.start, ev.end)}`}>
         <div className="ec-top">
           <span className="ec-badge">
             <Icon name={cat.icon} color="currentColor" />
-            {cat.badge}
+            <span className="ec-badge-label">{cat.badge}</span>
           </span>
           {ev.myStatus === 'invited' && <span className="ec-pending">Reply</span>}
         </div>
         <div className="ec-title">{ev.title}</div>
         {guest && <div className="ec-sub">{guest}</div>}
         <div className="ec-foot">
-          <span className="ec-time">{rangeLabel(ev.start, ev.end)}</span>
+          <span className="ec-time"><span className="ec-range">{rangeLabel(ev.start, ev.end)}</span><span className="ec-start">{timeLabel(ev.start)}</span></span>
           {ev.meetingUrl && <Icon name="video" color="#005bbf" />}
         </div>
       </div>

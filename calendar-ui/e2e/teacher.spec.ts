@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { at, calendarAs, inDays, openAllDay, openForm, openPage, resetBackend, seed, tokenFor, todayUtc, type User } from './helpers';
+import { USERS_URL, at, calendarAs, inDays, openAllDay, openForm, openPage, resetBackend, seed, tokenFor, todayUtc, type User } from './helpers';
 
 test.beforeEach(async ({ request }) => resetBackend(request));
 
@@ -351,7 +351,7 @@ test.describe('the calendar itself', () => {
     await page.mouse.move(x, a!.y + a!.height / 2, { steps: 5 });
     await page.mouse.move(x, a!.y + a!.height - 3, { steps: 5 });
     await page.mouse.up();
-    await expect(field.date(page)).toHaveValue(todayUtc());
+    await expect(field.date(page)).toHaveValue(dmy(todayUtc()));
     await expect(field.start(page)).toHaveValue('10:00');
     await expect(field.duration(page, 60)).toHaveAttribute('aria-pressed', 'true');
   });
@@ -382,7 +382,7 @@ test.describe('"My classes" for teachers, with New lesson over it', () => {
     const page = await openPage(context, request, teacher);
     await panel(page).getByRole('article', { name: /Geometry/ }).click();
     const details = page.getByRole('complementary', { name: 'Lesson details' });
-    await expect(details).toContainText('Geometry');
+    await expect(details.getByLabel('Event Title *')).toHaveValue('Geometry');
     await details.getByRole('button', { name: 'Close panel' }).click();
     await expect(panel(page).getByRole('article', { name: /Geometry/ })).toBeVisible();
   });
@@ -391,11 +391,10 @@ test.describe('"My classes" for teachers, with New lesson over it', () => {
     const teacher = await seed(request, 'teacher', 'Tess Teacher');
     const page = await openPage(context, request, teacher);
     await expect(page.getByRole('complementary', { name: 'New lesson' })).toHaveCount(0);
-    const list = await panel(page).boundingBox();
     await openForm(page);
     const form = await page.getByRole('complementary', { name: 'New lesson' }).boundingBox();
-    expect(Math.abs(form!.x - list!.x)).toBeLessThan(2); // laid over the list...
-    expect(Math.abs(form!.width - list!.width)).toBeLessThan(2); // ...covering the same area
+    const slot = await page.locator('.pending-slot').boundingBox();
+    if (slot) expect(form!.x >= slot.x + slot.width || form!.x + form!.width <= slot.x).toBe(true); // floats beside the slot, never over it, so it can still be dragged
     await page.getByRole('button', { name: 'Close panel' }).click();
     await expect(page.getByRole('complementary', { name: 'New lesson' })).toHaveCount(0);
     await expect(panel(page)).toBeVisible();
@@ -412,6 +411,94 @@ test.describe('"My classes" for teachers, with New lesson over it', () => {
     await field.create(page).click();
     await expect(page.getByRole('complementary', { name: 'New lesson' })).toHaveCount(0);
     await expect(panel(page).getByRole('article', { name: /Planning block/ })).toBeVisible();
+  });
+});
+
+test.describe('lesson dialog', () => {
+  test('clicking the calendar highlights the time window and opens the dialog; its time can be changed', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    await openAllDay(request, teacher);
+    const page = await openPage(context, request, teacher);
+    const lane = (await page.locator('.fc-timegrid-slot-lane[data-time="10:00:00"]').first().boundingBox())!;
+    const today = (await page.locator('.fc-timegrid-col.fc-day-today').boundingBox())!;
+    await page.mouse.click(today.x + today.width / 2, lane.y + 3); // a single click at the top of the 10:00 hour
+    const form = page.getByRole('complementary', { name: 'New lesson' });
+    await expect(form).toBeVisible();
+    await expect(field.start(page)).toHaveValue('10:00');
+    const slot = page.locator('.pending-slot');
+    await expect(slot).toContainText('10:00 – 11:00 AM'); // the highlighted slot names its window
+    await field.start(page).fill('14:30');
+    await expect(slot).toContainText('2:30 – 3:30 PM');
+    const [f, s] = [(await form.boundingBox())!, (await slot.boundingBox())!];
+    expect(f.x >= s.x + s.width || f.x + f.width <= s.x).toBe(true); // opened beside the clicked slot, not over it
+  });
+
+  test('on a short window the dialog stays inside it and scrolls to its last buttons', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    await (await mine(request, teacher)).create({ title: 'Geometry', start: inDays(1, 10), durationMinutes: 60 });
+    const page = await openPage(context, request, teacher);
+    await page.setViewportSize({ width: 1200, height: 560 });
+    await page.locator('.fc-event', { hasText: 'Geometry' }).click();
+    const d = page.getByRole('complementary', { name: 'Lesson details' });
+    await expect(d).toBeVisible();
+    const box = (await d.boundingBox())!;
+    expect(box.y + box.height).toBeLessThanOrEqual(560); // not cut off by the bottom of the window
+    await expect(d.getByRole('button', { name: 'Cancel lesson' })).not.toBeInViewport();
+    await d.locator('.d-body').evaluate((e) => { e.scrollTop = e.scrollHeight; });
+    await expect(d.getByRole('button', { name: 'Cancel lesson' })).toBeInViewport(); // reachable by scrolling inside the dialog
+  });
+
+  test('clicking a class opens its dialog beside that class', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    await (await mine(request, teacher)).create({ title: 'Geometry', start: inDays(1, 10), durationMinutes: 60 });
+    const page = await openPage(context, request, teacher);
+    const ev = page.locator('.fc-event', { hasText: 'Geometry' });
+    await ev.click();
+    const [e, d] = [(await ev.boundingBox())!, (await page.getByRole('complementary', { name: 'Lesson details' }).boundingBox())!];
+    expect(d.x >= e.x + e.width || d.x + d.width <= e.x).toBe(true);
+    expect(d.y <= e.y + e.height && d.y + d.height >= e.y).toBe(true); // level with the class, not in a far corner
+  });
+
+  test('clicking an existing class edits its title, time and length in the same dialog', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    await openAllDay(request, teacher);
+    const ev = await (await mine(request, teacher)).create({ title: 'Geometry', start: inDays(1, 10), durationMinutes: 60 });
+    const page = await openPage(context, request, teacher);
+    await page.getByRole('article', { name: /Geometry/ }).click();
+    const d = page.getByRole('complementary', { name: 'Lesson details' });
+    await expect(d.getByRole('button', { name: 'Save changes' })).toBeDisabled(); // nothing changed yet
+    await d.getByLabel('Event Title *').fill('Geometry, chapter 2');
+    await d.getByLabel('Start Time *').fill('11:30');
+    await d.getByRole('button', { name: '90m' }).click();
+    await d.getByRole('button', { name: 'Save changes' }).click();
+    await expect(d).toHaveCount(0); // saved: the dialog closes
+    await expect(page.getByRole('article', { name: /Geometry, chapter 2/ })).toBeVisible();
+    const saved = await (await mine(request, teacher)).call('GET', `/v1/events/${ev.id}`);
+    expect(saved.body.title).toBe('Geometry, chapter 2');
+    expect(new Date(saved.body.start).toISOString().slice(11, 16)).toBe('11:30');
+    expect(Date.parse(saved.body.end) - Date.parse(saved.body.start)).toBe(90 * 60_000);
+  });
+
+  test('each student shows the class time on their own clock, when creating and when editing', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    const sam = await seed(request, 'student', 'Sam Student');
+    const set = await request.fetch(`${USERS_URL}/v1/me`, { method: 'PATCH', data: { timezone: 'Asia/Kolkata' }, headers: { authorization: `Bearer ${await tokenFor(request, sam)}` } });
+    expect(set.status()).toBe(200);
+    await (await mine(request, teacher)).create({ title: 'Algebra', start: inDays(1, 10), durationMinutes: 60, participants: [{ email: sam.email, userId: sam.id }] });
+    const page = await openPage(context, request, teacher);
+
+    await openForm(page);
+    await field.date(page).fill(inDays(1, 10).slice(0, 10));
+    await field.start(page).fill('10:00');
+    await pickStudent(page, 'sam', /Sam Student/);
+    await expect(chips(page).first()).toContainText('3:30 PM · Kolkata'); // 10:00 UTC is 15:30 in Kolkata
+    await field.start(page).fill('12:00');
+    await expect(chips(page).first()).toContainText('5:30 PM · Kolkata'); // follows the start time
+    await page.getByRole('button', { name: 'Close panel' }).click();
+
+    await page.getByRole('article', { name: /Algebra/ }).click();
+    const d = page.getByRole('complementary', { name: 'Lesson details' });
+    await expect(d.getByRole('listitem').filter({ hasText: 'Sam Student' })).toContainText('3:30 PM · Kolkata');
   });
 });
 
@@ -474,6 +561,9 @@ test('a trial class offers only 30 minutes; other session types choose freely', 
 });
 
 /** The week view's column next to a day (the one on its right, or on its left for Saturday, the last column). */
+/** The date box writes dates day first outside the US (these tests run in UTC); the form's own value is YYYY-MM-DD. */
+const dmy = (iso: string) => iso.split('-').reverse().join('/');
+const isoOf = (shown: string) => shown.split('/').reverse().join('-');
 const neighbour = (ymd: string) => { const d = new Date(`${ymd}T00:00:00Z`).getUTCDay(); return d === 6 ? 5 : d + 1; };
 
 test('the slot being booked is drawn on the calendar and follows the duration; a trial class is 30 minutes', async ({ context, request }) => {
@@ -489,14 +579,14 @@ test('the slot being booked is drawn on the calendar and follows the duration; a
   await expect.poll(height).toBeGreaterThan(half * 2.5); // 90 minutes is three times 30
   await page.getByRole('button', { name: 'Trial' }).click();
   await expect.poll(height).toBeCloseTo(half, 0); // back to 30 minutes
-  const day = await field.date(page).inputValue();
+  const day = isoOf(await field.date(page).inputValue());
   const before = await slot.boundingBox();
   const col = (await page.locator('.fc-timegrid-col[data-date]').nth(neighbour(day)).boundingBox())!;
   await page.mouse.move(before!.x + before!.width / 2, before!.y + 10);
   await page.mouse.down();
   await page.mouse.move(col.x + col.width / 2, before!.y + 10 - 76, { steps: 10 }); // another day, an hour or so earlier
   await page.mouse.up();
-  await expect(field.date(page)).not.toHaveValue(day); // dragging the slot moves the form's date
+  await expect(field.date(page)).not.toHaveValue(dmy(day)); // dragging the slot moves the form's date
 });
 
 test('the slot being booked can be dragged to another time and day; the form follows', async ({ context, request }) => {
@@ -535,6 +625,7 @@ test('after Change time on a trial request, the slot can be dragged too (a trial
   await page.getByRole('button', { name: 'Change time' }).click();
   const slot = page.locator('.fc-event.pending-slot');
   await expect(slot).toBeVisible();
+  await page.waitForTimeout(400); // the calendar scrolls to the requested hour; wait for it to settle before dragging
   const date = await field.date(page).inputValue();
   const b = (await slot.boundingBox())!;
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
@@ -545,4 +636,52 @@ test('after Change time on a trial request, the slot can be dragged too (a trial
   await page.mouse.up();
   await expect(field.date(page)).not.toHaveValue(date);
   await expect(field.duration(page, 30)).toHaveAttribute('aria-pressed', 'true');
+});
+
+test.describe('time zone from the browser', () => {
+  test.use({ timezoneId: 'America/Denver' });
+  test('the first signed-in page saves the browser time zone when the profile has none, and keeps a chosen one', async ({ context, request }) => {
+    const mia = await seed(request, 'student', 'Mia Student');
+    const zoneOf = async (u: User) => (await (await request.get(`${USERS_URL}/v1/me`, { headers: { authorization: `Bearer ${await tokenFor(request, u)}` } })).json()).timezone;
+    expect(await zoneOf(mia)).toBeNull();
+    const page = await openPage(context, request, mia);
+    await expect.poll(() => zoneOf(mia)).toBe('America/Denver');
+
+    const chosen = await seed(request, 'student', 'Kai Student');
+    await request.fetch(`${USERS_URL}/v1/me`, { method: 'PATCH', data: { timezone: 'Asia/Kolkata' }, headers: { authorization: `Bearer ${await tokenFor(request, chosen)}` } });
+    await openPage(context, request, chosen);
+    await page.waitForTimeout(500);
+    expect(await zoneOf(chosen)).toBe('Asia/Kolkata'); // never overwritten
+  });
+});
+
+test.describe('date format follows the time zone', () => {
+  test.describe('in India', () => {
+    test.use({ timezoneId: 'Asia/Kolkata' });
+    test('day first', async ({ context, request }) => {
+      const teacher = await seed(request, 'teacher', 'Tess Teacher');
+      const page = await openPage(context, request, teacher);
+      await openForm(page);
+      await field.date(page).fill('2026-11-04'); // ISO is accepted too; once the box is left it shows the local format
+      await field.date(page).blur();
+      await expect(field.date(page)).toHaveValue('04/11/2026');
+      await expect(field.date(page)).toHaveAttribute('placeholder', 'DD/MM/YYYY');
+      await field.date(page).fill('05/11/2026');
+      await field.date(page).blur();
+      await expect(field.date(page)).toHaveValue('05/11/2026');
+      await expect(page.locator('.pending-slot')).toBeVisible(); // the typed date reached the form: the slot moved to that day
+    });
+  });
+  test.describe('in the US', () => {
+    test.use({ timezoneId: 'America/New_York' });
+    test('month first', async ({ context, request }) => {
+      const teacher = await seed(request, 'teacher', 'Tess Teacher');
+      const page = await openPage(context, request, teacher);
+      await openForm(page);
+      await field.date(page).fill('2026-11-04');
+      await field.date(page).blur();
+      await expect(field.date(page)).toHaveValue('11/04/2026');
+      await expect(field.date(page)).toHaveAttribute('placeholder', 'MM/DD/YYYY');
+    });
+  });
 });

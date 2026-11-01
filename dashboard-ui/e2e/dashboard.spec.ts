@@ -284,29 +284,19 @@ test.describe('teacher dashboard', () => {
     }
   });
 
-  test('the mentor profile is saved, needs a headline and quote to publish, and then students can find it', async ({ context, browser, request }) => {
+  test('the mentor profile is edited on the Account page now: the dashboard has no form, and a published profile still shows to students', async ({ context, browser, request }) => {
     const [t, s] = [await seed(request, 'teacher', 'Tess Teacher'), await seed(request, 'student', 'Mia Student')];
     const page = await openPage(context, t);
-    await page.getByLabel('Show my profile to students').check();
-    await page.getByRole('button', { name: 'Save profile' }).click();
-    await expect(page.locator('.err')).toContainText('headline');
+    await expect(page.getByRole('heading', { name: 'My Mentor Profile' })).toHaveCount(0);
     const tag = Math.random().toString(36).slice(2, 7);
-    await page.getByLabel('Headline').fill(`Lead STEM Specialist ${tag}`);
-    await page.getByLabel('Specialties (separated by commas)').fill('Geometry, Proofs & Logic');
-    await page.getByRole('button', { name: 'Middle (6–8)' }).click();
-    await page.getByLabel('A line in your own words').fill('Every shape has a story.');
-    await page.getByRole('button', { name: 'Save profile' }).click();
-    await expect(page.getByRole('status')).toContainText('Students can now find you under Mentors.');
+    const profile = { headline: '', specialties: ['Geometry'], levels: ['middle'], quote: '', published: true };
+    expect((await dashboardAs(request, t, 'PUT', '/v1/me/mentor-profile', profile)).status).toBe(400); // needs a headline and quote to publish
+    await dashboardAs(request, t, 'PUT', '/v1/me/mentor-profile', { ...profile, headline: `Lead STEM Specialist ${tag}`, quote: 'Every shape has a story.' });
     const mine = await openAs(browser, s);
     await mine.getByLabel('Search teachers').fill(tag);
     await expect(mine.locator('.mentor')).toHaveCount(1);
-    await expect(mine.locator('.mentor')).toContainText('Coach Tess Teacher');
     await expect(mine.locator('.mentor')).toContainText(`Lead STEM Specialist ${tag}`);
-    await page.reload();
-    await expect(page.getByLabel('Headline')).toHaveValue(`Lead STEM Specialist ${tag}`); // it is remembered
-    await page.getByLabel('Show my profile to students').uncheck();
-    await page.getByRole('button', { name: 'Save profile' }).click();
-    await expect(page.getByRole('status')).toContainText('hidden from students');
+    await dashboardAs(request, t, 'PUT', '/v1/me/mentor-profile', { ...profile, headline: `Lead STEM Specialist ${tag}`, quote: 'x', published: false });
     await mine.reload();
     await mine.getByLabel('Search teachers').fill(tag);
     await expect(mine.getByText('No mentors match your search.')).toBeVisible();

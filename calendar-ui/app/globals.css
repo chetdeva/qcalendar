@@ -35,6 +35,8 @@ button:disabled { cursor: default; }
   .gridwrap { height: 70vh; flex: none; }
   .drawer { width: 100%; }
   .fchost { inset: 12px; }
+  .modal { padding: 12px; align-items: flex-end; justify-content: center; }
+  .dlg { max-height: 90dvh; }
 }
 
 /* utility bar */
@@ -169,14 +171,25 @@ button:disabled { cursor: default; }
 .cat-office_hours { --accent: var(--primary); --ev-bg: #e6effe; --badge-bg: #d8e2ff; --badge-fg: #001a41; }
 .cat-trial { --accent: #0b7a75; --ev-bg: #e6f6f4; --badge-bg: #c6ece7; --badge-fg: #00201d; }
 .cat-personal { --accent: var(--ink-3); --ev-bg: #e5eeff; --badge-bg: transparent; --badge-fg: var(--ink-2); }
-.ec { padding: 4px 4px 4px 12px; height: 100%; display: flex; flex-direction: column; gap: 1px; overflow: hidden; }
+.ec { container-type: inline-size; padding: 4px 4px 4px 10px; height: 100%; display: flex; flex-direction: column; gap: 1px; overflow: hidden; }
+.ec > * { flex-shrink: 0; }
 .ec-top { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
-.ec-badge { display: inline-flex; align-items: center; gap: 2px; max-width: 100%; background: var(--badge-bg); color: var(--badge-fg); border-radius: 4px; padding: 2px 4px; font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: 0.33px; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
-.ec-pending { font-size: 10px; line-height: 14px; font-weight: 600; color: #854f0b; text-transform: uppercase; letter-spacing: 0.3px; }
-.ec-title { font-size: 14px; line-height: 20px; font-weight: 600; letter-spacing: 0.07px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ec-sub { font-size: 12px; line-height: 16px; letter-spacing: 0.12px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ec-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 4px; }
-.ec-time { font-size: 13px; line-height: 16px; font-weight: 500; letter-spacing: -0.13px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ec-badge { display: inline-flex; align-items: center; gap: 2px; min-width: 0; background: var(--badge-bg); color: var(--badge-fg); border-radius: 4px; padding: 1px 4px; font-size: 10px; line-height: 12px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
+.ec-pending { font-size: 10px; line-height: 12px; font-weight: 600; color: #854f0b; text-transform: uppercase; letter-spacing: 0.3px; }
+.ec-title { font-size: 13px; line-height: 17px; font-weight: 600; letter-spacing: 0.07px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ec > .ec-sub { flex-shrink: 1; min-height: 0; font-size: 12px; line-height: 15px; letter-spacing: 0.12px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } /* the first thing to go when the slot is short */
+.ec-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 4px; min-width: 0; }
+.ec-time { min-width: 0; font-size: 12px; line-height: 15px; font-weight: 500; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ec-start { display: none; }
+@container (max-width: 170px) { .ec-foot > :not(.ec-time) { display: none; } } /* no room for the video icon beside a full time range */
+/* narrow columns (week view on a small screen): icon-only category, and the start time instead of the full range, so nothing is cut mid-word */
+@container (max-width: 125px) {
+  .ec-badge-label { display: none; }
+  .ec-range { display: none; }
+  .ec-start { display: inline; }
+  .ec-time { font-size: 11px; letter-spacing: -0.2px; }
+  .ec-foot > :not(.ec-time) { display: none; } /* the video icon: the class dialog has the meeting link */
+}
 .ec-compact { flex-direction: row; align-items: center; gap: 6px; padding-top: 2px; padding-bottom: 2px; }
 .ec-compact .ec-title { font-size: 13px; line-height: 16px; min-width: 0; }
 .mc { display: flex; align-items: center; gap: 4px; padding: 1px 4px; font-size: 12px; line-height: 16px; color: var(--ink); overflow: hidden; }
@@ -225,8 +238,16 @@ button:disabled { cursor: default; }
 .side { position: relative; display: flex; flex-direction: column; flex: none; width: 420px; }
 .side > .classes-panel, .side > .drawer { flex: 1; min-height: 0; }
 .side > .drawer { width: 100%; }
-.over { position: absolute; inset: 0; z-index: 5; display: flex; }
-.over .drawer { width: 100%; }
+/* The lesson dialog floats over the page at the right, so the calendar stays clickable (the booking slot can still be dragged). */
+.modal { position: fixed; inset: 0; z-index: 60; display: flex; justify-content: flex-end; align-items: flex-start; padding: 88px 24px 24px; pointer-events: none; }
+body:has(.fc-event-dragging) .dlg { pointer-events: none; } /* while the slot is being dragged, the dialog never blocks the days under it */
+.dlg { pointer-events: auto; width: min(440px, 100%); max-height: 100%; min-height: 0; display: flex; flex-direction: column; }
+.dlg .drawer { flex: 1 1 auto; min-height: 0; width: 100%; border-radius: 16px; overflow: hidden; box-shadow: 0 24px 48px -12px rgba(15, 23, 42, .35), 0 0 0 1px rgba(15, 23, 42, .06); }
+.pending-time { display: flex; flex-direction: column; padding: 2px 6px; font-size: 12px; line-height: 16px; color: #004a73; }
+.pending-time b { font-weight: 600; }
+.chip-time, .zone-time { font-size: 11px; color: #004a73; background: rgba(0, 97, 148, .1); border-radius: 9999px; padding: 1px 7px; white-space: nowrap; align-self: flex-start; }
+.zone-time { margin-top: 2px; }
+.save-row { display: flex; gap: 8px; align-items: center; }
 .sec-h { margin: 0 0 6px; font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--ink-3); }
 .day-group { margin-bottom: 10px; }
 .day-h { margin: 8px 0 6px; font-size: 13px; font-weight: 600; }
@@ -241,8 +262,8 @@ button:disabled { cursor: default; }
 .cc-actions button { flex: 1; border-radius: 9999px; border: 1px solid var(--field-line); background: var(--surface); padding: 5px 0; font-weight: 600; font-size: 13px; }
 .cc-actions .btn-accept[aria-pressed='true'] { background: var(--green); border-color: var(--green); color: #fff; }
 .cc-actions .btn-decline[aria-pressed='true'] { background: var(--red); border-color: var(--red); color: #fff; }
-.cc-actions { flex-wrap: wrap; }
-.cc-actions button { min-width: 0; padding-left: 8px; padding-right: 8px; }
+.cc-actions { flex-wrap: nowrap; gap: 6px; }
+.cc-actions button { flex: 1 1 auto; min-width: 0; padding-left: 6px; padding-right: 6px; font-size: 12px; white-space: nowrap; } /* Accept, Decline and Request new time stay on one line */
 .note-form { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
 .note-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 500; color: var(--ink-2); }
 .note-form textarea, .note-form input { font: inherit; font-weight: 400; color: var(--ink); border: 1px solid var(--field-line); border-radius: 8px; padding: 6px 8px; background: var(--surface); resize: vertical; }
@@ -299,3 +320,11 @@ button:disabled { cursor: default; }
 .viewing-results { position: absolute; z-index: 20; top: 100%; left: 0; min-width: 260px; margin: 4px 0 0; padding: 4px; list-style: none; background: #fff; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.15); }
 .viewing-results button { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 6px 8px; font: inherit; cursor: pointer; border-radius: 6px; }
 .viewing-results button:hover { background: #eff4ff; }
+
+/* date written the way the person's time zone writes it, with the browser's calendar behind the icon */
+.datefield { position: relative; }
+.datefield input:not(.df-native) { width: 100%; padding-right: 36px; }
+.df-btn { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
+.df-btn:hover:not(:disabled) { background: rgba(0, 0, 0, .06); }
+.datefield input:not(.df-native) { font-size: 13px; font-weight: 500; letter-spacing: -0.13px; padding: 6px 36px 6px 8px; }
+.field .df-native { position: absolute; right: 0; bottom: 0; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; pointer-events: none; }

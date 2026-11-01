@@ -79,6 +79,15 @@ test('/me: read and update name, timezone and guardian email; clear with null', 
   assert.equal((await call('PATCH', '/v1/me', {})).status, 200);
 });
 
+test('/me/timezone-hint: fills an empty time zone from the browser, never overwrites a chosen one, ignores nothing silently', async () => {
+  const { call } = await as('student');
+  assert.equal((await (await call('POST', '/v1/me/timezone-hint', { timezone: 'America/Chicago' })).json()).timezone, 'America/Chicago');
+  assert.equal((await (await call('POST', '/v1/me/timezone-hint', { timezone: 'Asia/Kolkata' })).json()).timezone, 'America/Chicago'); // already set
+  assert.equal((await call('POST', '/v1/me/timezone-hint', { timezone: 'Mars/Base' })).status, 400);
+  assert.equal((await call('POST', '/v1/me/timezone-hint', {})).status, 400);
+  assert.equal((await (await call('PATCH', '/v1/me', { timezone: 'Asia/Kolkata' })).json()).timezone, 'Asia/Kolkata'); // the profile page still changes it
+});
+
 test('/me: rejects role, status, email, id and other unknown fields, and bad values', async () => {
   const { call, profile } = await as('student');
   for (const body of [{ role: 'admin' }, { status: 'active' }, { email: 'new@example.test' }, { id: 'x' }, { full_name: 'ok', is_admin: true }]) {
@@ -101,7 +110,7 @@ test('students cannot browse users, invite, or change roles', async () => {
   assert.equal((await call('POST', `/v1/users/${target.id}/disable`)).status, 403);
 });
 
-test('teachers see active students with name and email only, never staff, disabled users or guardian emails', async () => {
+test('teachers see active students with name, email and time zone only, never staff, disabled users or guardian emails', async () => {
   const { call } = await as('teacher');
   const kid = dir.addProfile({ email: 'kid@example.test', full_name: 'Kid One', guardian_email: 'mum@example.test', timezone: 'UTC' });
   dir.addProfile({ email: 'gone@example.test', full_name: 'Gone', status: 'disabled' });
@@ -109,10 +118,10 @@ test('teachers see active students with name and email only, never staff, disabl
 
   const list = (await (await call('GET', '/v1/users')).json()).users;
   assert.deepEqual(list.map((u: { email: string }) => u.email), ['kid@example.test']);
-  assert.deepEqual(Object.keys(list[0]).sort(), ['email', 'full_name', 'id']);
+  assert.deepEqual(Object.keys(list[0]).sort(), ['email', 'full_name', 'id', 'timezone']);
 
   const one = await (await call('GET', `/v1/users/${kid.id}`)).json();
-  assert.deepEqual(Object.keys(one).sort(), ['email', 'full_name', 'id']);
+  assert.deepEqual(Object.keys(one).sort(), ['email', 'full_name', 'id', 'timezone']);
   assert.equal((await call('GET', `/v1/users/${staff.id}`)).status, 404);
   assert.equal((await call('GET', '/v1/users?role=admin')).status, 200);
   assert.deepEqual((await (await call('GET', '/v1/users?role=admin')).json()).users.map((u: { email: string }) => u.email), ['kid@example.test']);
@@ -174,7 +183,7 @@ test('a token that is behind the database never locks people out or lets them se
   const demoted = dir.addProfile({ email: 'demoted@example.test', role: 'teacher' });
   const stale = await get(await token(demoted.id, 'admin'), '/v1/users');
   const body = await stale.json();
-  assert.ok(body.users.every((u: object) => Object.keys(u).sort().join() === 'email,full_name,id'), 'only the teacher view');
+  assert.ok(body.users.every((u: object) => Object.keys(u).sort().join() === 'email,full_name,id,timezone'), 'only the teacher view');
   assert.ok(!JSON.stringify(body).includes('mum@example.test'));
 
   // Demoted to student: nothing at all.

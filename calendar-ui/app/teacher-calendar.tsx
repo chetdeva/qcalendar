@@ -8,7 +8,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import type { DateSelectArg, DatesSetArg, EventClickArg, EventContentArg, EventDropArg, EventInput } from '@fullcalendar/core';
 import type { EventResizeDoneArg } from '@fullcalendar/interaction';
 import type { CalendarEvent, CalendarSettings, Me, Participant, Person, Student } from '@/lib/calendar';
-import { answerSummary, capacityHours, hm, hoursByCategory, mergeSlots, minutesBetween, ymd } from '@/lib/format';
+import { answerSummary, capacityHours, hm, hoursByCategory, mergeSlots, minutesBetween, rangeLabel, ymd } from '@/lib/format';
 import { api, ApiError } from './api-client';
 import { TopBar } from './components/top-bar';
 import { CalendarToolbar, type ViewType } from './components/calendar-toolbar';
@@ -17,6 +17,7 @@ import { ChangeRequestBox } from './components/change-request-box';
 import { ClassesPanel, fetchUpcoming, upcomingOf } from './components/classes-panel';
 import { conflictMessage, CreateDrawer, DetailsDrawer, type Conflict, type LessonForm } from './components/lesson-drawer';
 import { dayHeader, makeEventContent } from './components/event-content';
+import { DialogFrame } from './components/dialog-frame';
 import { WebsiteLeads } from './components/website-leads';
 import { FreeClassRequests, type TrialRequestRow } from './components/free-class-requests';
 import { RoleBanner } from './components/role-banner';
@@ -55,6 +56,8 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
   const [error, setError] = useState('');
   const [conflict, setConflict] = useState<Conflict | null>(null);
   const [busy, setBusy] = useState(false);
+  const clickRect = useRef<DOMRect | null>(null); // the class that was clicked, so its dialog opens beside it
+  const clickedSlot = useRef(false); // the form was opened by clicking or dragging on the calendar, so it opens beside that slot (Quick Add and Change time use the corner)
   const [showFree, setShowFree] = useState(true);
   const [tz, setTz] = useState('');
   const [viewing, setViewing] = useState<Viewing>({ kind: 'all' }); // admins: whose classes the calendar shows
@@ -152,7 +155,14 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
 
   const eventContent = useMemo(() => {
     const base = makeEventContent({ showTeacher: admin });
-    return (arg: EventContentArg) => (arg.event.extendedProps.ev ? base(arg) : arg.event.id === 'new-lesson' ? null : <div className="tent">{arg.event.title}</div>);
+    return (arg: EventContentArg) => {
+      if (arg.event.extendedProps.ev) return base(arg);
+      if (arg.event.id === 'new-lesson') { // the slot being booked names its time window, like Google Calendar
+        const [s, e] = [arg.event.start, arg.event.end];
+        return s && e ? <div className="pending-time"><b>(No title)</b><span>{rangeLabel(s.toISOString(), e.toISOString())}</span></div> : null;
+      }
+      return <div className="tent">{arg.event.title}</div>;
+    };
   }, [admin]);
 
   // Free trial class requests: listed in the side panel and drawn as dashed slots so clashes with the calendar are easy to see.
@@ -180,16 +190,20 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
   if ((form.category === 'tutoring' || form.category === 'trial') && form.students.length === 0) missing.push('at least one student');
 
   const openCreate = () => {
+    clickedSlot.current = false;
     setCreating(true);
     setError('');
     setConflict(null);
   };
 
+  const dragged = (info: DateSelectArg, d: Date) => info.end.getTime() - d.getTime() > 15 * 60_000;
+
   function onSelect(info: DateSelectArg) {
     openCreate();
+    clickedSlot.current = true;
     const d = info.start;
     if (info.allDay) setForm((f) => ({ ...f, date: ymd(d) }));
-    else setForm((f) => ({ ...f, date: ymd(d), time: hm(d), duration: f.category === 'trial' ? 30 : Math.max(5, Math.round((info.end.getTime() - d.getTime()) / 60000)) })); // a trial class is always 30 minutes
+    else setForm((f) => ({ ...f, date: ymd(d), time: hm(d), duration: f.category === 'trial' ? 30 : dragged(info, d) ? Math.max(5, Math.round((info.end.getTime() - d.getTime()) / 60000)) : f.duration })); // a trial class is always 30 minutes; a plain click (one snap step) keeps the form's length
     cal.current?.getApi().unselect(); // the placeholder is drawn from the form below, so changing the duration there moves it
   }
 
@@ -291,6 +305,27 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
     }
   }
 
+  async function saveEdit(patch: { title: string; start: string; durationMinutes: number }, force: boolean) {
+    if (!picked) return false;
+    setBusy(true);
+    setError('');
+    setConflict(null);
+    try {
+      await api<CalendarEvent>(`/api/events/${picked.id}`, { method: 'PATCH', body: JSON.stringify({ ...patch, force }) });
+      refetch();
+      setPanel(null); // saved: the dialog closes
+      return true;
+    } catch (e) {
+      const err = e as ApiError;
+      const c = toConflict(err);
+      setConflict(c);
+      setError(c ? conflictMessage(c) : err.message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function removeStudent(p: Participant) {
     if (!picked) return;
     setError('');
@@ -330,7 +365,8 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
     }
   }
 
-  const open = (c: CalendarEvent) => {
+  const open = (c: CalendarEvent, at?: DOMRect) => {
+    clickRect.current = at ?? null;
     setPicked(c);
     setPanel('details');
     setCreating(false);
@@ -399,7 +435,7 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
                 eventSources={sources}
                 datesSet={onDates}
                 select={onSelect}
-                eventClick={(a: EventClickArg) => { const ev = a.event.extendedProps.ev as CalendarEvent | undefined; if (ev) open(ev); }}
+                eventClick={(a: EventClickArg) => { const ev = a.event.extendedProps.ev as CalendarEvent | undefined; if (ev) open(ev, a.el.getBoundingClientRect()); }}
                 eventDrop={move}
                 eventResize={move}
               />
@@ -422,12 +458,42 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
               setForm((f) => ({ ...f, title: 'Free trial class', category: 'trial', duration: 30, students: [student], ...(start ? { date: ymd(start), time: hm(start) } : {}) }));
             }}
           />
-          {panel === 'details' && picked ? (
+          <ClassesPanel
+            subtitle={admin ? 'Every teacher’s scheduled classes' : 'Your scheduled classes'}
+            empty="No upcoming classes. Use Quick Add Lesson, or drag across the calendar, to schedule one."
+            classes={classes}
+            error={creating || panel === 'details' ? '' : error}
+            sections={[{ label: 'Upcoming', items: upcomingOf(classes) }]}
+            selected={picked?.id ?? null}
+            onSelect={(c) => open(c)}
+            who={whoLine}
+            badge={needsAttention}
+            actions={(c) => <ChangeRequestBox ev={c} busy={busy} onDecide={decide} />}
+          />
+        </div>
+      </div>
+      {(creating || (panel === 'details' && picked)) && (
+        <div className="modal">
+          <DialogFrame key={creating ? 'new' : picked?.id} anchor={clickRect.current} slot={creating && clickedSlot.current}>
+          {creating ? (
+            <CreateDrawer
+              form={form}
+              setForm={(f) => { if (f.teacher?.id !== form.teacher?.id) setTimeout(refetch, 0); setForm(f); }}
+              role={role}
+              teachers={teachers}
+              missing={missing}
+              busy={busy}
+              error={error}
+              conflict={conflict}
+              onCreate={create}
+              onClose={() => setCreating(false)}
+            />
+          ) : picked && (
             <DetailsDrawer
               key={picked.id}
               ev={picked}
               role={role}
-              error={creating ? '' : error}
+              error={error}
               conflict={conflict}
               busy={busy}
               onCancel={() => cancel(picked.id)}
@@ -436,39 +502,12 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
               onAdd={addStudents}
               onRemove={removeStudent}
               onDecide={decide}
-            />
-          ) : (
-            <ClassesPanel
-              subtitle={admin ? 'Every teacher’s scheduled classes' : 'Your scheduled classes'}
-              empty="No upcoming classes. Use Quick Add Lesson, or drag across the calendar, to schedule one."
-              classes={classes}
-              error={creating ? '' : error}
-              sections={[{ label: 'Upcoming', items: upcomingOf(classes) }]}
-              selected={picked?.id ?? null}
-              onSelect={open}
-              who={whoLine}
-              badge={needsAttention}
-              actions={(c) => <ChangeRequestBox ev={c} busy={busy} onDecide={decide} />}
+              onSave={saveEdit}
             />
           )}
-          {creating && (
-            <div className="over">
-              <CreateDrawer
-                form={form}
-                setForm={(f) => { if (f.teacher?.id !== form.teacher?.id) setTimeout(refetch, 0); setForm(f); }}
-                role={role}
-                teachers={teachers}
-                missing={missing}
-                busy={busy}
-                error={error}
-                conflict={conflict}
-                onCreate={create}
-                onClose={() => setCreating(false)}
-              />
-            </div>
-          )}
+          </DialogFrame>
         </div>
-      </div>
+      )}
     </div>
   );
 }

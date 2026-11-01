@@ -1,5 +1,5 @@
 import { defineConfig } from '@playwright/test';
-import { AUTH_URL, BILLING_URL, CALENDAR_API_URL, CALENDAR_ORIGIN, USERS_URL, WEB_PORT, WEB_URL } from './e2e/helpers';
+import { AUTH_URL, BILLING_URL, CALENDAR_API_URL, CALENDAR_ORIGIN, DASHBOARD_API_URL, USERS_URL, WEB_PORT, WEB_URL } from './e2e/helpers';
 
 export default defineConfig({
   testDir: './e2e',
@@ -35,6 +35,7 @@ export default defineConfig({
         USERS_SERVICE_URL: USERS_URL,
         BILLING_API_URL: BILLING_URL,
         CALENDAR_API_URL,
+        DASHBOARD_API_URL,
         NEXT_PUBLIC_ALLOWED_RETURN_ORIGINS: CALENDAR_ORIGIN,
         NEXT_PUBLIC_CALENDAR_URL: CALENDAR_ORIGIN,
         NEXT_PUBLIC_USERS_UI_URL: WEB_URL, // the header's Account and Sign out links point at this app

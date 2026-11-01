@@ -1,14 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { BookOpen, CalendarClock, ClipboardCheck, Eye, IdCard, LineChart, MessageSquare, PenLine, Search, Users, Video, DoorOpen, UserPen } from 'lucide-react';
-import { LEVELS, type DirectoryStudent, type Level, type MentorProfile, type TeacherDashboard as Data, type TeacherSession } from '@/lib/types';
+import { BookOpen, CalendarClock, ClipboardCheck, Eye, IdCard, LineChart, MessageSquare, PenLine, Search, Users, Video, DoorOpen } from 'lucide-react';
+import type { DirectoryStudent, TeacherDashboard as Data, TeacherSession } from '@/lib/types';
 import { calendarUrl, chatUrl } from '@/lib/env';
 import { api } from './api-client';
 import { Avatar, Bar, Soon } from './components/ui';
 
 const GRADES = Array.from({ length: 10 }, (_, i) => `Grade ${i + 1}`);
-const LEVEL_LABEL: Record<Level, string> = { elementary: 'Elementary (1–5)', middle: 'Middle (6–8)', high: 'High (9–10)', olympiad: 'Olympiad / Competitions' };
 
 export default function TeacherDashboard({ initial }: { initial: Data }) {
   const [d, setD] = useState(initial);
@@ -22,7 +21,6 @@ export default function TeacherDashboard({ initial }: { initial: Data }) {
       <WelcomeBar d={d} />
       <Schedule d={d} />
       <Directory d={d} refresh={refresh} say={say} />
-      <ProfileCard profile={d.mentorProfile} say={say} />
       <p className="toast" role="status" aria-live="polite">{toast}</p>
     </div>
   );
@@ -141,43 +139,6 @@ function Directory({ d, refresh, say }: { d: Data; refresh: () => Promise<void>;
           ))}
         </div>
       )}
-    </section>
-  );
-}
-
-/** What students see on their mentor card. Nothing is shown until the teacher publishes it. */
-function ProfileCard({ profile, say }: { profile: MentorProfile; say: (m: string) => void }) {
-  const [headline, setHeadline] = useState(profile.headline);
-  const [specialties, setSpecialties] = useState(profile.specialties.join(', '));
-  const [levels, setLevels] = useState<Level[]>(profile.levels);
-  const [quote, setQuote] = useState(profile.quote);
-  const [published, setPublished] = useState(profile.published);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true); setError('');
-    try {
-      await api('/api/me/mentor-profile', { method: 'PUT', body: JSON.stringify({ headline, specialties: specialties.split(',').map((x) => x.trim()).filter(Boolean), levels, quote, published }) });
-      say(published ? 'Profile saved. Students can now find you under Mentors.' : 'Profile saved. It is hidden from students until you publish it.');
-    } catch (err) { setError((err as Error).message); } finally { setBusy(false); }
-  }
-
-  return (
-    <section aria-labelledby="profile-h">
-      <div className="sec-head"><UserPen size={20} aria-hidden /><div className="grow"><h2 id="profile-h">My Mentor Profile</h2><p className="sub">This is what students see when they look for a mentor.</p></div></div>
-      <form className="builder" onSubmit={save}>
-        <label className="fld">Headline<input maxLength={120} value={headline} onChange={(e) => setHeadline(e.target.value)} placeholder="e.g. Lead STEM Specialist • M.Ed." /></label>
-        <label className="fld">Specialties (separated by commas)<input value={specialties} onChange={(e) => setSpecialties(e.target.value)} placeholder="Geometry, Proofs & Logic" /></label>
-        <fieldset><legend>Grade levels you teach</legend>
-          <div className="presets">{LEVELS.map((l) => <button key={l} type="button" className="fchip" aria-pressed={levels.includes(l)} onClick={() => setLevels((c) => (c.includes(l) ? c.filter((x) => x !== l) : [...c, l]))}>{LEVEL_LABEL[l]}</button>)}</div>
-        </fieldset>
-        <label className="fld">A line in your own words<textarea rows={3} maxLength={400} value={quote} onChange={(e) => setQuote(e.target.value)} placeholder="What do you want students to know about how you teach?" /></label>
-        <label className="check"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /> Show my profile to students</label>
-        {error && <p className="err" role="alert">{error}</p>}
-        <button type="submit" className="btn-primary" disabled={busy}>Save profile</button>
-      </form>
     </section>
   );
 }

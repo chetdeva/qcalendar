@@ -66,9 +66,9 @@ describe('billing/me and checkout', () => {
     const me = async () => json(await s.me());
     assert.deepEqual([(await me()).trial, (await me()).prompts], ['available', ['book_trial', 'subscribe']]);
     const hour = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
-    const reserveTrial = (ref: string, endsAt?: string) => s.as('POST', '/v1/service/credits/reserve', { userId: s.id, ref, endsAt });
+    const reserveTrial = (ref: string, endsAt?: string) => s.as('POST', '/v1/service/credits/reserve', { userId: s.id, ref, endsAt, trial: true });
     assert.equal((await reserveTrial('l1', hour(2))).status, 403); // that route is for services, not people
-    const r = await app.request('/v1/service/credits/reserve', { method: 'POST', headers: { authorization: `Bearer ${KEY}`, 'content-type': 'application/json' }, body: JSON.stringify({ userId: s.id, ref: 'l1', endsAt: hour(2) }) });
+    const r = await app.request('/v1/service/credits/reserve', { method: 'POST', headers: { authorization: `Bearer ${KEY}`, 'content-type': 'application/json' }, body: JSON.stringify({ userId: s.id, ref: 'l1', endsAt: hour(2), trial: true }) });
     assert.equal(r.status, 200);
     assert.deepEqual([(await me()).trial, (await me()).prompts], ['booked', ['trial_booked']]);
     await db.query(`update billing.trials set lesson_end = now() - interval '1 hour' where user_id = $1`, [s.id]);

@@ -159,3 +159,36 @@ test('the time zone list is short: a few common zones, plus the saved one when i
   await expect(page.getByLabel('Time zone')).toHaveValue('Europe/Paris');
   await expect(options.filter({ hasText: 'Europe/Paris' })).toHaveCount(1);
 });
+
+const TUTOR = { email: 'tutor@example.test', password: 'tutor-password-1' };
+
+test.describe('the mentor profile card', () => {
+  test('students do not see it', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: 'My Mentor Profile' })).toHaveCount(0);
+  });
+
+  test('a teacher edits it on the Account page: it needs a headline and quote to publish, and is remembered', async ({ page, request }) => {
+    await seedUser(request, { ...TUTOR, role: 'teacher', name: 'Tess Teacher' });
+    await page.context().clearCookies();
+    await logInAs(page, TUTOR);
+    await expect(page.getByRole('heading', { name: 'My Mentor Profile' })).toBeVisible();
+    await page.getByLabel('Show my profile to students').check();
+    await page.getByRole('button', { name: 'Save profile' }).click();
+    await expect(page.locator('.alert-error')).toContainText('headline'); // dashboard-service refuses to publish an empty card
+    await page.getByLabel('Headline').fill('Lead STEM Specialist');
+    await page.getByLabel('Specialties (separated by commas)').fill('Geometry, Proofs & Logic');
+    await page.getByRole('button', { name: 'Middle (6–8)' }).click();
+    await page.getByLabel('A line in your own words').fill('Every shape has a story.');
+    await page.getByRole('button', { name: 'Save profile' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Students can now find you under Mentors.' })).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByLabel('Headline')).toHaveValue('Lead STEM Specialist');
+    await expect(page.getByLabel('Specialties (separated by commas)')).toHaveValue('Geometry, Proofs & Logic');
+    await expect(page.getByRole('button', { name: 'Middle (6–8)' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByLabel('Show my profile to students')).toBeChecked();
+    await page.getByLabel('Show my profile to students').uncheck();
+    await page.getByRole('button', { name: 'Save profile' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'hidden from students' })).toBeVisible();
+  });
+});

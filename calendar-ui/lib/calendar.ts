@@ -29,7 +29,8 @@ export interface CalendarEvent {
   createdAt: string; updatedAt: string;
 }
 
-export interface Student { email: string; name?: string; userId?: string }
+/** timezone: the student's own IANA zone, when they have set one (teachers and admins only see it to schedule). */
+export interface Student { email: string; name?: string; userId?: string; timezone?: string | null }
 
 export interface CalendarSettings {
   teacherId: string; timezone: string;
@@ -39,4 +40,4 @@ export interface CalendarSettings {
 
 export interface Me { id: string; email: string; full_name: string | null; role: Role; status: 'active' | 'disabled'; avatar_updated_at?: string | null }
 
-export interface Person { id: string; name: string | null; email: string }
+export interface Person { id: string; name: string | null; email: string; timezone?: string | null }

@@ -163,13 +163,13 @@ test.describe('the server routes enforce roles even if someone calls them by han
     expect((await page.request.get('/api/teachers')).status()).toBe(403);
   });
 
-  test('the student search returns only id, name and email', async ({ context, request }) => {
+  test('the student search returns only id, name, email and time zone', async ({ context, request }) => {
     const page = await openPage(context, request, await seed(request, 'teacher', 'Tess Teacher'));
     await seed(request, 'student', 'Sam Student');
     await seed(request, 'teacher', 'Other Teacher');
     const body = await (await page.request.get('/api/students?q=')).json();
     expect(body.students).toHaveLength(1);
-    expect(Object.keys(body.students[0]).sort()).toEqual(['email', 'id', 'name']);
+    expect(Object.keys(body.students[0]).sort()).toEqual(['email', 'id', 'name', 'timezone']);
   });
 
   test('an admin searching students never receives guardian emails, which users-service does show them', async ({ context, request }) => {
@@ -185,6 +185,6 @@ test.describe('the server routes enforce roles even if someone calls them by han
     const res = await page.request.get('/api/students?q=sam');
     const text = await res.text();
     expect(text).not.toContain('parent.of.sam');
-    expect(Object.keys(JSON.parse(text).students[0]).sort()).toEqual(['email', 'id', 'name']);
+    expect(Object.keys(JSON.parse(text).students[0]).sort()).toEqual(['email', 'id', 'name', 'timezone']);
   });
 });

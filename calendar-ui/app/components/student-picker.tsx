@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { Person, Student } from '@/lib/calendar';
-import { initials, isEmail, personName } from '@/lib/format';
+import { initials, isEmail, personName, zoneTime } from '@/lib/format';
 import { Icon } from './ui-icon';
 
 const MAX = 50;
@@ -11,8 +11,10 @@ const MAX = 50;
  * Pick the students for a class: search people who already have an account, or type an email to invite someone who
  * does not yet. Chosen students show as chips that can be removed.
  */
-export function StudentPicker({ label, value, onChange, exclude = [], required }: {
+export function StudentPicker({ label, value, onChange, exclude = [], required, at }: {
   label: string; value: Student[]; onChange: (v: Student[]) => void; exclude?: string[]; required?: boolean;
+  /** The class start: each student with a time zone shows what that is on their clock. */
+  at?: Date | null;
 }) {
   const id = useId();
   const [query, setQuery] = useState('');
@@ -66,7 +68,7 @@ export function StudentPicker({ label, value, onChange, exclude = [], required }
     // The list on screen can lag behind what was just typed (it is debounced), so ask for what is in the box right now.
     const fresh = await search(query).catch(() => [] as Person[]);
     const first = fresh.find((r) => !taken.has(r.email.toLowerCase()));
-    if (first) add({ email: first.email, name: first.name ?? undefined, userId: first.id });
+    if (first) add({ email: first.email, name: first.name ?? undefined, userId: first.id, timezone: first.timezone });
     else if (canInvite) add({ email: typed.toLowerCase() });
   }
 
@@ -79,6 +81,7 @@ export function StudentPicker({ label, value, onChange, exclude = [], required }
             <li key={s.email} className="chip-s">
               <span className="avatar xs" aria-hidden="true">{initials(personName(s))}</span>
               <span className="chip-name">{personName(s)}</span>
+              {at && s.timezone && <span className="chip-time" title={`Class time for ${personName(s)} (${s.timezone})`}>{zoneTime(at, s.timezone)}</span>}
               {!s.userId && <span className="chip-note">invite</span>}
               <button type="button" aria-label={`Remove ${s.email}`} onClick={() => onChange(value.filter((x) => x.email !== s.email))}>
                 <Icon name="close" color="#414754" />
@@ -97,9 +100,9 @@ export function StudentPicker({ label, value, onChange, exclude = [], required }
         <ul id={`${id}-list`} role="listbox" className="picker-list" aria-label="Matching students">
           {visible.map((r) => (
             <li key={r.id} role="option" aria-selected="false">
-              <button type="button" onClick={() => add({ email: r.email, name: r.name ?? undefined, userId: r.id })}>
+              <button type="button" onClick={() => add({ email: r.email, name: r.name ?? undefined, userId: r.id, timezone: r.timezone })}>
                 <span className="avatar xs" aria-hidden="true">{initials(personName(r))}</span>
-                <span className="p-text"><b>{personName(r)}</b><small>{r.email}</small></span>
+                <span className="p-text"><b>{personName(r)}</b><small>{r.email}{at && r.timezone ? ` · ${zoneTime(at, r.timezone)}` : ''}</small></span>
               </button>
             </li>
           ))}

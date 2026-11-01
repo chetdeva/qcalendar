@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { at, calendarAs, inDays, openAllDay, openForm, openPage, resetBackend, seed, tokenFor, todayUtc, type User } from './helpers';
+import { USERS_URL, at, calendarAs, inDays, openAllDay, openForm, openPage, resetBackend, seed, tokenFor, todayUtc, type User } from './helpers';
 
 test.beforeEach(async ({ request }) => resetBackend(request));
 
@@ -382,7 +382,7 @@ test.describe('"My classes" for teachers, with New lesson over it', () => {
     const page = await openPage(context, request, teacher);
     await panel(page).getByRole('article', { name: /Geometry/ }).click();
     const details = page.getByRole('complementary', { name: 'Lesson details' });
-    await expect(details).toContainText('Geometry');
+    await expect(details.getByLabel('Event Title *')).toHaveValue('Geometry');
     await details.getByRole('button', { name: 'Close panel' }).click();
     await expect(panel(page).getByRole('article', { name: /Geometry/ })).toBeVisible();
   });
@@ -391,11 +391,11 @@ test.describe('"My classes" for teachers, with New lesson over it', () => {
     const teacher = await seed(request, 'teacher', 'Tess Teacher');
     const page = await openPage(context, request, teacher);
     await expect(page.getByRole('complementary', { name: 'New lesson' })).toHaveCount(0);
-    const list = await panel(page).boundingBox();
     await openForm(page);
     const form = await page.getByRole('complementary', { name: 'New lesson' }).boundingBox();
-    expect(Math.abs(form!.x - list!.x)).toBeLessThan(2); // laid over the list...
-    expect(Math.abs(form!.width - list!.width)).toBeLessThan(2); // ...covering the same area
+    const cal = await page.locator('.fchost').boundingBox();
+    expect(form!.x + form!.width).toBeGreaterThan(cal!.x + cal!.width - 60); // floats at the right, over the page...
+    expect(form!.x).toBeGreaterThan(cal!.x + 300); // ...leaving the calendar itself uncovered, so the slot can still be dragged
     await page.getByRole('button', { name: 'Close panel' }).click();
     await expect(page.getByRole('complementary', { name: 'New lesson' })).toHaveCount(0);
     await expect(panel(page)).toBeVisible();
@@ -412,6 +412,65 @@ test.describe('"My classes" for teachers, with New lesson over it', () => {
     await field.create(page).click();
     await expect(page.getByRole('complementary', { name: 'New lesson' })).toHaveCount(0);
     await expect(panel(page).getByRole('article', { name: /Planning block/ })).toBeVisible();
+  });
+});
+
+test.describe('lesson dialog', () => {
+  test('clicking the calendar highlights the time window and opens the dialog; its time can be changed', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    await openAllDay(request, teacher);
+    const page = await openPage(context, request, teacher);
+    const lane = (await page.locator('.fc-timegrid-slot-lane[data-time="10:00:00"]').first().boundingBox())!;
+    const today = (await page.locator('.fc-timegrid-col.fc-day-today').boundingBox())!;
+    await page.mouse.click(today.x + today.width / 2, lane.y + 3); // a single click at the top of the 10:00 hour
+    const form = page.getByRole('complementary', { name: 'New lesson' });
+    await expect(form).toBeVisible();
+    await expect(field.start(page)).toHaveValue('10:00');
+    const slot = page.locator('.pending-slot');
+    await expect(slot).toContainText('10:00 – 11:00 AM'); // the highlighted slot names its window
+    await field.start(page).fill('14:30');
+    await expect(slot).toContainText('2:30 – 3:30 PM');
+  });
+
+  test('clicking an existing class edits its title, time and length in the same dialog', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    await openAllDay(request, teacher);
+    const ev = await (await mine(request, teacher)).create({ title: 'Geometry', start: inDays(1, 10), durationMinutes: 60 });
+    const page = await openPage(context, request, teacher);
+    await page.getByRole('article', { name: /Geometry/ }).click();
+    const d = page.getByRole('complementary', { name: 'Lesson details' });
+    await expect(d.getByRole('button', { name: 'Save changes' })).toBeDisabled(); // nothing changed yet
+    await d.getByLabel('Event Title *').fill('Geometry, chapter 2');
+    await d.getByLabel('Start Time *').fill('11:30');
+    await d.getByRole('button', { name: '90m' }).click();
+    await d.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page.getByRole('article', { name: /Geometry, chapter 2/ })).toBeVisible();
+    const saved = await (await mine(request, teacher)).call('GET', `/v1/events/${ev.id}`);
+    expect(saved.body.title).toBe('Geometry, chapter 2');
+    expect(new Date(saved.body.start).toISOString().slice(11, 16)).toBe('11:30');
+    expect(Date.parse(saved.body.end) - Date.parse(saved.body.start)).toBe(90 * 60_000);
+  });
+
+  test('each student shows the class time on their own clock, when creating and when editing', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    const sam = await seed(request, 'student', 'Sam Student');
+    const set = await request.fetch(`${USERS_URL}/v1/me`, { method: 'PATCH', data: { timezone: 'Asia/Kolkata' }, headers: { authorization: `Bearer ${await tokenFor(request, sam)}` } });
+    expect(set.status()).toBe(200);
+    await (await mine(request, teacher)).create({ title: 'Algebra', start: inDays(1, 10), durationMinutes: 60, participants: [{ email: sam.email, userId: sam.id }] });
+    const page = await openPage(context, request, teacher);
+
+    await openForm(page);
+    await field.date(page).fill(inDays(1, 10).slice(0, 10));
+    await field.start(page).fill('10:00');
+    await pickStudent(page, 'sam', /Sam Student/);
+    await expect(chips(page).first()).toContainText('3:30 PM GMT+5:30'); // 10:00 UTC is 15:30 in Kolkata
+    await field.start(page).fill('12:00');
+    await expect(chips(page).first()).toContainText('5:30 PM GMT+5:30'); // follows the start time
+    await page.getByRole('button', { name: 'Close panel' }).click();
+
+    await page.getByRole('article', { name: /Algebra/ }).click();
+    const d = page.getByRole('complementary', { name: 'Lesson details' });
+    await expect(d.getByRole('listitem').filter({ hasText: 'Sam Student' })).toContainText('3:30 PM GMT+5:30');
   });
 });
 

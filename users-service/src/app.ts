@@ -65,8 +65,8 @@ const ListQuery = z.object({
 const IdParam = z.uuid();
 const LookupBody = z.object({ ids: z.array(z.uuid()).min(1).max(50) }).strict();
 
-/** What a teacher may know about a student: enough to pick them for a class, nothing more. */
-const studentCard = (p: Profile) => ({ id: p.id, full_name: p.full_name, email: p.email });
+/** What a teacher may know about a student: enough to pick them for a class (and to schedule it in their time zone), nothing more. */
+const studentCard = (p: Profile) => ({ id: p.id, full_name: p.full_name, email: p.email, timezone: p.timezone });
 
 const safeEqual = (a: string, b: string) => {
   const x = Buffer.from(a);
@@ -234,13 +234,14 @@ export function createApp({ verifier, directory, inviteRedirectTo, serviceApiKey
     throw new HttpError(403, 'forbidden', 'Students cannot browse users');
   });
 
-  // Name and email for ids the caller already knows (e.g. the other person in a chat). No role, status or guardian address.
+  // Name and email (and, for teachers and admins, time zone) for ids the caller already knows. No role, status or guardian address.
   // Registered before /v1/users/:id so "lookup" is never read as an id.
   app.post('/v1/users/lookup', async (c) => {
     const { ids } = parse(LookupBody, await c.req.json().catch(() => null));
-    await liveProfile(c);
+    const me = await liveProfile(c);
     const found = await Promise.all([...new Set(ids)].map((id) => directory.getProfile(id)));
-    return c.json({ users: found.filter((p): p is Profile => !!p).map((p) => ({ id: p.id, full_name: p.full_name, email: p.email })) });
+    // The time zone is for teachers and admins scheduling a class; a student only gets name and email.
+    return c.json({ users: found.filter((p): p is Profile => !!p).map((p) => ({ id: p.id, full_name: p.full_name, email: p.email, ...(me.role !== 'student' ? { timezone: p.timezone } : {}) })) });
   });
 
   app.get('/v1/users/:id', async (c) => {

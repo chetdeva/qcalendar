@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { CalendarEvent, EventCategory, Participant, Person, Student } from '@/lib/calendar';
-import { answerSummary, CATEGORIES, CATEGORY_ORDER, initials, personName, rangeLabel, STATUS_LABEL } from '@/lib/format';
+import { answerSummary, CATEGORIES, CATEGORY_ORDER, hm, initials, minutesBetween, personName, STATUS_LABEL, ymd, zoneTime } from '@/lib/format';
 import { ChangeRequestBox } from './change-request-box';
 import { StudentPicker } from './student-picker';
 import { Icon } from './ui-icon';
@@ -34,6 +34,9 @@ export function conflictMessage(c: Conflict) {
       ? "That time is outside this teacher's working hours."
       : `Already in another class at this time: ${c.people.join(', ')}.`;
 }
+
+/** The class start as a Date, or null while the date or time is empty. */
+const startOf = (date: string, time: string) => { const d = date && time ? new Date(`${date}T${time}`) : null; return d && !Number.isNaN(d.getTime()) ? d : null; };
 
 interface CreateProps {
   form: LessonForm;
@@ -84,7 +87,7 @@ export function CreateDrawer(p: CreateProps) {
           <input value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="AP Statistics - Private Session" />
         </label>
 
-        <StudentPicker label="Students" required={form.category === 'tutoring' || form.category === 'trial'} value={form.students} onChange={(v) => set('students', v)} />
+        <StudentPicker label="Students" required={form.category === 'tutoring' || form.category === 'trial'} value={form.students} onChange={(v) => set('students', v)} at={startOf(form.date, form.time)} />
         <div className="hint ok"><Icon name="verified-sync" color="#006c4a" />Each student gets an email invitation</div>
 
         <div className="field">
@@ -165,11 +168,32 @@ interface DetailsProps {
   onClose: () => void;
   onAdd: (students: Student[], force: boolean) => Promise<boolean>;
   onRemove: (p: Participant) => void;
+  /** Save a changed title, date, time or length. Resolves true when it was saved. */
+  onSave: (patch: { title: string; start: string; durationMinutes: number }, force: boolean) => Promise<boolean>;
 }
 
-export function DetailsDrawer({ ev, role, error, conflict, busy, onCancel, onNew, onClose, onAdd, onRemove, onDecide }: DetailsProps) {
+export function DetailsDrawer({ ev, role, error, conflict, busy, onCancel, onNew, onClose, onAdd, onRemove, onDecide, onSave }: DetailsProps) {
   const cat = CATEGORIES[ev.category];
   const [adding, setAdding] = useState<Student[]>([]);
+  const editable = ev.status === 'confirmed';
+  const first = new Date(ev.start);
+  const [title, setTitle] = useState(ev.title);
+  const [date, setDate] = useState(ymd(first));
+  const [time, setTime] = useState(hm(first));
+  const [duration, setDuration] = useState(minutesBetween(ev.start, ev.end));
+  const start = startOf(date, time);
+  const dirty = title.trim() !== ev.title || date !== ymd(first) || time !== hm(first) || duration !== minutesBetween(ev.start, ev.end);
+  const save = (force: boolean) => start && onSave({ title: title.trim(), start: start.toISOString(), durationMinutes: duration }, force);
+
+  // Each student's own time zone, to show what the class time is for them.
+  const [zones, setZones] = useState<Record<string, string>>({});
+  const ids = ev.participants.map((p) => p.userId).filter(Boolean).join(',');
+  useEffect(() => {
+    if (!ids) return;
+    let stale = false;
+    fetch(`/api/students/zones?ids=${ids}`).then((r) => (r.ok ? r.json() : null)).then((j) => { if (!stale && j) setZones(j.zones); }, () => {});
+    return () => { stale = true; };
+  }, [ids]);
   const summary = answerSummary(ev.participants);
   const add = async (force: boolean) => { if (await onAdd(adding, force)) setAdding([]); };
 
@@ -188,12 +212,35 @@ export function DetailsDrawer({ ev, role, error, conflict, busy, onCancel, onNew
         </button>
       </div>
       <div className="d-body">
-        <div className="detail">
-          <b className="detail-title">{ev.title}</b>
-          <span>{new Date(ev.start).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
-          <span>{rangeLabel(ev.start, ev.end)}</span>
-          {role === 'admin' && <span>Teacher: {ev.ownerName ?? ev.ownerEmail ?? 'unknown'}</span>}
+        <label className="field">
+          <span>Event Title *</span>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} disabled={!editable} />
+        </label>
+        <div className="row2">
+          <label className="field">
+            <span>Date *</span>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={!editable} />
+          </label>
+          <label className="field">
+            <span>Start Time *</span>
+            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} disabled={!editable} />
+          </label>
         </div>
+        <div className="field">
+          <span id="edit-duration">Duration</span>
+          <div className="durations" role="group" aria-labelledby="edit-duration">
+            {(DURATIONS.includes(duration) ? DURATIONS : [...DURATIONS, duration].sort((a, b) => a - b)).map((m) => (
+              <button key={m} type="button" className={duration === m ? 'on' : ''} aria-pressed={duration === m} disabled={!editable} onClick={() => setDuration(m)}>{m}m</button>
+            ))}
+          </div>
+        </div>
+        {role === 'admin' && <p className="muted-line">Teacher: {ev.ownerName ?? ev.ownerEmail ?? 'unknown'}</p>}
+        {editable && (
+          <div className="save-row">
+            <button type="button" className="cta" disabled={busy || !dirty || !title.trim() || !start} onClick={() => save(false)}>Save changes</button>
+            {conflict && dirty && <button type="button" className="ghost" onClick={() => save(true)}>Save anyway</button>}
+          </div>
+        )}
 
         {ev.meetingUrl && (
           <a className="meet-link" href={ev.meetingUrl} target="_blank" rel="noreferrer">
@@ -211,7 +258,7 @@ export function DetailsDrawer({ ev, role, error, conflict, busy, onCancel, onNew
             {ev.participants.map((p) => (
               <li key={p.id}>
                 <span className="avatar sm" aria-hidden="true">{initials(personName(p))}</span>
-                <span className="who-line"><b>{personName(p)}</b><small>{p.email}</small></span>
+                <span className="who-line"><b>{personName(p)}</b><small>{p.email}</small>{p.userId && zones[p.userId] && start && <small className="zone-time">{zoneTime(start, zones[p.userId])}</small>}</span>
                 <span className={`status status-${p.status}`}>{STATUS_LABEL[p.status]}</span>
                 {ev.status === 'confirmed' && (
                   <button type="button" className="x-btn" aria-label={`Remove ${p.email}`} onClick={() => onRemove(p)}>
@@ -225,7 +272,7 @@ export function DetailsDrawer({ ev, role, error, conflict, busy, onCancel, onNew
 
         {ev.status === 'confirmed' && (
           <div className="add-box">
-            <StudentPicker label="Add students" value={adding} onChange={setAdding} exclude={ev.participants.map((p) => p.email)} />
+            <StudentPicker label="Add students" value={adding} onChange={setAdding} exclude={ev.participants.map((p) => p.email)} at={start} />
             <button type="button" className="ghost" disabled={busy || adding.length === 0} onClick={() => add(false)}>Add to class</button>
             {conflict && <button type="button" className="ghost" onClick={() => add(true)}>Add anyway</button>}
           </div>

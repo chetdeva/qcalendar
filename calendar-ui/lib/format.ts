@@ -5,6 +5,16 @@ export const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${p
 export const hm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
 const clock = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+/** What a class start reads as on a student's clock, e.g. "Mon 8:00 PM EDT"; '' when they have no (or an unknown) time zone. */
+export function zoneTime(at: Date, timeZone?: string | null): string {
+  if (!timeZone || Number.isNaN(at.getTime())) return '';
+  try {
+    return at.toLocaleString('en-US', { timeZone, weekday: 'short', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+  } catch {
+    return '';
+  }
+}
+
 export const timeLabel = (iso: string) => clock(new Date(iso));
 
 /** "9:00 – 10:30 AM", or "11:30 AM – 1:00 PM" when the meridiem changes. */

@@ -109,6 +109,21 @@ Send the compose files with `git archive HEAD | ssh ... 'cd ~/app && tar -x'` (n
 Every container has a memory cap in `docker-compose.prod.yml` (`mem_limit` plus `NODE_OPTIONS=--max-old-space-size`); if one restarts on its own, check `docker ps` and raise its cap.
 Billing is on (`COMPOSE_PROFILES=billing`, Cashfree sandbox keys); its webhook is `https://accounts.<domain>/api/webhooks/billing/cashfree`.
 
+## Deploying from GitHub Actions
+
+Actions tab, "Deploy", "Run workflow" (`.github/workflows/deploy.yml`). It runs the service tests, builds the arm64 images on a GitHub runner, pushes them to
+`ghcr.io/chetdeva/qcalendar-<service>:<git sha>`, opens SSH for the runner's IP in the security group, pulls and restarts the chosen services, checks the site
+and closes SSH again (also when the deploy fails). Inputs: `services` (space-separated, default all) and `ref_tag` (a git sha to redeploy = rollback).
+Migrations are still run by hand. The Mac steps above still work as a fallback.
+
+One-time setup:
+- Repo secrets (Settings, Environments, `production`; add yourself as required reviewer if you want an approval click): `DOMAIN`, `SUPABASE_URL`,
+  `SUPABASE_PUBLISHABLE_KEY`, `CF_ANALYTICS_TOKEN`, `SERVER_HOST` (184.169.166.191), `SSH_PRIVATE_KEY` (a new deploy-only key, public half in the server's
+  `~/.ssh/authorized_keys`), `SG_ID` (the `quanttoria-web` security group), `AWS_ROLE_ARN`.
+- AWS: an IAM OIDC provider for `token.actions.githubusercontent.com`, and a role trusted only for `repo:chetdeva/qcalendar:environment:production`
+  whose policy allows `ec2:AuthorizeSecurityGroupIngress` and `ec2:RevokeSecurityGroupIngress` on that one security group.
+- GitHub: after the first run make each `qcalendar-*` package public (Packages, Package settings), so the server can pull without logging in.
+
 ## Operating it
 
 ```bash

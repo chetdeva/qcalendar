@@ -351,7 +351,7 @@ test.describe('the calendar itself', () => {
     await page.mouse.move(x, a!.y + a!.height / 2, { steps: 5 });
     await page.mouse.move(x, a!.y + a!.height - 3, { steps: 5 });
     await page.mouse.up();
-    await expect(field.date(page)).toHaveValue(todayUtc());
+    await expect(field.date(page)).toHaveValue(dmy(todayUtc()));
     await expect(field.start(page)).toHaveValue('10:00');
     await expect(field.duration(page, 60)).toHaveAttribute('aria-pressed', 'true');
   });
@@ -393,9 +393,8 @@ test.describe('"My classes" for teachers, with New lesson over it', () => {
     await expect(page.getByRole('complementary', { name: 'New lesson' })).toHaveCount(0);
     await openForm(page);
     const form = await page.getByRole('complementary', { name: 'New lesson' }).boundingBox();
-    const cal = await page.locator('.fchost').boundingBox();
-    expect(form!.x + form!.width).toBeGreaterThan(cal!.x + cal!.width - 60); // floats at the right, over the page...
-    expect(form!.x).toBeGreaterThan(cal!.x + 300); // ...leaving the calendar itself uncovered, so the slot can still be dragged
+    const slot = await page.locator('.pending-slot').boundingBox();
+    if (slot) expect(form!.x >= slot.x + slot.width || form!.x + form!.width <= slot.x).toBe(true); // floats beside the slot, never over it, so it can still be dragged
     await page.getByRole('button', { name: 'Close panel' }).click();
     await expect(page.getByRole('complementary', { name: 'New lesson' })).toHaveCount(0);
     await expect(panel(page)).toBeVisible();
@@ -430,6 +429,19 @@ test.describe('lesson dialog', () => {
     await expect(slot).toContainText('10:00 – 11:00 AM'); // the highlighted slot names its window
     await field.start(page).fill('14:30');
     await expect(slot).toContainText('2:30 – 3:30 PM');
+    const [f, s] = [(await form.boundingBox())!, (await slot.boundingBox())!];
+    expect(f.x >= s.x + s.width || f.x + f.width <= s.x).toBe(true); // opened beside the clicked slot, not over it
+  });
+
+  test('clicking a class opens its dialog beside that class', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    await (await mine(request, teacher)).create({ title: 'Geometry', start: inDays(1, 10), durationMinutes: 60 });
+    const page = await openPage(context, request, teacher);
+    const ev = page.locator('.fc-event', { hasText: 'Geometry' });
+    await ev.click();
+    const [e, d] = [(await ev.boundingBox())!, (await page.getByRole('complementary', { name: 'Lesson details' }).boundingBox())!];
+    expect(d.x >= e.x + e.width || d.x + d.width <= e.x).toBe(true);
+    expect(d.y <= e.y + e.height && d.y + d.height >= e.y).toBe(true); // level with the class, not in a far corner
   });
 
   test('clicking an existing class edits its title, time and length in the same dialog', async ({ context, request }) => {
@@ -444,6 +456,7 @@ test.describe('lesson dialog', () => {
     await d.getByLabel('Start Time *').fill('11:30');
     await d.getByRole('button', { name: '90m' }).click();
     await d.getByRole('button', { name: 'Save changes' }).click();
+    await expect(d).toHaveCount(0); // saved: the dialog closes
     await expect(page.getByRole('article', { name: /Geometry, chapter 2/ })).toBeVisible();
     const saved = await (await mine(request, teacher)).call('GET', `/v1/events/${ev.id}`);
     expect(saved.body.title).toBe('Geometry, chapter 2');
@@ -533,6 +546,9 @@ test('a trial class offers only 30 minutes; other session types choose freely', 
 });
 
 /** The week view's column next to a day (the one on its right, or on its left for Saturday, the last column). */
+/** The date box writes dates day first outside the US (these tests run in UTC); the form's own value is YYYY-MM-DD. */
+const dmy = (iso: string) => iso.split('-').reverse().join('/');
+const isoOf = (shown: string) => shown.split('/').reverse().join('-');
 const neighbour = (ymd: string) => { const d = new Date(`${ymd}T00:00:00Z`).getUTCDay(); return d === 6 ? 5 : d + 1; };
 
 test('the slot being booked is drawn on the calendar and follows the duration; a trial class is 30 minutes', async ({ context, request }) => {
@@ -548,14 +564,14 @@ test('the slot being booked is drawn on the calendar and follows the duration; a
   await expect.poll(height).toBeGreaterThan(half * 2.5); // 90 minutes is three times 30
   await page.getByRole('button', { name: 'Trial' }).click();
   await expect.poll(height).toBeCloseTo(half, 0); // back to 30 minutes
-  const day = await field.date(page).inputValue();
+  const day = isoOf(await field.date(page).inputValue());
   const before = await slot.boundingBox();
   const col = (await page.locator('.fc-timegrid-col[data-date]').nth(neighbour(day)).boundingBox())!;
   await page.mouse.move(before!.x + before!.width / 2, before!.y + 10);
   await page.mouse.down();
   await page.mouse.move(col.x + col.width / 2, before!.y + 10 - 76, { steps: 10 }); // another day, an hour or so earlier
   await page.mouse.up();
-  await expect(field.date(page)).not.toHaveValue(day); // dragging the slot moves the form's date
+  await expect(field.date(page)).not.toHaveValue(dmy(day)); // dragging the slot moves the form's date
 });
 
 test('the slot being booked can be dragged to another time and day; the form follows', async ({ context, request }) => {
@@ -594,6 +610,7 @@ test('after Change time on a trial request, the slot can be dragged too (a trial
   await page.getByRole('button', { name: 'Change time' }).click();
   const slot = page.locator('.fc-event.pending-slot');
   await expect(slot).toBeVisible();
+  await page.waitForTimeout(400); // the calendar scrolls to the requested hour; wait for it to settle before dragging
   const date = await field.date(page).inputValue();
   const b = (await slot.boundingBox())!;
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
@@ -620,5 +637,36 @@ test.describe('time zone from the browser', () => {
     await openPage(context, request, chosen);
     await page.waitForTimeout(500);
     expect(await zoneOf(chosen)).toBe('Asia/Kolkata'); // never overwritten
+  });
+});
+
+test.describe('date format follows the time zone', () => {
+  test.describe('in India', () => {
+    test.use({ timezoneId: 'Asia/Kolkata' });
+    test('day first', async ({ context, request }) => {
+      const teacher = await seed(request, 'teacher', 'Tess Teacher');
+      const page = await openPage(context, request, teacher);
+      await openForm(page);
+      await field.date(page).fill('2026-11-04'); // ISO is accepted too; once the box is left it shows the local format
+      await field.date(page).blur();
+      await expect(field.date(page)).toHaveValue('04/11/2026');
+      await expect(field.date(page)).toHaveAttribute('placeholder', 'DD/MM/YYYY');
+      await field.date(page).fill('05/11/2026');
+      await field.date(page).blur();
+      await expect(field.date(page)).toHaveValue('05/11/2026');
+      await expect(page.locator('.pending-slot')).toBeVisible(); // the typed date reached the form: the slot moved to that day
+    });
+  });
+  test.describe('in the US', () => {
+    test.use({ timezoneId: 'America/New_York' });
+    test('month first', async ({ context, request }) => {
+      const teacher = await seed(request, 'teacher', 'Tess Teacher');
+      const page = await openPage(context, request, teacher);
+      await openForm(page);
+      await field.date(page).fill('2026-11-04');
+      await field.date(page).blur();
+      await expect(field.date(page)).toHaveValue('11/04/2026');
+      await expect(field.date(page)).toHaveAttribute('placeholder', 'MM/DD/YYYY');
+    });
   });
 });

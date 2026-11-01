@@ -5,6 +5,7 @@ import type { CalendarEvent, EventCategory, Participant, Person, Student } from 
 import { answerSummary, CATEGORIES, CATEGORY_ORDER, hm, initials, minutesBetween, personName, STATUS_LABEL, ymd, zoneTime } from '@/lib/format';
 import { ChangeRequestBox } from './change-request-box';
 import { StudentPicker } from './student-picker';
+import { DateField } from './date-field';
 import { Icon } from './ui-icon';
 
 export interface LessonForm {
@@ -110,10 +111,7 @@ export function CreateDrawer(p: CreateProps) {
         </div>
 
         <div className="row2">
-          <label className="field">
-            <span>Date *</span>
-            <input type="date" value={form.date} onChange={(e) => set('date', e.target.value)} />
-          </label>
+          <DateField label="Date *" value={form.date} onChange={(v) => set('date', v)} />
           <label className="field">
             <span>Start Time *</span>
             <input type="time" value={form.time} onChange={(e) => set('time', e.target.value)} />
@@ -217,10 +215,7 @@ export function DetailsDrawer({ ev, role, error, conflict, busy, onCancel, onNew
           <input value={title} onChange={(e) => setTitle(e.target.value)} disabled={!editable} />
         </label>
         <div className="row2">
-          <label className="field">
-            <span>Date *</span>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={!editable} />
-          </label>
+          <DateField label="Date *" value={date} onChange={setDate} disabled={!editable} />
           <label className="field">
             <span>Start Time *</span>
             <input type="time" value={time} onChange={(e) => setTime(e.target.value)} disabled={!editable} />

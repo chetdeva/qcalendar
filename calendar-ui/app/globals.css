@@ -36,7 +36,9 @@ button:disabled { cursor: default; }
   .drawer { width: 100%; }
   .fchost { inset: 12px; }
   .modal { padding: 12px; align-items: flex-end; justify-content: center; }
-  .modal .drawer { max-height: 90dvh; }
+  body:has(.fc-event-dragging) .dlg { pointer-events: none; } /* while the slot is being dragged, the dialog never blocks the days under it */
+.dlg { pointer-events: auto; width: min(440px, 100%); max-height: 100%; min-height: 0; display: flex; }
+.dlg .drawer { width: 100%; max-height: 100%; border-radius: 16px; overflow: hidden; box-shadow: 0 24px 48px -12px rgba(15, 23, 42, .35), 0 0 0 1px rgba(15, 23, 42, .06); }
 }
 
 /* utility bar */
@@ -260,8 +262,8 @@ button:disabled { cursor: default; }
 .cc-actions button { flex: 1; border-radius: 9999px; border: 1px solid var(--field-line); background: var(--surface); padding: 5px 0; font-weight: 600; font-size: 13px; }
 .cc-actions .btn-accept[aria-pressed='true'] { background: var(--green); border-color: var(--green); color: #fff; }
 .cc-actions .btn-decline[aria-pressed='true'] { background: var(--red); border-color: var(--red); color: #fff; }
-.cc-actions { flex-wrap: wrap; }
-.cc-actions button { min-width: 0; padding-left: 8px; padding-right: 8px; }
+.cc-actions { flex-wrap: nowrap; gap: 6px; }
+.cc-actions button { flex: 1 1 auto; min-width: 0; padding-left: 6px; padding-right: 6px; font-size: 12px; white-space: nowrap; } /* Accept, Decline and Request new time stay on one line */
 .note-form { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
 .note-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 500; color: var(--ink-2); }
 .note-form textarea, .note-form input { font: inherit; font-weight: 400; color: var(--ink); border: 1px solid var(--field-line); border-radius: 8px; padding: 6px 8px; background: var(--surface); resize: vertical; }
@@ -318,3 +320,11 @@ button:disabled { cursor: default; }
 .viewing-results { position: absolute; z-index: 20; top: 100%; left: 0; min-width: 260px; margin: 4px 0 0; padding: 4px; list-style: none; background: #fff; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.15); }
 .viewing-results button { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 6px 8px; font: inherit; cursor: pointer; border-radius: 6px; }
 .viewing-results button:hover { background: #eff4ff; }
+
+/* date written the way the person's time zone writes it, with the browser's calendar behind the icon */
+.datefield { position: relative; }
+.datefield input:not(.df-native) { width: 100%; padding-right: 36px; }
+.df-btn { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
+.df-btn:hover:not(:disabled) { background: rgba(0, 0, 0, .06); }
+.datefield input:not(.df-native) { font-size: 13px; font-weight: 500; letter-spacing: -0.13px; padding: 6px 36px 6px 8px; }
+.field .df-native { position: absolute; right: 0; bottom: 0; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; pointer-events: none; }

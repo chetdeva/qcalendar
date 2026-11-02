@@ -35,7 +35,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 24 }
-      - run: npm ci && npm test
+      - run: mkdir -p data && npm ci && npm test # data/ is git-ignored; calendar-service's migrate test writes a temp database there
         working-directory: ${{ matrix.svc }}
 
   deploy:

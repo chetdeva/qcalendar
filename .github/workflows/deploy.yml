@@ -68,7 +68,8 @@ jobs:
           docker compose -p syncschedule -f docker-compose.yml -f docker-compose.prod.yml build $SVCS
           for s in $SVCS; do
             docker tag syncschedule-$s $IMAGE-$s:$SHA
-            docker push $IMAGE-$s:$SHA
+            # a new package's first push can fail with "unknown blob"; a retry works
+            for i in 1 2 3; do docker push $IMAGE-$s:$SHA && break || { [ $i = 3 ] && exit 1; sleep 10; }; done
           done
 
       - uses: aws-actions/configure-aws-credentials@v4

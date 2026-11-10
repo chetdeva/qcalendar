@@ -47,11 +47,13 @@ jobs:
     env:
       IMAGE: ghcr.io/${{ github.repository }}
       SHA: ${{ inputs.ref_tag || github.sha }}
-      SVCS: ${{ inputs.services == 'all' && '' || inputs.services }}
+      SVCS: ${{ inputs.services }}
     steps:
       - uses: actions/checkout@v4
       - name: Pick services
-        run: echo "SVCS=${SVCS:-$ALL}" >> "$GITHUB_ENV"
+        run: |
+          case "$SVCS" in all|"") SVCS="$ALL";; esac
+          echo "SVCS=$SVCS" >> "$GITHUB_ENV"
 
       - name: Build and push images
         if: inputs.ref_tag == ''

@@ -114,6 +114,10 @@ jobs:
           curl -fsS --retry 6 --retry-delay 5 -o /dev/null https://www.${{ secrets.DOMAIN }}
           curl -fsS --retry 6 --retry-delay 5 -o /dev/null https://accounts.${{ secrets.DOMAIN }}/login
 
+      - name: Remove old images
+        if: success()
+        run: ssh -i key -o StrictHostKeyChecking=accept-new ubuntu@${{ secrets.SERVER_HOST }} "docker image prune -f" # untagged ones only; :previous and the running images stay
+
       - name: Roll back to the previous images
         if: failure() && steps.check.outcome == 'failure'
         env:

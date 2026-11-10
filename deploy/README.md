@@ -116,6 +116,12 @@ Actions tab, "Deploy", "Run workflow" (`.github/workflows/deploy.yml`). It runs 
 and closes SSH again (also when the deploy fails). Inputs: `services` (space-separated, default all) and `ref_tag` (a git sha to redeploy = rollback).
 Migrations are still run by hand. The Mac steps above still work as a fallback.
 
+First full deploy (each service's package starts private, and the server pulls without logging in, so it needs two runs; later deploys need one):
+1. `gh workflow run deploy.yml --repo chetdeva/qcalendar` builds and pushes all ten images. Its Deploy step is expected to fail at the first `docker pull` (private package). Nothing is restarted, and SSH is closed again.
+2. GitHub, Packages, `qcalendar-<service>`, Package settings, Change visibility, Public, for each of the nine that are still private (the images contain only public `NEXT_PUBLIC_*` values).
+3. `gh workflow run deploy.yml --repo chetdeva/qcalendar -f ref_tag=<sha of step 1, git rev-parse origin/main>` pulls those images without rebuilding and restarts everything. The same command with an older sha is the rollback.
+4. After a few deploys run `docker image prune -f` on the server: old images stay behind, about 1 GB per web app.
+
 One-time setup:
 - Repo secrets (Settings, Environments, `production`; add yourself as required reviewer if you want an approval click): `DOMAIN`, `SUPABASE_URL`,
   `SUPABASE_PUBLISHABLE_KEY`, `CF_ANALYTICS_TOKEN`, `SERVER_HOST` (184.169.166.191), `SSH_PRIVATE_KEY` (a new deploy-only key, public half in the server's

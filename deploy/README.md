@@ -116,11 +116,15 @@ Actions tab, "Deploy", "Run workflow" (`.github/workflows/deploy.yml`). It runs 
 and closes SSH again (also when the deploy fails). Inputs: `services` (space-separated, default all) and `ref_tag` (a git sha to redeploy = rollback).
 Migrations are still run by hand. The Mac steps above still work as a fallback.
 
-First full deploy (each service's package starts private, and the server pulls without logging in, so it needs two runs; later deploys need one):
-1. `gh workflow run deploy.yml --repo chetdeva/qcalendar` builds and pushes all ten images. Its Deploy step is expected to fail at the first `docker pull` (private package). Nothing is restarted, and SSH is closed again.
-2. GitHub, Packages, `qcalendar-<service>`, Package settings, Change visibility, Public, for each of the nine that are still private (the images contain only public `NEXT_PUBLIC_*` values).
-3. `gh workflow run deploy.yml --repo chetdeva/qcalendar -f ref_tag=<sha of step 1, git rev-parse origin/main>` pulls those images without rebuilding and restarts everything. The same command with an older sha is the rollback.
+First full deploy (the server pulls without logging in, so the packages must be public):
+1. `gh workflow run deploy.yml --repo chetdeva/qcalendar` builds and pushes all ten images and deploys them. In practice the new packages came out public and the pull worked.
+2. If the Deploy step fails at `docker pull` with "denied", the packages are private: GitHub, Packages, `qcalendar-<service>`, Package settings, Change visibility, Public (the images contain only public `NEXT_PUBLIC_*` values). Nothing was restarted and SSH was closed again.
+3. Then `gh workflow run deploy.yml --repo chetdeva/qcalendar -f ref_tag=<sha of step 1, git rev-parse origin/main>` pulls those images without rebuilding and restarts everything. The same command with an older sha is the rollback.
 4. After a few deploys run `docker image prune -f` on the server: old images stay behind, about 1 GB per web app.
+
+Rollback: each deploy keeps the image it replaced as `syncschedule-<service>:previous`, and if the site check fails after a deploy the workflow switches back to it by itself.
+The build refuses to start if the `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` or `DOMAIN` secret is not plain text. When copying them from the server's `.env`, strip any surrounding quotes
+(`docker compose` removes them, `grep` and `cut` do not; baked into the apps they broke every sign-in on 2026-11-10).
 
 One-time setup:
 - Repo secrets (Settings, Environments, `production`; add yourself as required reviewer if you want an approval click): `DOMAIN`, `SUPABASE_URL`,

@@ -55,6 +55,18 @@ jobs:
           case "$SVCS" in all|"") SVCS="$ALL";; esac
           echo "SVCS=$SVCS" >> "$GITHUB_ENV"
 
+      - name: Check the build secrets
+        if: inputs.ref_tag == ''
+        env:
+          DOMAIN: ${{ secrets.DOMAIN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          # these get baked into the web apps; a copied-over quote once broke every sign-in
+          [[ "$SUPABASE_URL" =~ ^https://[A-Za-z0-9.-]+$ ]] || { echo "::error::SUPABASE_URL is not a plain https address (stray quote or space?)"; exit 1; }
+          [[ "$DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]] || { echo "::error::DOMAIN is not a plain domain"; exit 1; }
+          [[ -n "$SUPABASE_PUBLISHABLE_KEY" && "$SUPABASE_PUBLISHABLE_KEY" =~ ^[A-Za-z0-9_.-]+$ ]] || { echo "::error::SUPABASE_PUBLISHABLE_KEY is empty or has stray characters"; exit 1; }
+
       - name: Build and push images
         if: inputs.ref_tag == ''
         env:
@@ -92,14 +104,24 @@ jobs:
           scp -i key -o StrictHostKeyChecking=accept-new docker-compose.yml docker-compose.prod.yml ubuntu@$HOST:app/
           scp -i key -r deploy ubuntu@$HOST:app/
           $SSH "set -e; cd ~/app
-            for s in $SVCS; do docker pull $IMAGE-\$s:$SHA && docker tag $IMAGE-\$s:$SHA syncschedule-\$s; done
+            for s in $SVCS; do docker tag syncschedule-\$s syncschedule-\$s:previous 2>/dev/null || true; docker pull $IMAGE-\$s:$SHA && docker tag $IMAGE-\$s:$SHA syncschedule-\$s; done
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build --no-deps $SVCS
             sleep 10; docker ps --format '{{.Names}} {{.Status}}'"
 
       - name: Check the site
+        id: check
         run: |
           curl -fsS --retry 6 --retry-delay 5 -o /dev/null https://www.${{ secrets.DOMAIN }}
           curl -fsS --retry 6 --retry-delay 5 -o /dev/null https://accounts.${{ secrets.DOMAIN }}/login
+
+      - name: Roll back to the previous images
+        if: failure() && steps.check.outcome == 'failure'
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+        run: |
+          ssh -i key -o StrictHostKeyChecking=accept-new ubuntu@$HOST "cd ~/app
+            for s in $SVCS; do docker tag syncschedule-\$s:previous syncschedule-\$s; done
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build --no-deps $SVCS"
 
       - name: Close SSH again
         if: always()

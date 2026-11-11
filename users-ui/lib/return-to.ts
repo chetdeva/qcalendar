@@ -32,3 +32,17 @@ export function safeNext(next: string | null | undefined, allowedOrigins: string
   }
   return fallback;
 }
+
+/**
+ * Where to go after signing in. Everyone lands on the dashboard, so an app's own home page (the calendar or chat opened
+ * signed out) becomes the landing page. Deep links (an assignment, /admin/users, /reset-password) are kept.
+ */
+export function postLoginNext(next: string | null | undefined, allowedOrigins: string[], landing: string): string {
+  const n = safeNext(next, allowedOrigins, landing);
+  if (n.startsWith('/')) return n;
+  try {
+    return new URL(n).pathname === '/' ? landing : n;
+  } catch {
+    return landing;
+  }
+}

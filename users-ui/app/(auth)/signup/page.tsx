@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { allowedReturnOrigins, landing } from '@/lib/env';
-import { parseOrigins, safeNext } from '@/lib/return-to';
+import { parseOrigins, postLoginNext } from '@/lib/return-to';
 import { SignupForm } from './signup-form';
 
 export default async function SignupPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const next = safeNext((await searchParams).next, parseOrigins(allowedReturnOrigins), landing);
+  const next = postLoginNext((await searchParams).next, parseOrigins(allowedReturnOrigins), landing);
   return (
     <div className="au-card">
       <div className="au-head">

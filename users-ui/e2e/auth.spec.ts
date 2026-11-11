@@ -134,6 +134,16 @@ test.describe('log in', () => {
     await expect(page.getByRole('heading', { name: 'calendar app' })).toBeVisible();
   });
 
+  test("an app's home page as the return address becomes the dashboard (here /profile); deep links are kept", async ({ page, request }) => {
+    await seedUser(request, { email: 'kid@example.test', password: 'right-password-1' });
+    await page.route(`${CALENDAR_ORIGIN}/**`, (r) => r.fulfill({ contentType: 'text/html', body: '<h1>calendar app</h1>' }));
+    await page.goto(`/login?next=${encodeURIComponent(`${CALENDAR_ORIGIN}/`)}`);
+    await page.getByLabel('Email').fill('kid@example.test');
+    await page.getByLabel('Password').fill('right-password-1');
+    await page.getByRole('button', { name: 'Log in' }).click();
+    await expect(page).toHaveURL(/\/profile$/);
+  });
+
   test('Continue with Google signs a student in', async ({ page, request }) => {
     await page.goto('/login');
     await page.getByRole('button', { name: 'Continue with Google' }).click();

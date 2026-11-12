@@ -1,8 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { dollars, fullDate, money, paymentLabel, paymentTone, type BillingMe } from '@/lib/billing';
+import { useEffect, useState } from 'react';
+import { dollars, fullDate, money, paymentLabel, paymentTone, type BillingMe, type PaymentStatus } from '@/lib/billing';
+import { dashboardUrl } from '@/lib/env';
 
 type Interval = 'month' | 'year';
 
@@ -13,6 +14,70 @@ async function post(path: string, body?: unknown): Promise<{ ok: boolean; json: 
   } catch {
     return { ok: false, json: { error: { message: 'Could not reach the server. Try again.' } } };
   }
+}
+
+const Icon = ({ kind }: { kind: 'ok' | 'wait' | 'bad' }) => (
+  <span className={`bl-icon bl-icon-${kind}`} aria-hidden>
+    {kind === 'ok' && <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>}
+    {kind === 'bad' && <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><path d="M7 7l10 10M17 7L7 17" /></svg>}
+    {kind === 'wait' && <span className="bl-spin" />}
+  </span>
+);
+
+/**
+ * What the student sees on coming back from the payment window, decided by where the latest payment actually is.
+ * While it is still going through, the page re-reads it every few seconds (the gateway's message can take a moment).
+ */
+function CheckoutResult({ data }: { data: BillingMe }) {
+  const router = useRouter();
+  const latest: PaymentStatus | undefined = data.payments[0]?.status;
+  const pending = latest === undefined || latest === 'started' || latest === 'authenticated' || latest === 'activated';
+  const [tries, setTries] = useState(0);
+  useEffect(() => {
+    if (!pending || tries >= 20) return;
+    const t = setTimeout(() => { setTries(tries + 1); router.refresh(); }, 3000);
+    return () => clearTimeout(t);
+  }, [pending, tries, router]);
+
+  if (latest === 'succeeded') {
+    const n = data.credits.remaining;
+    return (
+      <section className="bl-card bl-result bl-result-ok" role="status" aria-label="Payment result">
+        <Icon kind="ok" />
+        <h2>Payment successful</h2>
+        <p>Thank you! Your plan is active and {n} {n === 1 ? 'class is' : 'classes are'} ready to book. Next, find a mentor and book your first class.</p>
+        <div className="bl-actions bl-center">
+          <a className="bl-btn" href={dashboardUrl || '/'}>Find a mentor</a>
+        </div>
+      </section>
+    );
+  }
+  if (latest === 'failed') {
+    return (
+      <section className="bl-card bl-result bl-result-bad" role="alert" aria-label="Payment result">
+        <Icon kind="bad" />
+        <h2>Payment did not go through</h2>
+        <p>Nothing was charged. You can try again with the same or another card.</p>
+        <div className="bl-actions bl-center"><a className="bl-btn" href="/billing">Try again</a></div>
+      </section>
+    );
+  }
+  if (latest === 'cancelled') {
+    return (
+      <section className="bl-card bl-result" role="status" aria-label="Payment result">
+        <Icon kind="bad" />
+        <h2>Checkout was not completed</h2>
+        <p>Nothing was charged. Choose a plan below whenever you are ready.</p>
+      </section>
+    );
+  }
+  return (
+    <section className="bl-card bl-result" role="status" aria-label="Payment result">
+      <Icon kind="wait" />
+      <h2>Confirming your payment…</h2>
+      <p>{tries >= 20 ? 'This is taking longer than usual. Your payment is safe. Refresh this page in a minute, or write to us if your classes do not appear.' : 'This takes a few seconds. Please keep this page open.'}</p>
+    </section>
+  );
 }
 
 export function BillingPanel({ data, checkout }: { data: BillingMe; checkout?: string }) {
@@ -42,7 +107,7 @@ export function BillingPanel({ data, checkout }: { data: BillingMe; checkout?: s
 
   return (
     <>
-      {checkout === 'success' && <div className="alert alert-ok" role="status">Thank you! Your payment is being confirmed. Your classes appear here in a moment; refresh if you do not see them yet.</div>}
+      {checkout === 'success' && <CheckoutResult data={data} />}
       {checkout === 'cancelled' && <div className="alert alert-info" role="status">Checkout was cancelled. Nothing was charged.</div>}
       {error && <div className="alert alert-error" role="alert">{error}</div>}
       {sub?.status === 'past_due' && <div className="alert alert-error" role="alert">Your last payment did not go through, so new classes cannot be booked. Update your payment method to continue.</div>}

@@ -19,7 +19,7 @@ export interface BillingMe {
   } | null;
   credits: { remaining: number; expiresAt: string | null };
   /** Newest first. A failed attempt has no amount. */
-  payments: { status: PaymentStatus; amountCents: number | null; currency: string | null; planKey: string | null; interval: 'month' | 'year' | null; at: string }[];
+  payments: { id: string; hasInvoice: boolean; status: PaymentStatus; amountCents: number | null; currency: string | null; planKey: string | null; interval: 'month' | 'year' | null; at: string }[];
   trialAvailable: boolean;
   trial: 'available' | 'booked' | 'done';
   /** What to nudge the student toward; the same list every app shows. */

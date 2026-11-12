@@ -19,6 +19,8 @@ export type NormalizedEvent =
       periodEnd: Date;
       amountCents: number;
       currency: string;
+      /** The gateway's invoice for this charge, when it makes one. */
+      invoiceRef?: string;
     }
   /** The buyer got further through checkout (their payment method was verified, the subscription went live) but nothing is paid yet. */
   | { type: 'payment_progress'; gateway: string; eventId: string; subscriptionRef: string; step: 'authenticated' | 'activated' }
@@ -38,6 +40,8 @@ export interface PaymentGateway {
   changePlan(o: { subscriptionRef: string; planKey: string; interval: Interval; amountCents: number }): Promise<void>;
   /** Optional: which subscription an invoice belongs to, for providers whose failure messages name only the invoice. */
   subscriptionOfInvoice?(invoiceRef: string): Promise<string | undefined>;
+  /** Optional: a page where the customer can see this invoice. */
+  invoiceUrl?(invoiceRef: string): Promise<string | undefined>;
   /** Verifies the signature and translates. Throws HttpError(400) on a bad signature; returns null for events we ignore. */
   parseWebhook(o: { rawBody: string; headers: Record<string, string> }): NormalizedEvent | null;
 }

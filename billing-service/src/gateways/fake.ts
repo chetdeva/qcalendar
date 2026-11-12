@@ -18,6 +18,7 @@ export function createFakeGateway() {
       record('createPortalSession', o);
       return { url: `https://pay.example.test/portal?customer=${o.customerRef}` };
     },
+    async invoiceUrl(ref) { return `https://pay.example.test/invoice/${ref}`; },
     async subscriptionOfInvoice(ref) { return ref.replace(/^inv_/, 'sub_'); },
     async cancelSubscription(o) { record('cancelSubscription', o); },
     async changePlan(o) { record('changePlan', o); },

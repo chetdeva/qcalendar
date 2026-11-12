@@ -10,6 +10,8 @@ import type { PaymentGateway } from './gateway.ts';
 import { getPlan, planForGrade, priceCents, type Plan } from './plans.ts';
 import { applyEvent, gradeChanged } from './subscriptions.ts';
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Where a student's grade comes from (users-service). */
 export interface UsersClient {
   grade(userId: string): Promise<number | null>;
@@ -186,10 +188,10 @@ export function createApp(d: AppDeps): Hono<Env> {
       monthlyCents: priceCents(p, 'month'), annualCents: priceCents(p, 'year'), yours: p.key === plan?.key,
     }));
     const next = sub?.next_plan_key ? await getPlan(d.db, sub.next_plan_key) : undefined;
-    const payments = (await d.db.query<{ status: string; amount_cents: number | null; currency: string | null; plan_key: string | null; interval: string | null; created_at: Date }>(
-      'select status, amount_cents, currency, plan_key, interval, created_at from billing.payments where user_id = $1 order by created_at desc, id desc limit 36',
+    const payments = (await d.db.query<{ id: string; status: string; amount_cents: number | null; currency: string | null; plan_key: string | null; interval: string | null; created_at: Date; invoice_ref: string | null }>(
+      'select id, status, amount_cents, currency, plan_key, interval, created_at, invoice_ref from billing.payments where user_id = $1 order by created_at desc, id desc limit 36',
       [me.id],
-    )).map((p) => ({ status: p.status, amountCents: p.amount_cents, currency: p.currency, planKey: p.plan_key, interval: p.interval, at: p.created_at }));
+    )).map((p) => ({ id: p.id, hasInvoice: !!p.invoice_ref, status: p.status, amountCents: p.amount_cents, currency: p.currency, planKey: p.plan_key, interval: p.interval, at: p.created_at }));
     return c.json({
       grade,
       plan: plan && { key: plan.key, monthlyCents: priceCents(plan, 'month'), annualCents: priceCents(plan, 'year'), creditsPerMonth: plan.credits_per_month },
@@ -246,6 +248,16 @@ export function createApp(d: AppDeps): Hono<Env> {
     const [cust] = await d.db.query<{ gateway: string; gateway_ref: string }>('select gateway, gateway_ref from billing.customers where user_id = $1 limit 1', [me.id]);
     if (!cust) throw new HttpError(404, 'not_found', 'No billing account yet');
     return c.json(await d.gateways[cust.gateway]!.createPortalSession({ customerRef: cust.gateway_ref, returnUrl: d.returnUrl }));
+  });
+
+  // The gateway's own page for one of the student's invoices. Looked up on demand, so the link is always current.
+  app.get('/v1/billing/payments/:id/invoice', async (c) => {
+    const me = person(c);
+    const id = c.req.param('id');
+    const [p] = UUID.test(id) ? await d.db.query<{ gateway: string; invoice_ref: string | null }>('select gateway, invoice_ref from billing.payments where id = $1 and user_id = $2', [id, me.id]) : [];
+    const url = p?.invoice_ref ? await d.gateways[p.gateway]?.invoiceUrl?.(p.invoice_ref) : undefined;
+    if (!url) throw new HttpError(404, 'not_found', 'No invoice for this payment');
+    return c.json({ url });
   });
 
   app.post('/v1/billing/cancel', async (c) => {

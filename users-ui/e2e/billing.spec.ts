@@ -60,6 +60,7 @@ test('after paying, the student sees 15 classes, their renewal date, and can can
   await seedUser(request, { ...KID, name: 'Kid One', grade: 6 });
   await logInAs(page, KID);
   await pay(request, KID.email);
+  await page.context().route('https://pay.example.test/**', (route) => route.fulfill({ body: 'invoice' }));
   await page.goto('/billing?checkout=success');
   const result = page.getByLabel('Payment result');
   await expect(result.getByRole('heading', { name: 'Payment successful' })).toBeVisible();
@@ -76,6 +77,9 @@ test('after paying, the student sees 15 classes, their renewal date, and can can
   await expect(history.getByRole('row')).toHaveCount(2); // header + the one payment
   await expect(history).toContainText('Paid');
   await expect(history).toContainText('$');
+  const [invoice] = await Promise.all([page.waitForEvent('popup'), history.getByRole('button', { name: 'View invoice' }).click()]);
+  await invoice.waitForURL(/pay\.example\.test\/invoice\/inv_/);
+  await invoice.close();
   page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Cancel plan' }).click();
   await expect(page.getByText(/Ends on \w+ \d/)).toBeVisible();

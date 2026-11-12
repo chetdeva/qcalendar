@@ -10,7 +10,7 @@ const SECRET = 'whsec_test';
 const calls: { method: string; url: string; body: any; auth: string }[] = [];
 const fakeFetch = (async (url: string, init: RequestInit) => {
   calls.push({ method: init.method!, url: url.replace('https://api.razorpay.com/v1', ''), body: init.body ? JSON.parse(init.body as string) : undefined, auth: (init.headers as Record<string, string>).authorization! });
-  return new Response(JSON.stringify(url.endsWith('/plans') ? { id: 'plan_abc' } : url.endsWith('/subscriptions') ? { id: 'sub_abc' } : url.endsWith('/subscriptions/sub_abc') ? { id: 'sub_abc', short_url: 'https://rzp.io/i/xyz' } : url.endsWith('/invoices/inv_1') ? { id: 'inv_1', subscription_id: 'sub_abc' } : url.endsWith('/invoices/inv_none') ? { id: 'inv_none', subscription_id: null } : {}), { status: 200 });
+  return new Response(JSON.stringify(url.endsWith('/plans') ? { id: 'plan_abc' } : url.endsWith('/subscriptions') ? { id: 'sub_abc' } : url.endsWith('/subscriptions/sub_abc') ? { id: 'sub_abc', short_url: 'https://rzp.io/i/xyz' } : url.endsWith('/invoices/inv_1') ? { id: 'inv_1', subscription_id: 'sub_abc', short_url: 'https://rzp.io/i/inv' } : url.endsWith('/invoices/inv_none') ? { id: 'inv_none', subscription_id: null } : {}), { status: 200 });
 }) as unknown as typeof fetch;
 const gw = createRazorpayGateway({ keyId: 'rzp_test_id', keySecret: 'sec', webhookSecret: SECRET, currency: 'INR', fetch: fakeFetch });
 const USER = randomUUID();
@@ -21,7 +21,7 @@ const signed = (event: string, sub: object, payment?: object, eventId = 'evt_1')
   return { rawBody, headers: { 'x-razorpay-signature': createHmac('sha256', SECRET).update(rawBody).digest('hex'), 'x-razorpay-event-id': eventId } };
 };
 const subEntity = (over: object = {}) => ({ id: 'sub_abc', status: 'active', current_start: START, current_end: START + 30 * 86400, notes: { user_id: USER, plan_key: 'middle', interval: 'month' }, ...over });
-const paid = { id: 'pay_1', amount: 35000, currency: 'INR' };
+const paid = { id: 'pay_1', amount: 35000, currency: 'INR', invoice_id: 'inv_1' };
 
 beforeEach(() => { calls.length = 0; });
 
@@ -65,7 +65,7 @@ describe('razorpay: webhooks', () => {
   it('subscription.charged becomes payment_succeeded, with buyer, plan and period from the subscription', () => {
     assert.deepEqual(gw.parseWebhook(signed('subscription.charged', subEntity(), paid)), {
       type: 'payment_succeeded', gateway: 'razorpay', eventId: 'evt_1', userId: USER, customerRef: 'sub_abc', subscriptionRef: 'sub_abc', planKey: 'middle', interval: 'month',
-      periodStart: new Date(START * 1000), periodEnd: new Date((START + 30 * 86400) * 1000), amountCents: 35000, currency: 'inr',
+      periodStart: new Date(START * 1000), periodEnd: new Date((START + 30 * 86400) * 1000), amountCents: 35000, currency: 'inr', invoiceRef: 'inv_1',
     });
   });
   it('failures and cancellations map to our events; foreign subscriptions and other events are ignored', () => {
@@ -93,6 +93,7 @@ describe('razorpay: webhooks', () => {
     assert.equal(await gw.subscriptionOfInvoice!('inv_1'), 'sub_abc');
     assert.equal(await gw.subscriptionOfInvoice!('inv_none'), undefined);
     assert.deepEqual(calls.map((c) => [c.method, c.url]), [['GET', '/invoices/inv_1'], ['GET', '/invoices/inv_none']]);
+    assert.equal(await gw.invoiceUrl!('inv_1'), 'https://rzp.io/i/inv');
   });
   it('a charge delivered twice grants 15 classes once', async () => {
     const db = createPgliteDb();

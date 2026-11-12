@@ -24,6 +24,30 @@ const Icon = ({ kind }: { kind: 'ok' | 'wait' | 'bad' }) => (
   </span>
 );
 
+/** Opens the gateway's invoice page. The tab is opened first, in the click, so the browser does not block it. */
+function InvoiceLink({ id }: { id: string }) {
+  const [state, setState] = useState<'idle' | 'busy' | 'error'>('idle');
+  async function open() {
+    const tab = window.open('', '_blank');
+    if (tab) tab.opener = null;
+    setState('busy');
+    const res = await fetch(`/api/billing/payments/${encodeURIComponent(id)}/invoice`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    if (res?.url) {
+      if (tab) tab.location.href = res.url;
+      else window.location.href = res.url;
+      setState('idle');
+    } else {
+      tab?.close();
+      setState('error');
+    }
+  }
+  return (
+    <button type="button" className="bl-link" onClick={open} disabled={state === 'busy'}>
+      {state === 'error' ? 'Unavailable, retry' : 'View invoice'}
+    </button>
+  );
+}
+
 /**
  * What the student sees on coming back from the payment window, decided by where the latest payment actually is.
  * While it is still going through, the page re-reads it every few seconds (the gateway's message can take a moment).
@@ -204,7 +228,7 @@ export function BillingPanel({ data, checkout }: { data: BillingMe; checkout?: s
           ) : (
             <div className="bl-history">
               <table className="bl-table">
-                <thead><tr><th scope="col">Date</th><th scope="col">Plan</th><th scope="col">Amount</th><th scope="col">Status</th></tr></thead>
+                <thead><tr><th scope="col">Date</th><th scope="col">Plan</th><th scope="col">Amount</th><th scope="col">Status</th><th scope="col">Invoice</th></tr></thead>
                 <tbody>
                   {data.payments.map((p, i) => {
                     const b = data.bands.find((x) => x.key === p.planKey);
@@ -214,6 +238,7 @@ export function BillingPanel({ data, checkout }: { data: BillingMe; checkout?: s
                         <td>{b ? `${b.label}, ` : ''}{p.interval === 'year' ? 'annual' : 'monthly'}</td>
                         <td>{p.amountCents !== null && p.currency ? money(p.amountCents, p.currency) : '—'}</td>
                         <td className={paymentTone(p.status)}>{paymentLabel[p.status]}</td>
+                        <td>{p.hasInvoice ? <InvoiceLink id={p.id} /> : '—'}</td>
                       </tr>
                     );
                   })}

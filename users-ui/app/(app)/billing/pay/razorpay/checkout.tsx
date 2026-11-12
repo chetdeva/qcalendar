@@ -11,14 +11,14 @@ declare global {
   interface Window { Razorpay?: new (o: Options) => { open: () => void; on: (e: 'payment.failed', cb: () => void) => void } }
 }
 
-/** Opens Razorpay's pop-up for the subscription, then returns to Plan & billing, which says the payment is being confirmed (classes arrive with the webhook). */
+/** Opens Razorpay's pop-up for the subscription, then returns to Plan & billing, which says the payment is being confirmed (classes arrive with the webhook). Closing the pop-up first tells billing the checkout was abandoned. */
 export function RazorpayCheckout({ subscription, keyId }: { subscription: string; keyId: string }) {
   const [error, setError] = useState('');
   useEffect(() => {
     const done = (state: 'success' | 'cancelled') => window.location.assign(`/billing?checkout=${state}`);
     const start = () => {
       if (!window.Razorpay) return setError('The payment page could not be loaded.');
-      const rzp = new window.Razorpay({ key: keyId, subscription_id: subscription, name: 'Quanttoria', handler: () => done('success'), modal: { ondismiss: () => done('cancelled') } });
+      const rzp = new window.Razorpay({ key: keyId, subscription_id: subscription, name: 'Quanttoria', handler: () => done('success'), modal: { ondismiss: () => { void fetch('/api/billing/checkout/abandon', { method: 'POST', keepalive: true }).catch(() => {}).finally(() => done('cancelled')); } } });
       rzp.on('payment.failed', () => setError('The payment did not go through. You can try again from Plan & billing.'));
       rzp.open();
     };

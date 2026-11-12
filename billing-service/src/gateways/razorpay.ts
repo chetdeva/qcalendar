@@ -69,7 +69,7 @@ export function createRazorpayGateway(cfg: RazorpayConfig): PaymentGateway {
       });
       const page = new URL('/billing/pay/razorpay', o.successUrl);
       page.search = new URLSearchParams({ subscription: sub.id, key: cfg.keyId }).toString(); // the key id is public; the secret never leaves this service
-      return { url: page.toString() };
+      return { url: page.toString(), ref: sub.id, currency: cfg.currency.toLowerCase() };
     },
 
     // The customer id we store is the subscription id. Razorpay's own subscription page (its short_url) shows the plan and the
@@ -91,9 +91,20 @@ export function createRazorpayGateway(cfg: RazorpayConfig): PaymentGateway {
       await call('PATCH', `/subscriptions/${encodeURIComponent(o.subscriptionRef)}`, { plan_id: plan.id, schedule_change_at: 'cycle_end' });
     },
 
+    // A failed payment names only its invoice (null when it is not a subscription's), never the subscription.
+    async subscriptionOfInvoice(invoiceRef) {
+      const inv = await call<{ subscription_id?: string | null }>('GET', `/invoices/${encodeURIComponent(invoiceRef)}`);
+      return inv.subscription_id || undefined;
+    },
+
     parseWebhook({ rawBody, headers: h }) {
       if (!verified(rawBody, h['x-razorpay-signature'])) throw new HttpError(400, 'bad_signature', 'Webhook signature mismatch');
       const body = JSON.parse(rawBody) as Body;
+      if (body.event === 'payment.failed') {
+        const pay = body.payload?.payment?.entity;
+        if (!pay?.invoice_id) return null;
+        return { type: 'payment_attempt_failed', gateway: 'razorpay', eventId: h['x-razorpay-event-id'] ?? `payment.failed:${pay.id}`, invoiceRef: pay.invoice_id };
+      }
       const sub = body.payload?.subscription?.entity;
       if (!sub?.id) return null;
       const payId = body.payload?.payment?.entity?.id;
@@ -113,6 +124,10 @@ export function createRazorpayGateway(cfg: RazorpayConfig): PaymentGateway {
             amountCents: pay?.amount ?? 0, currency: (pay?.currency ?? cfg.currency).toLowerCase(),
           } satisfies NormalizedEvent;
         }
+        case 'subscription.authenticated': // the buyer's payment method was verified
+          return { type: 'payment_progress', gateway: 'razorpay', eventId, subscriptionRef: sub.id, step: 'authenticated' };
+        case 'subscription.activated': // the subscription is live; its first charge follows
+          return { type: 'payment_progress', gateway: 'razorpay', eventId, subscriptionRef: sub.id, step: 'activated' };
         case 'subscription.pending': // a renewal charge failed and Razorpay will retry
         case 'subscription.halted': // retries exhausted
           return { type: 'payment_failed', gateway: 'razorpay', eventId, subscriptionRef: sub.id };
@@ -131,6 +146,6 @@ interface Body {
   event?: string; created_at?: number;
   payload?: {
     subscription?: { entity?: { id?: string; current_start?: number | null; current_end?: number | null; notes?: Record<string, string> } };
-    payment?: { entity?: { id?: string; amount?: number; currency?: string } };
+    payment?: { entity?: { id?: string; amount?: number; currency?: string; invoice_id?: string | null } };
   };
 }

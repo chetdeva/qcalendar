@@ -5,11 +5,31 @@ import { getPlan, planForGrade, priceCents } from './plans.ts';
 
 export type Applied = 'applied' | 'duplicate' | 'ignored';
 
+const OPEN = ['started', 'authenticated', 'activated'];
+
 /** The one place gateway events change our books. Replays are harmless: each event id is processed once. */
 export function applyEvent(db: Db, e: NormalizedEvent): Promise<Applied> {
   return db.tx(async (q) => {
     const fresh = await q.query('insert into billing.webhook_events (gateway, event_id) values ($1, $2) on conflict do nothing returning event_id', [e.gateway, e.eventId]);
     if (!fresh.length) return 'duplicate';
+
+    if (e.type === 'payment_attempt_failed') {
+      // Only an attempt still open (checkout) ends here. A failed renewal is reported, and recorded, by the subscription events.
+      const ended = e.subscriptionRef
+        ? await q.query(`update billing.payments set status = 'failed', updated_at = now() where gateway = $1 and gateway_ref = $2 and status = any($3::text[]) returning id`, [e.gateway, e.subscriptionRef, OPEN])
+        : [];
+      return ended.length ? 'applied' : 'ignored';
+    }
+
+    if (e.type === 'payment_progress') {
+      // Only forward: a late "authenticated" must not undo "activated".
+      const from = e.step === 'authenticated' ? ['started'] : ['started', 'authenticated'];
+      const moved = await q.query(
+        `update billing.payments set status = $3, updated_at = now() where gateway = $1 and gateway_ref = $2 and status = any($4::text[]) returning id`,
+        [e.gateway, e.subscriptionRef, e.step, from],
+      );
+      return moved.length ? 'applied' : 'ignored';
+    }
 
     if (e.type === 'payment_succeeded') {
       await q.query(
@@ -34,6 +54,18 @@ export function applyEvent(db: Db, e: NormalizedEvent): Promise<Applied> {
         ) as [{ id: string }];
       }
       const plan = await getPlan(q, existing?.next_plan_key ?? e.planKey);
+      // The first payment finishes the row checkout opened; a renewal has none open and adds its own.
+      const settled = await q.query(
+        `update billing.payments set status = 'succeeded', subscription_id = $3, event_id = $4, amount_cents = $5, currency = $6, plan_key = $7, interval = $8, updated_at = now()
+         where id = (select id from billing.payments where gateway = $1 and gateway_ref = $2 and status = any($9::text[]) order by created_at desc limit 1) returning id`,
+        [e.gateway, e.subscriptionRef, id, e.eventId, e.amountCents, e.currency, plan.key, e.interval, OPEN],
+      );
+      if (!settled.length) {
+        await q.query(
+          `insert into billing.payments (user_id, subscription_id, gateway, gateway_ref, event_id, status, amount_cents, currency, plan_key, interval) values ($1, $2, $3, $4, $5, 'succeeded', $6, $7, $8, $9)`,
+          [e.userId, id, e.gateway, e.subscriptionRef, e.eventId, e.amountCents, e.currency, plan.key, e.interval],
+        );
+      }
       // Monthly: this payment buys this period. Annual: it buys the first month; topUpAnnual adds the rest.
       const end = e.interval === 'month' ? e.periodEnd : addMonths(e.periodStart, 1);
       await grantCredits(q, { userId: e.userId, subscriptionId: id, start: e.periodStart, end: end < e.periodEnd ? end : e.periodEnd, credits: plan.credits_per_month, source: 'payment' });
@@ -41,11 +73,24 @@ export function applyEvent(db: Db, e: NormalizedEvent): Promise<Applied> {
     }
 
     const status = e.type === 'payment_failed' ? 'past_due' : 'canceled';
-    const rows = await q.query(
-      `update billing.subscriptions set status = $3 where gateway = $1 and gateway_ref = $2 and status <> 'canceled' returning id`,
+    const rows = await q.query<{ id: string; user_id: string; plan_key: string; interval: string }>(
+      `update billing.subscriptions set status = $3 where gateway = $1 and gateway_ref = $2 and status <> 'canceled' returning id, user_id, plan_key, interval`,
       [e.gateway, e.subscriptionRef, status],
     );
-    return rows.length ? 'applied' : 'ignored';
+    // The payment ends too: the checkout row that was still open, or (a renewal) a new row for the failed attempt.
+    const ended = await q.query(
+      `update billing.payments set status = $3, updated_at = now() where gateway = $1 and gateway_ref = $2 and status = any($4::text[]) returning id`,
+      [e.gateway, e.subscriptionRef, e.type === 'payment_failed' ? 'failed' : 'cancelled', OPEN],
+    );
+    if (e.type === 'payment_failed' && !ended.length) {
+      for (const r of rows) {
+        await q.query(
+          `insert into billing.payments (user_id, subscription_id, gateway, gateway_ref, event_id, status, plan_key, interval) values ($1, $2, $3, $4, $5, 'failed', $6, $7)`,
+          [r.user_id, r.id, e.gateway, e.subscriptionRef, e.eventId, r.plan_key, r.interval],
+        );
+      }
+    }
+    return rows.length || ended.length ? 'applied' : 'ignored';
   });
 }
 

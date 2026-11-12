@@ -10,7 +10,7 @@ const SECRET = 'whsec_test';
 const calls: { method: string; url: string; body: any; auth: string }[] = [];
 const fakeFetch = (async (url: string, init: RequestInit) => {
   calls.push({ method: init.method!, url: url.replace('https://api.razorpay.com/v1', ''), body: init.body ? JSON.parse(init.body as string) : undefined, auth: (init.headers as Record<string, string>).authorization! });
-  return new Response(JSON.stringify(url.endsWith('/plans') ? { id: 'plan_abc' } : url.endsWith('/subscriptions') ? { id: 'sub_abc' } : url.endsWith('/subscriptions/sub_abc') ? { id: 'sub_abc', short_url: 'https://rzp.io/i/xyz' } : {}), { status: 200 });
+  return new Response(JSON.stringify(url.endsWith('/plans') ? { id: 'plan_abc' } : url.endsWith('/subscriptions') ? { id: 'sub_abc' } : url.endsWith('/subscriptions/sub_abc') ? { id: 'sub_abc', short_url: 'https://rzp.io/i/xyz' } : url.endsWith('/invoices/inv_1') ? { id: 'inv_1', subscription_id: 'sub_abc' } : url.endsWith('/invoices/inv_none') ? { id: 'inv_none', subscription_id: null } : {}), { status: 200 });
 }) as unknown as typeof fetch;
 const gw = createRazorpayGateway({ keyId: 'rzp_test_id', keySecret: 'sec', webhookSecret: SECRET, currency: 'INR', fetch: fakeFetch });
 const USER = randomUUID();
@@ -34,6 +34,7 @@ describe('razorpay: requests', () => {
     assert.equal(calls[1]!.body.plan_id, 'plan_abc');
     assert.deepEqual(calls[1]!.body.notes, { user_id: USER, plan_key: 'middle', interval: 'month', email: 'kid@example.test' });
     assert.equal(r.url, 'https://accounts.test/billing/pay/razorpay?subscription=sub_abc&key=rzp_test_id');
+    assert.deepEqual([r.ref, r.currency], ['sub_abc', 'inr']);
   });
   it('annual is a yearly plan; cancel can wait for the cycle end; a plan change takes effect at the cycle end', async () => {
     await gw.createCheckout({ userId: USER, email: undefined, planKey: 'high', interval: 'year', amountCents: 384000, successUrl: 'https://accounts.test/billing?checkout=success', cancelUrl: 'https://accounts.test/billing?checkout=cancelled' });
@@ -72,7 +73,26 @@ describe('razorpay: webhooks', () => {
     assert.equal(gw.parseWebhook(signed('subscription.halted', subEntity()))!.type, 'payment_failed');
     for (const e of ['subscription.cancelled', 'subscription.completed', 'subscription.expired']) assert.equal(gw.parseWebhook(signed(e, subEntity()))!.type, 'subscription_canceled');
     assert.equal(gw.parseWebhook(signed('subscription.charged', subEntity({ notes: [] }), paid)), null);
-    assert.equal(gw.parseWebhook(signed('subscription.activated', subEntity())), null);
+    assert.equal(gw.parseWebhook(signed('subscription.paused', subEntity())), null);
+  });
+  it('authenticated and activated are progress, not payment', () => {
+    for (const step of ['authenticated', 'activated']) {
+      const e = gw.parseWebhook(signed(`subscription.${step}`, subEntity()))!;
+      assert.deepEqual({ type: e.type, step: (e as { step?: string }).step, ref: (e as { subscriptionRef?: string }).subscriptionRef }, { type: 'payment_progress', step, ref: 'sub_abc' });
+    }
+  });
+  it('a declined payment names only its invoice; the subscription is looked up, and other payments are ignored', async () => {
+    const failed = (invoice: string | null) => {
+      const rawBody = JSON.stringify({ event: 'payment.failed', created_at: START, payload: { payment: { entity: { id: 'pay_9', amount: 100, currency: 'USD', invoice_id: invoice } } } });
+      return { rawBody, headers: { 'x-razorpay-signature': createHmac('sha256', SECRET).update(rawBody).digest('hex'), 'x-razorpay-event-id': 'evt_pf' } };
+    };
+    const e = gw.parseWebhook(failed('inv_1'))!;
+    assert.deepEqual(e, { type: 'payment_attempt_failed', gateway: 'razorpay', eventId: 'evt_pf', invoiceRef: 'inv_1' });
+    assert.equal(gw.parseWebhook(failed(null)), null); // not a subscription's payment
+    calls.length = 0;
+    assert.equal(await gw.subscriptionOfInvoice!('inv_1'), 'sub_abc');
+    assert.equal(await gw.subscriptionOfInvoice!('inv_none'), undefined);
+    assert.deepEqual(calls.map((c) => [c.method, c.url]), [['GET', '/invoices/inv_1'], ['GET', '/invoices/inv_none']]);
   });
   it('a charge delivered twice grants 15 classes once', async () => {
     const db = createPgliteDb();

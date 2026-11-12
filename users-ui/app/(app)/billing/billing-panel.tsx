@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { dollars, fullDate, type BillingMe } from '@/lib/billing';
+import { dollars, fullDate, money, paymentLabel, paymentTone, type BillingMe } from '@/lib/billing';
 
 type Interval = 'month' | 'year';
 
@@ -59,7 +59,7 @@ export function BillingPanel({ data, checkout }: { data: BillingMe; checkout?: s
         <section className="bl-card" aria-label="Your plan">
           <h2>Your plan</h2>
           <p>{sub.interval === 'year' ? 'Annual' : 'Monthly'} plan, 15 classes every month. {sub.cancelAtPeriodEnd ? `Ends on ${fullDate(sub.periodEnd)}.` : `Renews on ${fullDate(sub.periodEnd)}.`}</p>
-          <dl className="bl-sub" aria-label="Subscription">
+          <dl className="bl-facts" aria-label="Subscription">
             <div><dt>Plan</dt><dd>{band ? `${band.label}, ` : ''}{sub.interval === 'year' ? 'annual' : 'monthly'}</dd></div>
             {price !== undefined && <div><dt>Price</dt><dd>{dollars(price)} {sub.interval === 'year' ? 'a year' : 'a month'}</dd></div>}
             <div><dt>Status</dt><dd>{sub.status === 'past_due' ? 'Payment failed' : sub.cancelAtPeriodEnd ? 'Cancelling' : 'Active'}</dd></div>
@@ -128,6 +128,34 @@ export function BillingPanel({ data, checkout }: { data: BillingMe; checkout?: s
             <p className="bl-note">Your price follows your grade each school year. If you move up a level, the new price starts at your next renewal.</p>
           </section>
         </>
+      )}
+
+      {(data.payments.length > 0 || live) && (
+        <section className="bl-card" aria-label="Payment history">
+          <h2>Payment history</h2>
+          {data.payments.length === 0 ? (
+            <p>No payments recorded yet. They appear here as they happen.</p>
+          ) : (
+            <div className="bl-history">
+              <table className="bl-table">
+                <thead><tr><th scope="col">Date</th><th scope="col">Plan</th><th scope="col">Amount</th><th scope="col">Status</th></tr></thead>
+                <tbody>
+                  {data.payments.map((p, i) => {
+                    const b = data.bands.find((x) => x.key === p.planKey);
+                    return (
+                      <tr key={`${p.at}-${i}`}>
+                        <th scope="row">{fullDate(p.at)}</th>
+                        <td>{b ? `${b.label}, ` : ''}{p.interval === 'year' ? 'annual' : 'monthly'}</td>
+                        <td>{p.amountCents !== null && p.currency ? money(p.amountCents, p.currency) : '—'}</td>
+                        <td className={paymentTone(p.status)}>{paymentLabel[p.status]}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       )}
     </>
   );

@@ -66,6 +66,10 @@ test('after paying, the student sees 15 classes, their renewal date, and can can
   await expect(details).toContainText('a month');
   await expect(details).toContainText('Active');
   await expect(details).toContainText('Next payment');
+  const history = page.getByLabel('Payment history');
+  await expect(history.getByRole('row')).toHaveCount(2); // header + the one payment
+  await expect(history).toContainText('Paid');
+  await expect(history).toContainText('$');
   page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Cancel plan' }).click();
   await expect(page.getByText(/Ends on \w+ \d/)).toBeVisible();

@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { dollars, fullDate, money, paymentLabel, paymentTone, type BillingMe, type PaymentStatus } from '@/lib/billing';
-import { dashboardUrl } from '@/lib/env';
+import { calendarUrl, dashboardUrl } from '@/lib/env';
 
 type Interval = 'month' | 'year';
 
@@ -47,7 +47,8 @@ function CheckoutResult({ data }: { data: BillingMe }) {
         <h2>Payment successful</h2>
         <p>Thank you! Your plan is active and {n} {n === 1 ? 'class is' : 'classes are'} ready to book. Next, find a mentor and book your first class.</p>
         <div className="bl-actions bl-center">
-          <a className="bl-btn" href={dashboardUrl || '/'}>Find a mentor</a>
+          <a className="bl-btn" href={`${dashboardUrl}/#mentors`}>Find a mentor</a>
+          {calendarUrl && <a className="bl-btn bl-btn-ghost" href={calendarUrl}>Schedule your first class</a>}
         </div>
       </section>
     );

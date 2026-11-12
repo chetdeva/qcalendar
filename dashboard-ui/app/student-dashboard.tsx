@@ -139,7 +139,7 @@ function MentorFinder({ d }: { d: Data }) {
   }, [q, filter]);
 
   return (
-    <section className="panel" aria-labelledby="mentors-h">
+    <section id="mentors" className="panel" aria-labelledby="mentors-h">
       <div className="sec-head">
         <span className="icon icon-sm tone-sun"><Users size={18} aria-hidden /></span>
         <div><h2 id="mentors-h">Find &amp; Connect with Expert Mentors</h2><p className="sub">Certified teachers dedicated to visual, hands-on mathematical intuition.</p></div>

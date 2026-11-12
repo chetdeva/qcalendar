@@ -10,6 +10,7 @@
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
+#mentors { scroll-margin-top: 16px; } /* "Find a mentor" from the payment page lands here */
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.45; -webkit-text-size-adjust: 100%; }
 a { color: inherit; text-decoration: none; }
 a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 3px solid var(--primary-2); outline-offset: 2px; }

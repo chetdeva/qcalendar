@@ -60,7 +60,8 @@ test('after paying, the student sees 15 classes, their renewal date, and can can
   await page.goto('/billing?checkout=success');
   const result = page.getByLabel('Payment result');
   await expect(result.getByRole('heading', { name: 'Payment successful' })).toBeVisible();
-  await expect(result.getByRole('link', { name: 'Find a mentor' })).toBeVisible();
+  await expect(result.getByRole('link', { name: 'Find a mentor' })).toHaveAttribute('href', /#mentors$/);
+  await expect(result.getByRole('link', { name: 'Schedule your first class' })).toBeVisible();
   await expect(page.locator('.bl-meter b')).toHaveText('15');
   await expect(page.getByText('Monthly plan, 15 classes every month. Renews on')).toBeVisible();
   const details = page.getByLabel('Subscription');

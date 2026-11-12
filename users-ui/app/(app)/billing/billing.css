@@ -63,3 +63,7 @@
 .bl-spin { width: 32px; height: 32px; border-radius: 50%; border: 4px solid rgba(0, 0, 0, .12); border-top-color: var(--bl-primary); animation: bl-rot 0.9s linear infinite; }
 @keyframes bl-rot { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .bl-spin { animation-duration: 3s; } }
+
+a.bl-btn { display: inline-block; text-decoration: none; }
+.bl-btn-ghost { background: #fff; color: var(--bl-primary); box-shadow: inset 0 0 0 2px var(--bl-primary); }
+.bl-btn-ghost:hover:not(:disabled) { background: var(--bl-tint); }

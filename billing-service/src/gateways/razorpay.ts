@@ -91,6 +91,11 @@ export function createRazorpayGateway(cfg: RazorpayConfig): PaymentGateway {
       await call('PATCH', `/subscriptions/${encodeURIComponent(o.subscriptionRef)}`, { plan_id: plan.id, schedule_change_at: 'cycle_end' });
     },
 
+    async invoiceUrl(invoiceRef) {
+      const inv = await call<{ short_url?: string | null }>('GET', `/invoices/${encodeURIComponent(invoiceRef)}`);
+      return inv.short_url || undefined;
+    },
+
     // A failed payment names only its invoice (null when it is not a subscription's), never the subscription.
     async subscriptionOfInvoice(invoiceRef) {
       const inv = await call<{ subscription_id?: string | null }>('GET', `/invoices/${encodeURIComponent(invoiceRef)}`);
@@ -121,7 +126,7 @@ export function createRazorpayGateway(cfg: RazorpayConfig): PaymentGateway {
           return {
             type: 'payment_succeeded', gateway: 'razorpay', eventId, userId: user_id, customerRef: sub.id, subscriptionRef: sub.id, planKey: plan_key, interval,
             periodStart: new Date(sub.current_start * 1000), periodEnd: new Date(sub.current_end * 1000),
-            amountCents: pay?.amount ?? 0, currency: (pay?.currency ?? cfg.currency).toLowerCase(),
+            amountCents: pay?.amount ?? 0, currency: (pay?.currency ?? cfg.currency).toLowerCase(), invoiceRef: pay?.invoice_id || undefined,
           } satisfies NormalizedEvent;
         }
         case 'subscription.authenticated': // the buyer's payment method was verified

@@ -74,8 +74,18 @@ describe('payment history', () => {
     const { payments } = await json(await s.me());
     assert.equal(payments.length, 2);
     assert.deepEqual(payments.map((p: any) => p.status), ['failed', 'succeeded']);
-    assert.deepEqual({ ...payments[1], at: undefined }, { status: 'succeeded', amountCents: 35000, currency: 'usd', planKey: 'middle', interval: 'month', at: undefined });
+    assert.deepEqual({ ...payments[1], at: undefined }, { id: payments[1].id, hasInvoice: false, status: 'succeeded', amountCents: 35000, currency: 'usd', planKey: 'middle', interval: 'month', at: undefined });
     assert.equal(payments[0].amountCents, null);
+  });
+  it("opens a payment's invoice for its owner only", async () => {
+    const [s, other] = [await student(), await student()];
+    const d = fake.deliver({ type: 'payment_succeeded', eventId: 'pay_inv', userId: s.id, customerRef: `cus_${s.id}`, subscriptionRef: `sub_${s.id}`, planKey: 'middle', interval: 'month', periodStart: T0, periodEnd: addMonths(T0, 1), amountCents: 35000, currency: 'usd', invoiceRef: 'inv_42' });
+    await app.request('/v1/webhooks/fake', { method: 'POST', body: d.rawBody, headers: d.headers });
+    const [p] = (await json(await s.me())).payments;
+    assert.equal(p.hasInvoice, true);
+    assert.deepEqual(await json(await s.as('GET', `/v1/billing/payments/${p.id}/invoice`)), { url: 'https://pay.example.test/invoice/inv_42' });
+    assert.equal((await other.as('GET', `/v1/billing/payments/${p.id}/invoice`)).status, 404);
+    assert.equal((await s.as('GET', '/v1/billing/payments/not-an-id/invoice')).status, 404);
   });
   it('follows a payment from checkout to paid: one row that moves forward, never backward', async () => {
     const s = await student();

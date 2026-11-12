@@ -56,14 +56,14 @@ export function applyEvent(db: Db, e: NormalizedEvent): Promise<Applied> {
       const plan = await getPlan(q, existing?.next_plan_key ?? e.planKey);
       // The first payment finishes the row checkout opened; a renewal has none open and adds its own.
       const settled = await q.query(
-        `update billing.payments set status = 'succeeded', subscription_id = $3, event_id = $4, amount_cents = $5, currency = $6, plan_key = $7, interval = $8, updated_at = now()
+        `update billing.payments set status = 'succeeded', subscription_id = $3, event_id = $4, amount_cents = $5, currency = $6, plan_key = $7, interval = $8, invoice_ref = $10, updated_at = now()
          where id = (select id from billing.payments where gateway = $1 and gateway_ref = $2 and status = any($9::text[]) order by created_at desc limit 1) returning id`,
-        [e.gateway, e.subscriptionRef, id, e.eventId, e.amountCents, e.currency, plan.key, e.interval, OPEN],
+        [e.gateway, e.subscriptionRef, id, e.eventId, e.amountCents, e.currency, plan.key, e.interval, OPEN, e.invoiceRef ?? null],
       );
       if (!settled.length) {
         await q.query(
-          `insert into billing.payments (user_id, subscription_id, gateway, gateway_ref, event_id, status, amount_cents, currency, plan_key, interval) values ($1, $2, $3, $4, $5, 'succeeded', $6, $7, $8, $9)`,
-          [e.userId, id, e.gateway, e.subscriptionRef, e.eventId, e.amountCents, e.currency, plan.key, e.interval],
+          `insert into billing.payments (user_id, subscription_id, gateway, gateway_ref, event_id, status, amount_cents, currency, plan_key, interval, invoice_ref) values ($1, $2, $3, $4, $5, 'succeeded', $6, $7, $8, $9, $10)`,
+          [e.userId, id, e.gateway, e.subscriptionRef, e.eventId, e.amountCents, e.currency, plan.key, e.interval, e.invoiceRef ?? null],
         );
       }
       // Monthly: this payment buys this period. Annual: it buys the first month; topUpAnnual adds the rest.

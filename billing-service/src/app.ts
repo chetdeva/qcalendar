@@ -37,6 +37,7 @@ function parse<T extends z.ZodType>(schema: T, data: unknown): z.infer<T> {
 
 const uuid = z.uuid();
 const ReserveBody = z.object({ userId: uuid, ref: z.string().min(1).max(200), endsAt: z.string().datetime({ offset: true }).optional(), trial: z.boolean().optional() }).strict();
+const StatusBody = z.object({ userId: uuid }).strict();
 const GradeBody = z.object({ userId: uuid, grade: z.number().int().min(1).max(10) }).strict();
 const BalancesBody = z.object({ userIds: z.array(uuid).min(1).max(100) }).strict();
 const AdjustBody = z.object({
@@ -134,6 +135,13 @@ export function createApp(d: AppDeps): Hono<Env> {
   });
 
   // --- called by calendar-service and users-service -------------------------------------------------------------
+  // Whether a student has a live plan, so a class can be requested (credits are checked again when the teacher approves).
+  app.post('/v1/service/students/status', async (c) => {
+    service(c);
+    const b = parse(StatusBody, await c.req.json().catch(() => null));
+    const [sub] = await d.db.query(`select 1 from billing.subscriptions where user_id = $1 and status = 'active'`, [b.userId]);
+    return c.json({ subscribed: Boolean(sub) });
+  });
   app.post('/v1/service/credits/reserve', async (c) => {
     service(c);
     const b = parse(ReserveBody, await c.req.json().catch(() => null));

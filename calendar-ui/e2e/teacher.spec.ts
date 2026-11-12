@@ -662,13 +662,14 @@ test.describe('date format follows the time zone', () => {
       const teacher = await seed(request, 'teacher', 'Tess Teacher');
       const page = await openPage(context, request, teacher);
       await openForm(page);
-      await field.date(page).fill('2026-11-04'); // ISO is accepted too; once the box is left it shows the local format
+      const [y, m, d] = todayUtc().split('-'); // today, so the slot is in the week the calendar shows
+      await field.date(page).fill(`${y}-${m}-${d}`); // ISO is accepted too; once the box is left it shows the local format
       await field.date(page).blur();
-      await expect(field.date(page)).toHaveValue('04/11/2026');
+      await expect(field.date(page)).toHaveValue(`${d}/${m}/${y}`);
       await expect(field.date(page)).toHaveAttribute('placeholder', 'DD/MM/YYYY');
-      await field.date(page).fill('05/11/2026');
+      await field.date(page).fill(`${d}/${m}/${y}`);
       await field.date(page).blur();
-      await expect(field.date(page)).toHaveValue('05/11/2026');
+      await expect(field.date(page)).toHaveValue(`${d}/${m}/${y}`);
       await expect(page.locator('.pending-slot')).toBeVisible(); // the typed date reached the form: the slot moved to that day
     });
   });
@@ -678,10 +679,48 @@ test.describe('date format follows the time zone', () => {
       const teacher = await seed(request, 'teacher', 'Tess Teacher');
       const page = await openPage(context, request, teacher);
       await openForm(page);
-      await field.date(page).fill('2026-11-04');
+      const [y, m, d] = todayUtc().split('-');
+      await field.date(page).fill(`${y}-${m}-${d}`);
       await field.date(page).blur();
-      await expect(field.date(page)).toHaveValue('11/04/2026');
+      await expect(field.date(page)).toHaveValue(`${m}/${d}/${y}`);
       await expect(field.date(page)).toHaveAttribute('placeholder', 'MM/DD/YYYY');
     });
   });
+});
+
+test('a class a student asked this mentor for shows as a dashed slot; approving creates the class with a meeting link', async ({ context, request }) => {
+  const teacher = await seed(request, 'teacher', 'Tess Teacher');
+  const student = await seed(request, 'student', 'Sam Student');
+  const asked = await calendarAs(request, await tokenFor(request, student)).call('POST', '/v1/class-requests', { teacher: { id: teacher.id, email: teacher.email, name: 'Tess Teacher' }, start: inDays(1, 20), note: 'Fractions' });
+  expect(asked.status, JSON.stringify(asked.body)).toBe(201);
+
+  const page = await openPage(context, request, teacher);
+  if (new Date().getUTCDay() === 6) await page.locator('.toolbar button').last().click(); // tomorrow is in next week
+  const panel = page.getByRole('region', { name: 'Class requests', exact: true });
+  await expect(panel).toContainText('Sam Student');
+  await expect(panel).toContainText('Fractions');
+  const slot = page.locator('.fc-event .tent', { hasText: 'Requested: Sam Student' });
+  await expect(slot).toBeVisible();
+
+  await panel.getByRole('button', { name: 'Approve' }).click();
+  await expect(slot).toHaveCount(0); // done: the real class replaces it
+  await expect(panel).toHaveCount(0);
+  const events = await calendarAs(request, await tokenFor(request, teacher)).call('GET', `/v1/events?from=${encodeURIComponent(inDays(0, 0))}&to=${encodeURIComponent(inDays(3, 0))}`);
+  const made = events.body.events.find((e: any) => e.title === '1:1 class');
+  expect(made?.meetingUrl, 'a meeting link').toBeTruthy();
+  expect(made.participants.map((p: any) => p.email)).toEqual([student.email]);
+});
+
+test('a mentor can decline a class request with a note, and it leaves the list', async ({ context, request }) => {
+  const teacher = await seed(request, 'teacher', 'Tess Teacher');
+  const student = await seed(request, 'student', 'Sam Student');
+  await calendarAs(request, await tokenFor(request, student)).call('POST', '/v1/class-requests', { teacher: { id: teacher.id, email: teacher.email, name: 'Tess Teacher' }, start: inDays(1, 20) });
+  const page = await openPage(context, request, teacher);
+  const panel = page.getByRole('region', { name: 'Class requests', exact: true });
+  await panel.getByRole('button', { name: 'Decline' }).click();
+  await panel.getByLabel('Note to the student (optional)').fill('Fully booked');
+  await panel.getByRole('button', { name: 'Send decline' }).click();
+  await expect(panel).toHaveCount(0);
+  const mine = await calendarAs(request, await tokenFor(request, student)).call('GET', '/v1/class-requests/mine');
+  expect(mine.body.requests.map((r: any) => [r.status, r.declineNote])).toEqual([['declined', 'Fully booked']]);
 });

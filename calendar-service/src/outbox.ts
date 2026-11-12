@@ -2,7 +2,7 @@ import type { Db, Queryable } from './db.ts';
 import { buildIcs } from './ics.ts';
 import type { Mailer, MailMessage } from './mail.ts';
 
-export type MailKind = 'invite' | 'update' | 'cancel' | 'declined' | 'change_request' | 'teacher_assigned' | 'lead' | 'lead_confirmation';
+export type MailKind = 'invite' | 'update' | 'cancel' | 'declined' | 'change_request' | 'teacher_assigned' | 'lead' | 'lead_confirmation' | 'class_request' | 'class_request_declined';
 
 /** Everything needed to write one person's email, frozen when the change happened. */
 export interface OutboxPayload {
@@ -42,6 +42,35 @@ export async function enqueueLeadMail(q: Queryable, lead: LeadPayload, teacherEm
   for (const [kind, to] of [['lead', teacherEmail], ['lead_confirmation', lead.email]] as const) {
     await q.query('insert into calendar.email_outbox (kind, event_id, to_email, payload) values ($1, null, $2, $3)', [kind, to, JSON.stringify(lead)]);
   }
+}
+
+/** A student's request for a class with one mentor: told to the mentor ('class_request'); a decline is told back ('class_request_declined'). */
+export interface ClassRequestPayload {
+  recipient: { email: string; name: string | null };
+  student: { email: string; name: string | null };
+  teacher: { email: string; name: string | null };
+  start: string; end: string; timezone: string; note?: string | null;
+}
+
+export async function enqueueClassRequestMail(q: Queryable, kind: 'class_request' | 'class_request_declined', p: ClassRequestPayload) {
+  await q.query('insert into calendar.email_outbox (kind, event_id, to_email, payload) values ($1, null, $2, $3)', [kind, p.recipient.email, JSON.stringify(p)]);
+}
+
+function renderClassRequest(kind: 'class_request' | 'class_request_declined', p: ClassRequestPayload, opts: { calendarUrl?: string }): MailMessage {
+  const [student, teacher] = [oneLine(p.student.name || p.student.email), oneLine(p.teacher.name || p.teacher.email)];
+  const w = when(p.start, p.end, p.timezone);
+  const note = p.note?.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').trim();
+  const hello = p.recipient.name ? `Hi ${oneLine(p.recipient.name)},` : 'Hello,';
+  if (kind === 'class_request') {
+    return {
+      to: p.recipient.email, replyTo: p.student.email, subject: `${student} asks for a class (${w.short})`,
+      text: [hello, '', `${student} would like a class with you:`, w.text, ...(note ? ['', `Their note: ${note}`] : []), '', 'Approve or decline it from your calendar, under "Class requests".', ...(opts.calendarUrl ? [opts.calendarUrl] : [])].join('\n'),
+    };
+  }
+  return {
+    to: p.recipient.email, subject: `${teacher} could not take your class request (${w.short})`,
+    text: [hello, '', `${teacher} cannot take the class you asked for:`, w.text, ...(note ? ['', `Their note: ${note}`] : []), '', 'You can pick another time, or ask another mentor, from your dashboard.'].join('\n'),
+  };
 }
 
 function renderLead(kind: 'lead' | 'lead_confirmation', p: LeadPayload, to: string): MailMessage {
@@ -116,13 +145,14 @@ function renderStudentNote(kind: 'declined' | 'change_request', p: OutboxPayload
   };
 }
 
-export function renderMail(kind: MailKind, p: OutboxPayload | AssignmentPayload | LeadPayload, opts: { fromEmail: string; calendarUrl?: string }, to = ''): MailMessage {
+export function renderMail(kind: MailKind, p: OutboxPayload | AssignmentPayload | LeadPayload | ClassRequestPayload, opts: { fromEmail: string; calendarUrl?: string }, to = ''): MailMessage {
   if (kind === 'lead' || kind === 'lead_confirmation') return renderLead(kind, p as LeadPayload, to);
   if (kind === 'teacher_assigned') return renderAssignment(p as AssignmentPayload, opts);
+  if (kind === 'class_request' || kind === 'class_request_declined') return renderClassRequest(kind, p as ClassRequestPayload, opts);
   return renderEventMail(kind, p as OutboxPayload, opts);
 }
 
-function renderEventMail(kind: Exclude<MailKind, 'teacher_assigned' | 'lead' | 'lead_confirmation'>, p: OutboxPayload, opts: { fromEmail: string; calendarUrl?: string }): MailMessage {
+function renderEventMail(kind: Exclude<MailKind, 'teacher_assigned' | 'lead' | 'lead_confirmation' | 'class_request' | 'class_request_declined'>, p: OutboxPayload, opts: { fromEmail: string; calendarUrl?: string }): MailMessage {
   const { event: e, recipient: r } = p;
   const w = when(e.start, e.end, e.timezone);
   if (kind === 'declined' || kind === 'change_request') return renderStudentNote(kind, p, w, opts);

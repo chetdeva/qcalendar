@@ -20,6 +20,7 @@ import { dayHeader, makeEventContent } from './components/event-content';
 import { DialogFrame } from './components/dialog-frame';
 import { WebsiteLeads } from './components/website-leads';
 import { FreeClassRequests, type TrialRequestRow } from './components/free-class-requests';
+import { ClassRequests, type ClassRequestRow } from './components/class-requests';
 import { RoleBanner } from './components/role-banner';
 import { AppHeader } from '@components/app-header';
 
@@ -170,9 +171,19 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
   useEffect(() => {
     api<{ requests: TrialRequestRow[] }>('/api/trial-requests').then((r) => setRequests(r.requests), () => setRequests([]));
   }, [classes]);
+  // Class requests addressed to this mentor by students with a plan.
+  const [classReqs, setClassReqs] = useState<ClassRequestRow[]>([]);
+  useEffect(() => {
+    if (admin) return;
+    api<{ requests: ClassRequestRow[] }>('/api/class-requests').then((r) => setClassReqs(r.requests), () => setClassReqs([]));
+  }, [classes, admin]);
   const sources = useMemo(
-    () => [eventSource, requests.filter((r) => r.start && r.end).map((r) => ({ id: `trial-request-${r.id}`, title: `Trial: ${r.studentName ?? r.studentEmail ?? 'student'}`, start: r.start!, end: r.end!, editable: false }))],
-    [eventSource, requests],
+    () => [
+      eventSource,
+      requests.filter((r) => r.start && r.end).map((r) => ({ id: `trial-request-${r.id}`, title: `Trial: ${r.studentName ?? r.studentEmail ?? 'student'}`, start: r.start!, end: r.end!, editable: false })),
+      classReqs.map((r) => ({ id: `class-request-${r.id}`, title: `Requested: ${r.student.name ?? r.student.email}`, start: r.start, end: r.end, editable: false })),
+    ],
+    [eventSource, requests, classReqs],
   );
 
   const stats = useMemo(() => {
@@ -444,6 +455,7 @@ export default function TeacherCalendar({ me, staleRole = false }: { me: Me; sta
         </section>
         <div className="side">
           {admin && <WebsiteLeads />}
+          <ClassRequests requests={classReqs} onAnswered={refetch} />
           <FreeClassRequests
             requests={requests}
             canConfirm={!admin}

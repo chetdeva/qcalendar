@@ -9,6 +9,7 @@ export const WEB_URL = 'http://localhost:58764';
 /** Pretend users-ui. */
 export const USERS_UI = 'http://localhost:58765';
 export const CAL_URL = 'http://localhost:58766';
+export const BILLING_URL = 'http://localhost:58767';
 export const SERVICE_KEY = 'e2e-service-key-e2e-service-key-0123456789';
 
 export type Role = 'student' | 'teacher' | 'admin';
@@ -21,6 +22,7 @@ let counter = 0;
 /** Every test makes its own people, so data from earlier tests is invisible; only the fake logins are cleared. */
 export async function resetBackend(request: APIRequestContext) {
   expect((await request.post(`${AUTH_URL}/__test/reset`)).ok()).toBeTruthy();
+  expect((await request.post(`${BILLING_URL}/__billing`, { data: { reset: true } })).ok()).toBeTruthy();
 }
 
 export async function seed(request: APIRequestContext, role: Role, name: string, guardianEmail?: string): Promise<User> {
@@ -78,3 +80,7 @@ export async function openAs(browser: Browser, u: User, path = '/') {
 
 /** A tiny real png, for "attach a picture" tests. */
 export const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+
+/** What the stand-in billing service says about the student: the free class (available, booked, done) and whether they have a plan. */
+export const setBilling = (request: APIRequestContext, state: { trial?: 'available' | 'booked' | 'done'; subscribed?: boolean }) =>
+  request.post(`${BILLING_URL}/__billing`, { data: state });

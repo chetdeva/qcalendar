@@ -70,7 +70,7 @@ export function MentorProfileCard() {
         </div>
       </fieldset>
       <div className="pf-field">
-        <label htmlFor="mp-quote">A line in your own words</label>
+        <label htmlFor="mp-quote">A line in your own words (optional)</label>
         <div className="pf-input pf-plain"><textarea id="mp-quote" rows={3} maxLength={400} value={quote} onChange={(e) => setQuote(e.target.value)} placeholder="What do you want students to know about how you teach?" disabled={!loaded} /></div>
       </div>
       <label className="pf-check"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} disabled={!loaded} /> Show my profile to students</label>

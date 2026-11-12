@@ -244,14 +244,15 @@ export function createApp({ verifier, directory, inviteRedirectTo, serviceApiKey
     throw new HttpError(403, 'forbidden', 'Students cannot browse users');
   });
 
-  // Name and email (and, for teachers and admins, time zone) for ids the caller already knows. No role, status or guardian address.
+  // Name and email (and, for teachers and admins, time zone) for ids the caller already knows, and whether the person is an active mentor
+  // (students ask mentors for classes). No other role, status or guardian address.
   // Registered before /v1/users/:id so "lookup" is never read as an id.
   app.post('/v1/users/lookup', async (c) => {
     const { ids } = parse(LookupBody, await c.req.json().catch(() => null));
     const me = await liveProfile(c);
     const found = await Promise.all([...new Set(ids)].map((id) => directory.getProfile(id)));
     // The time zone is for teachers and admins scheduling a class; a student only gets name and email.
-    return c.json({ users: found.filter((p): p is Profile => !!p).map((p) => ({ id: p.id, full_name: p.full_name, email: p.email, ...(me.role !== 'student' ? { timezone: p.timezone } : {}) })) });
+    return c.json({ users: found.filter((p): p is Profile => !!p).map((p) => ({ id: p.id, full_name: p.full_name, email: p.email, ...(me.role !== 'student' ? { timezone: p.timezone } : {}), mentor: p.role === 'teacher' && p.status === 'active' })) });
   });
 
   app.get('/v1/users/:id', async (c) => {

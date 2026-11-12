@@ -1,9 +1,61 @@
 import { expect, test } from '@playwright/test';
-import { PNG, dashboardAs, openAs, openPage, resetBackend, seed, shareAClass } from './helpers';
+import { PNG, dashboardAs, openAs, openPage, resetBackend, seed, setBilling, shareAClass } from './helpers';
 
 test.beforeEach(({ request }) => resetBackend(request));
 
 const profile = { headline: 'Lead STEM Specialist', specialties: ['Geometry', 'Proofs & Logic'], levels: ['middle'], quote: 'Every shape has a story.', published: true };
+
+test.describe('free trial class on the dashboard', () => {
+  const card = (page: import('@playwright/test').Page) => page.getByRole('region', { name: 'Free trial class' });
+
+  test('not taken yet: says so and offers to book it on the calendar', async ({ context, request }) => {
+    const page = await openPage(context, await seed(request, 'student', 'Mia Student'));
+    await expect(card(page)).toContainText('Not taken yet');
+    await expect(card(page).getByRole('link', { name: 'Book your free trial class' })).toHaveAttribute('href', /\/\?pick=1$/);
+  });
+
+  test('booked, and taken: each says where the student is', async ({ context, request }) => {
+    const page = await openPage(context, await seed(request, 'student', 'Mia Student'));
+    await setBilling(request, { trial: 'booked' });
+    await page.reload();
+    await expect(card(page)).toContainText('Your free trial class is booked');
+    await expect(card(page).getByRole('link', { name: 'Book your free trial class' })).toHaveCount(0);
+
+    await setBilling(request, { trial: 'done', subscribed: false });
+    await page.reload();
+    await expect(card(page)).toContainText('Your free trial class is done');
+    await expect(page.getByRole('region', { name: 'Subscribe to a plan' })).toContainText('Loved your class? Keep going'); // no plan yet: the next step
+
+    await setBilling(request, { subscribed: true });
+    await page.reload();
+    await expect(card(page)).toContainText('Your free trial class is done');
+    await expect(page.getByRole('region', { name: 'Subscribe to a plan' })).toHaveCount(0);
+  });
+
+  test('without a plan, a Subscribe card sits next to the free class and goes to Plan & billing; with a plan it is gone', async ({ context, request }) => {
+    await setBilling(request, { subscribed: false });
+    const page = await openPage(context, await seed(request, 'student', 'Mia Student'));
+    const subscribe = page.getByRole('region', { name: 'Subscribe to a plan' });
+    await expect(subscribe).toContainText('Ready to start? Subscribe'); // the free class is still ahead
+    await expect(card(page)).toContainText('Not taken yet');
+    await expect(subscribe.getByRole('link', { name: 'Subscribe' })).toHaveAttribute('href', /\/billing$/);
+
+    await setBilling(request, { subscribed: true });
+    await page.reload();
+    await expect(subscribe).toHaveCount(0);
+    await expect(card(page)).toContainText('Not taken yet');
+  });
+
+  test('a student without a plan is pointed to plans, not to requesting a class', async ({ context, request }) => {
+    const t = await seed(request, 'teacher', 'Tess Teacher');
+    await dashboardAs(request, t, 'PUT', '/v1/me/mentor-profile', { headline: 'Lead STEM Specialist', specialties: ['Geometry'], levels: ['middle'], quote: '', published: true });
+    await setBilling(request, { subscribed: false });
+    const page = await openPage(context, await seed(request, 'student', 'Mia Student'));
+    const mentor = page.locator('.mentor', { hasText: 'Tess Teacher' });
+    await expect(mentor.getByRole('link', { name: 'Choose a plan to request a class' })).toBeVisible();
+    await expect(mentor.locator('blockquote')).toHaveCount(0); // the line in their own words is optional
+  });
+});
 
 test.describe('student dashboard', () => {
   test('a new student sees honest empty states, their own name and no teacher tools', async ({ context, request }) => {
@@ -69,7 +121,7 @@ test.describe('student dashboard', () => {
     await expect(cards.first()).toContainText('Coach Tom Teacher');
     await expect(cards.first()).toContainText('Your Primary Coach');
     await expect(page.getByText('Hana Hidden')).toHaveCount(0);
-    await expect(cards.first().getByRole('link', { name: 'Book Extra 1:1 Session' })).toHaveAttribute('href', 'http://localhost:3002');
+    await expect(cards.first().getByRole('link', { name: 'Request an extra class' })).toHaveAttribute('href', /^http:\/\/localhost:3002\/\?mentor=[0-9a-f-]{36}&name=Coach/);
     await page.getByRole('button', { name: 'Middle School (6–8)' }).click();
     await expect(cards).toHaveCount(1);
     await expect(cards).toContainText('Coach Tess Teacher');

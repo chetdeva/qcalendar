@@ -10,6 +10,8 @@ export interface BillingClient {
   reserve(userId: string, ref: string, endsAt?: string, trial?: boolean): Promise<Reservation>;
   /** Idempotent. */
   release(userId: string, ref: string): Promise<void>;
+  /** Whether the student has a live plan (the only kind of student who may ask a mentor for a paid class). */
+  subscribed?(userId: string): Promise<boolean>;
   /** One credit earned by a teacher for a student's seat in a class they taught. Idempotent. */
   earn(teacherId: string, ref: string, earnedAt: string): Promise<void>;
 }
@@ -37,6 +39,11 @@ export function createBillingClient(opts: { url: string; key: string }): Billing
     async release(userId, ref) {
       const r = await call('/v1/service/credits/release', { userId, ref });
       if (!r.ok) throw new Error(`billing answered ${r.status}`);
+    },
+    async subscribed(userId) {
+      const r = await call('/v1/service/students/status', { userId });
+      if (!r.ok) throw new HttpError(503, 'billing_unavailable', 'Billing is unavailable right now. Please try again in a moment.');
+      return Boolean(((await r.json().catch(() => ({}))) as { subscribed?: boolean }).subscribed);
     },
     async earn(teacherId, ref, earnedAt) {
       const r = await call('/v1/service/earnings', { teacherId, ref, earnedAt });

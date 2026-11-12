@@ -52,6 +52,17 @@ describe('auth', () => {
   });
 });
 
+describe('service: does this student have a plan', () => {
+  it('says yes only for a live subscription, and only to the service key', async () => {
+    const s = await student();
+    const ask = (key: string) => call(key, 'POST', '/v1/service/students/status', { userId: s.id });
+    assert.deepEqual(await json(await ask(KEY)), { subscribed: false });
+    await subscribe(s.id);
+    assert.deepEqual(await json(await ask(KEY)), { subscribed: true });
+    assert.equal((await ask(await jwt(s.id))).status, 403);
+  });
+});
+
 describe('payment history', () => {
   it('lists each charge with its amount, newest first; a failed renewal shows without an amount; a replayed webhook adds nothing', async () => {
     const s = await student();

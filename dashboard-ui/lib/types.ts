@@ -159,3 +159,6 @@ export interface AssignmentDetail extends Assignment {
   gradedLabel: string | null;
   coach: string;
 }
+
+/** Where the student is with their free trial class: not asked for, asked for (a teacher will confirm), booked, or already taken. */
+export type TrialState = { state: 'not_taken' } | { state: 'requested'; start: string | null } | { state: 'booked' } | { state: 'taken' };

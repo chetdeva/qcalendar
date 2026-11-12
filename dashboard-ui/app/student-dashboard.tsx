@@ -1,23 +1,67 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { CalendarDays, CalendarPlus, ChevronRight, Eye, FileText, Flame, GraduationCap, MessageSquare, MonitorPlay, Search, SlidersHorizontal, Sparkles, Star, Target, TrendingUp, Users, Video } from 'lucide-react';
-import type { Mentor, Session, StudentDashboard as Data } from '@/lib/types';
-import { calendarUrl, chatUrl } from '@/lib/env';
+import { CalendarDays, CalendarPlus, CheckCircle2, ChevronRight, Eye, FileText, Flame, GraduationCap, MessageSquare, MonitorPlay, Search, SlidersHorizontal, Sparkles, Star, Target, TrendingUp, Users, Video } from 'lucide-react';
+import type { Mentor, Session, StudentDashboard as Data, TrialState } from '@/lib/types';
+import { calendarUrl, chatUrl, usersUiUrl } from '@/lib/env';
 import { api } from './api-client';
 import { Avatar, Bar, Soon } from './components/ui';
 
 const initialsOf = (name: string) => name.replace(/^Coach\s+/, '').split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase();
 
-export default function StudentDashboard({ initial }: { initial: Data }) {
+export default function StudentDashboard({ initial, subscribed, trial }: { initial: Data; subscribed?: boolean; trial?: TrialState }) {
   const d = initial;
   return (
     <div className="page">
       <Welcome d={d} />
+      {(trial || subscribed === false) && (
+        <div className="start-row">
+          {trial && <TrialCard trial={trial} />}
+          {subscribed === false && <SubscribeCard trialTaken={trial?.state === 'taken'} />}
+        </div>
+      )}
       <Progress d={d} />
       <Sessions sessions={d.sessions} />
-      <MentorFinder d={d} />
+      <MentorFinder d={d} subscribed={subscribed} />
     </div>
+  );
+}
+
+const whenLabel = (iso: string) => new Date(iso).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+/** Says outright where the student is with the free trial class, and what to do next. */
+function TrialCard({ trial }: { trial: TrialState }) {
+  const [badge, title, text, action] =
+    trial.state === 'taken'
+      ? ['Taken', 'Your free trial class is done', 'Thanks for trying it. Your next classes come with a plan.', null]
+      : trial.state === 'booked'
+        ? ['Booked', 'Your free trial class is booked', 'It is on your calendar, with the join link.', <a className="btn-primary" href={calendarUrl}><CalendarDays size={16} aria-hidden /> View in Calendar</a>]
+        : trial.state === 'requested'
+          ? ['Requested', 'Your free trial class is requested', `${trial.start ? `You asked for ${whenLabel(trial.start)}. ` : ''}A teacher will confirm it and it will appear on your calendar.`, <a className="btn-soft" href={`${calendarUrl}/?pick=1`}>Change time</a>]
+          : ['Not taken yet', 'Book your free trial class', 'Meet a mentor before you decide: a 30-minute class, free. Pick a time on the calendar and a teacher will confirm it.', <a className="btn-primary" href={`${calendarUrl}/?pick=1`}><CalendarPlus size={16} aria-hidden /> Book your free trial class</a>];
+  return (
+    <section className={`panel trial trial-${trial.state}`} aria-label="Free trial class">
+      <span className="icon icon-sm tone-mint">{trial.state === 'taken' ? <CheckCircle2 size={18} aria-hidden /> : <Sparkles size={18} aria-hidden />}</span>
+      <div className="trial-text">
+        <h2>{title} <span className="trial-badge" data-state={trial.state}>{badge}</span></h2>
+        <p className="sub">{text}</p>
+      </div>
+      {action}
+    </section>
+  );
+}
+
+/** For a student with no plan yet, next to the free class: the same offer as the "Get started" menu, in plain sight. */
+function SubscribeCard({ trialTaken }: { trialTaken: boolean }) {
+  return (
+    <section className="panel trial trial-subscribe" aria-label="Subscribe to a plan">
+      <span className="icon icon-sm tone-sun"><Star size={18} aria-hidden /></span>
+      <div className="trial-text">
+        <h2>{trialTaken ? 'Loved your class? Keep going' : 'Ready to start? Subscribe'}</h2>
+        <p className="sub">{trialTaken ? 'Pick a plan to book more classes: 15 one-to-one classes every month, with any mentor.' : 'Already know you want classes? Pick a plan now: 15 one-to-one classes every month. Your free trial class stays available.'}</p>
+      </div>
+      <a className="btn-primary" href={`${usersUiUrl}/billing`}>Subscribe</a>
+    </section>
   );
 }
 
@@ -120,7 +164,7 @@ function Sessions({ sessions }: { sessions: Session[] }) {
   );
 }
 
-function MentorFinder({ d }: { d: Data }) {
+function MentorFinder({ d, subscribed }: { d: Data; subscribed?: boolean }) {
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('all');
   const [mentors, setMentors] = useState<Mentor[]>(d.mentors);
@@ -161,8 +205,10 @@ function MentorFinder({ d }: { d: Data }) {
                 <div><h3>{m.name}</h3><small className="head-line">{m.headline}</small></div>
               </div>
               <ul className="tags">{m.specialties.map((t) => <li key={t}>{t}</li>)}</ul>
-              <blockquote>“{m.quote}”</blockquote>
-              <a className={m.primary ? 'btn-primary btn-block' : 'btn-soft btn-block'} href={calendarUrl}><CalendarPlus size={15} aria-hidden /> {m.primary ? 'Book Extra 1:1 Session' : 'Book 1:1 Session'}</a>
+              {m.quote && <blockquote>“{m.quote}”</blockquote>}
+              {subscribed === false
+                ? <a className="btn-soft btn-block" href={`${usersUiUrl}/billing`}><CalendarPlus size={15} aria-hidden /> Choose a plan to request a class</a>
+                : <a className={m.primary ? 'btn-primary btn-block' : 'btn-soft btn-block'} href={`${calendarUrl}/?mentor=${m.id}&name=${encodeURIComponent(m.name)}`}><CalendarPlus size={15} aria-hidden /> {m.primary ? 'Request an extra class' : 'Request a class'}</a>}
               <div className="duo">
                 <Soon className="btn-soft"><Eye size={14} aria-hidden /> View Profile</Soon>
                 <a className="btn-soft" href={chatUrl}><MessageSquare size={14} aria-hidden /> Send Message</a>

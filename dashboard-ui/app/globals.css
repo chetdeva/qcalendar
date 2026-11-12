@@ -344,3 +344,13 @@ h1 em { font-style: normal; color: var(--primary); }
 .check { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer; }
 .check input { width: 18px; height: 18px; accent-color: var(--primary); }
 .scratch .answer { background: #fff; }
+
+.trial { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.trial-text { flex: 1 1 280px; min-width: 0; }
+.trial-text h2 { font-size: 17px; line-height: 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.trial-badge { padding: 1px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; background: var(--sun); color: var(--sun-ink); }
+.trial-badge[data-state='taken'], .trial-badge[data-state='booked'] { background: var(--mint); color: var(--mint-ink); }
+.trial-badge[data-state='requested'] { background: var(--sky); color: var(--primary); }
+
+.start-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+.trial-subscribe { background: var(--sun); }

@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { defineConfig } from '@playwright/test';
-import { AUTH_URL, CAL_URL, CHAT_URL, SERVICE_KEY, USERS_UI, USERS_URL, WEB_URL } from './e2e/helpers';
+import { AUTH_URL, CAL_URL, CHAT_URL, DASHBOARD_URL, SERVICE_KEY, USERS_UI, USERS_URL, WEB_URL } from './e2e/helpers';
 
 // The suite runs the UI against REAL calendar-service, chat-service and users-service code. Override to test another checkout.
 const CAL_DIR = process.env.CALENDAR_SERVICE_DIR ?? '../calendar-service';
@@ -64,6 +64,7 @@ export default defineConfig({
         CALENDAR_API_URL: CAL_URL,
         CHAT_API_URL: CHAT_URL,
         USERS_SERVICE_URL: USERS_URL,
+        DASHBOARD_API_URL: DASHBOARD_URL,
       },
     },
   ],

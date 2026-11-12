@@ -116,6 +116,7 @@ services:
       USERS_SERVICE_URL: http://users-service:3010
       CHAT_API_URL: http://chat-service:3001 # a decline or a time-change request also messages the teacher
       BILLING_API_URL: http://billing-service:3012 # the student's free-class and subscribe cards; no billing service = no cards
+      DASHBOARD_API_URL: http://dashboard-service:3007 # the mentors a student can ask for a class
     depends_on: [calendar-service, users-service, chat-service]
     ports: ["3002:3002"]
 

@@ -83,7 +83,7 @@ function CheckoutResult({ data }: { data: BillingMe }) {
 
 export function BillingPanel({ data, checkout }: { data: BillingMe; checkout?: string }) {
   const router = useRouter();
-  const [choice, setChoice] = useState<Interval>('year');
+  const [choice, setChoice] = useState<Interval>('month');
   const [grade, setGrade] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -166,7 +166,7 @@ export function BillingPanel({ data, checkout }: { data: BillingMe; checkout?: s
               </button>
               <button type="button" role="radio" aria-checked={choice === 'year'} className="bl-card bl-plan" onClick={() => setChoice('year')}>
                 <h3>Annual <em>Save 20%</em></h3>
-                <p className="bl-price"><b>{dollars(plan.annualCents)}</b> a year</p>
+                <p className="bl-price"><s className="bl-was"><span className="bl-sr">Full price </span>{dollars(plan.monthlyCents * 12)}</s> <b>{dollars(plan.annualCents)}</b> a year</p>
                 <p className="bl-sub">{dollars(plan.annualCents / 12)} a month instead of {dollars(plan.monthlyCents)}</p>
                 <ul className="bl-list"><li>Up to {plan.creditsPerMonth} one-to-one classes every month, all year</li><li>Pay once for twelve months</li><li>Cancel any time; paid months stay</li></ul>
               </button>

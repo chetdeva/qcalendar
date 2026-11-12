@@ -67,3 +67,6 @@
 a.bl-btn { display: inline-block; text-decoration: none; }
 .bl-btn-ghost { background: #fff; color: var(--bl-primary); box-shadow: inset 0 0 0 2px var(--bl-primary); }
 .bl-btn-ghost:hover:not(:disabled) { background: var(--bl-tint); }
+
+.bl-was { margin-right: 6px; font-size: 22px; font-weight: 700; color: var(--bl-muted); text-decoration: line-through; text-decoration-thickness: 2px; }
+.bl-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

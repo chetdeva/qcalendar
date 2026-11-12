@@ -353,4 +353,5 @@ h1 em { font-style: normal; color: var(--primary); }
 .trial-badge[data-state='requested'] { background: var(--sky); color: var(--primary); }
 
 .start-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
-.trial-subscribe { background: var(--sun); }
+.trial-subscribe { background: #fbf6df; box-shadow: inset 0 0 0 1px #efe2a6; } /* a soft cream, not the full yellow */
+.trial-subscribe .icon { background: var(--sun); }

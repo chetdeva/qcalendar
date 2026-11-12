@@ -194,6 +194,16 @@ export function createApp(deps: { ctx: svc.Ctx; authenticator: Authenticator }) 
   // Who the caller shares a class with. chat-service uses it as its "may these two talk" rule.
   app.get('/v1/contacts', async (c) => c.json({ contacts: (await svc.contactIds(ctx, c.get('actor'))).map((id) => ({ id })) }));
 
+  // A student reaching out to a mentor from the mentor's card. The caller's server checked that the person is an active mentor.
+  app.post('/v1/chat-links', async (c) => {
+    const { teacherId } = parse(z.object({ teacherId: uuid }).strict(), await body(c));
+    const actor = c.get('actor');
+    if (actor.kind !== 'user' || actor.role !== 'student') throw new HttpError(403, 'forbidden', 'Only students reach out to a mentor');
+    if (teacherId === actor.id) throw new HttpError(400, 'invalid_request', 'Choose a mentor');
+    await ctx.db.query('insert into calendar.chat_links (student_id, teacher_id) values ($1, $2) on conflict do nothing', [actor.id, teacherId]);
+    return c.body(null, 204);
+  });
+
   app.post('/v1/chat-policy', async (c) => {
     const { memberIds } = parse(z.object({ memberIds: z.array(uuid).length(2) }).strict(), await body(c));
     const actor = c.get('actor');

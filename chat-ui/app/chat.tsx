@@ -19,8 +19,11 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [picking, setPicking] = useState(false);
+  const [query, setQuery] = useState('');
   const [contacts, setContacts] = useState<Contact[] | null>(null);
+  const finder = useRef<HTMLDivElement>(null);
   const [error, setError] = useState('');
+  const [reachError, setReachError] = useState(''); // a mentor link that did not work; the list refresh must not wipe it
   const [sending, setSending] = useState(false);
   const lastId = useRef(0);
   const end = useRef<HTMLDivElement>(null);
@@ -55,6 +58,16 @@ export default function Chat() {
     } catch (e) { setError((e as Error).message); }
   }, [me, markRead]);
 
+  // "Send Message" on a mentor's card opens the chat as /?mentor=<id>: reach out to that mentor, then show the conversation.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('mentor');
+    if (!id) return;
+    window.history.replaceState(null, '', window.location.pathname);
+    api<{ id: string }>('/api/mentor-chat', { method: 'POST', body: JSON.stringify({ mentorId: id }) })
+      .then(async (r) => { await loadList(); setActive(r.id); })
+      .catch((e) => setReachError((e as Error).message));
+  }, [loadList]);
+
   useEffect(() => { loadList(); const t = setInterval(() => visible() && loadList(), LIST_MS); return () => clearInterval(t); }, [loadList]);
 
   useEffect(() => {
@@ -67,15 +80,26 @@ export default function Chat() {
 
   useEffect(() => { end.current?.scrollIntoView({ block: 'end' }); }, [messages]);
 
+  // The search box is always there; the people load the first time it is used, and the results close on a click elsewhere or Escape.
   async function openPicker() {
-    setPicking(true); setContacts(null);
+    setPicking(true);
+    if (contacts) return;
     try { setContacts((await api<{ contacts: Contact[] }>('/api/contacts')).contacts); } catch (e) { setError((e as Error).message); setContacts([]); }
   }
+  useEffect(() => {
+    if (!picking) return;
+    const away = (e: MouseEvent) => { if (!finder.current?.contains(e.target as Node)) setPicking(false); };
+    document.addEventListener('mousedown', away);
+    return () => document.removeEventListener('mousedown', away);
+  }, [picking]);
+
+  const needle = query.trim().toLowerCase();
+  const matches = (contacts ?? []).filter((c) => !needle || c.name.toLowerCase().includes(needle) || c.email.toLowerCase().includes(needle));
 
   async function startWith(c: Contact) {
     try {
       const { id } = await api<{ id: string }>('/api/conversations', { method: 'POST', body: JSON.stringify({ partnerId: c.id }) });
-      setPicking(false); await loadList(); setActive(id);
+      setPicking(false); setQuery(''); setReachError(''); await loadList(); setActive(id);
     } catch (e) { setError((e as Error).message); }
   }
 
@@ -99,18 +123,28 @@ export default function Chat() {
       <aside className="list" aria-label="Conversations">
         <div className="list-head">
           <h2>Conversations</h2>
-          <button type="button" className="primary" onClick={openPicker}>New chat</button>
         </div>
-        {picking && (
-          <div className="picker" role="region" aria-label="Start a chat">
-            <div className="picker-head"><b>Start a chat with</b><button type="button" className="nav-btn" onClick={() => setPicking(false)}>Cancel</button></div>
-            {contacts === null && <p className="muted-line">Loading…</p>}
-            {contacts?.length === 0 && <p className="muted-line">No one to chat with yet. You can chat with people you share a class with.</p>}
-            {contacts?.map((c) => <button key={c.id} type="button" className="row" onClick={() => startWith(c)}><span className="avatar" aria-hidden>{c.name[0]}</span><span className="row-text"><b>{c.name}</b><small>{c.email}</small></span></button>)}
-          </div>
-        )}
+        <div className="finder" ref={finder}>
+          <input
+            type="search" aria-label="Search people to chat with" placeholder="Search people by name or email" autoComplete="off"
+            value={query} onChange={(e) => { setQuery(e.target.value); if (!picking) void openPicker(); }} onFocus={() => void openPicker()}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setPicking(false);
+              if (e.key === 'Enter' && matches[0]) { e.preventDefault(); void startWith(matches[0]); }
+            }}
+          />
+          {picking && (
+            <div className="picker" role="region" aria-label="Start a chat">
+              {contacts === null && <p className="muted-line">Loading…</p>}
+              {contacts?.length === 0 && <p className="muted-line">No one to chat with yet. You can chat with people you share a class with.</p>}
+              {contacts && contacts.length > 0 && matches.length === 0 && <p className="muted-line">No one matches “{query.trim()}”.</p>}
+              {matches.map((c) => <button key={c.id} type="button" className="row" onClick={() => startWith(c)}><span className="avatar" aria-hidden>{c.name[0]}</span><span className="row-text"><b>{c.name}</b><small>{c.email}</small></span></button>)}
+            </div>
+          )}
+        </div>
+        {reachError && <p className="err" role="alert">{reachError}</p>}
         {convs === null && <p className="muted-line">Loading…</p>}
-        {convs?.length === 0 && !picking && <p className="muted-line" data-testid="no-conversations">No conversations yet. Use New chat to message someone you have a class with.</p>}
+        {convs?.length === 0 && !picking && <p className="muted-line" data-testid="no-conversations">No conversations yet. Search for someone you have a class with to start one.</p>}
         <ul>
           {convs?.map((c) => (
             <li key={c.id}>

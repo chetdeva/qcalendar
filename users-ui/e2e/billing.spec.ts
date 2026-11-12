@@ -31,6 +31,8 @@ test('a student with no grade sets it, then sees the price for their band and th
   // Monthly and annual sit side by side, each with its own button, and the table lists every band.
   await expect(page.getByRole('radio', { name: /Monthly/ }).locator('.bl-price b')).toHaveText('$350');
   await expect(page.getByRole('radio', { name: /Annual/ }).locator('.bl-price b')).toHaveText('$3,360');
+  await expect(page.getByRole('radio', { name: /Annual/ }).locator('.bl-was')).toHaveText('Full price $4,200'); // twelve months at the monthly price, crossed out
+  await expect(page.getByRole('radio', { name: /Monthly/ }).locator('.bl-was')).toHaveCount(0);
   await expect(page.getByRole('radio', { name: /Annual/ })).toContainText('$280 a month instead of $350');
   await expect(page.getByLabel('Prices by grade').getByRole('row')).toHaveCount(4);
   await expect(page.locator('.bl-yours')).toContainText('Grades 6-8');
@@ -42,11 +44,12 @@ test('Subscribe sends the student to the gateway\'s hosted checkout for their ba
   await logInAs(page, KID);
   await page.route('https://pay.example.test/**', (route) => route.fulfill({ body: 'hosted checkout' }));
   await page.goto('/billing');
-  await expect(page.getByRole('radio', { name: /Annual/ })).toBeChecked(); // annual is preselected
-  await page.getByRole('radio', { name: /Monthly/ }).click();
-  await expect(page.getByRole('radio', { name: /Monthly/ })).toBeChecked();
+  await expect(page.getByRole('radio', { name: /Monthly/ })).toBeChecked(); // monthly is preselected
   await expect(page.getByRole('radio', { name: /Annual/ })).not.toBeChecked();
+  await expect(page.getByRole('button', { name: /^Subscribe monthly/ })).toBeVisible();
   await page.getByRole('radio', { name: /Annual/ }).click();
+  await expect(page.getByRole('radio', { name: /Annual/ })).toBeChecked();
+  await expect(page.getByRole('radio', { name: /Monthly/ })).not.toBeChecked();
   await page.getByRole('button', { name: 'Subscribe annually, $3,840 a year' }).click();
   await page.waitForURL(/pay\.example\.test\/checkout/);
   expect(page.url()).toContain('plan=high');

@@ -58,12 +58,25 @@ test('after paying, the student sees 15 classes, their renewal date, and can can
   await logInAs(page, KID);
   await pay(request, KID.email);
   await page.goto('/billing?checkout=success');
-  await expect(page.getByText('Your payment is being confirmed.')).toBeVisible();
+  const result = page.getByLabel('Payment result');
+  await expect(result.getByRole('heading', { name: 'Payment successful' })).toBeVisible();
+  await expect(result.getByRole('link', { name: 'Find a mentor' })).toHaveAttribute('href', /#mentors$/);
+  await expect(result.getByRole('link', { name: 'Schedule your first class' })).toBeVisible();
   await expect(page.locator('.bl-meter b')).toHaveText('15');
   await expect(page.getByText('Monthly plan, 15 classes every month. Renews on')).toBeVisible();
+  const details = page.getByLabel('Subscription');
+  await expect(details).toContainText('Grades');
+  await expect(details).toContainText('a month');
+  await expect(details).toContainText('Active');
+  await expect(details).toContainText('Next payment');
+  const history = page.getByLabel('Payment history');
+  await expect(history.getByRole('row')).toHaveCount(2); // header + the one payment
+  await expect(history).toContainText('Paid');
+  await expect(history).toContainText('$');
   page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Cancel plan' }).click();
-  await expect(page.getByText(/Ends on/)).toBeVisible();
+  await expect(page.getByText(/Ends on \w+ \d/)).toBeVisible();
+  await expect(details).toContainText('Cancelling');
   await expect(page.getByRole('button', { name: 'Cancel plan' })).toHaveCount(0);
 });
 
@@ -87,4 +100,12 @@ test('students get a Billing link in the profile menu; teachers do not', async (
   await page.goto('/profile');
   await page.locator('.qh-me summary').click();
   await expect(page.getByRole('link', { name: 'Billing' })).toHaveCount(0);
+});
+
+test('coming back before the payment is confirmed shows that it is being confirmed, not a success', async ({ page, request }) => {
+  await seedUser(request, { ...KID, name: 'Kid One', grade: 6 });
+  await logInAs(page, KID);
+  await page.goto('/billing?checkout=success');
+  await expect(page.getByLabel('Payment result').getByRole('heading', { name: 'Confirming your payment…' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Find a mentor' })).toHaveCount(0);
 });

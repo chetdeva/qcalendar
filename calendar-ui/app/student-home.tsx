@@ -16,6 +16,8 @@ import { dayHeader, makeEventContent } from './components/event-content';
 import { AppHeader } from '@components/app-header';
 import { RoleBanner } from './components/role-banner';
 import { StudentNudge } from '@components/student-nudge';
+import { MyClassRequests } from './components/my-class-requests';
+import type { ClassRequestRow } from './components/class-requests';
 
 const PLUGINS = [dayGridPlugin, timeGridPlugin, interactionPlugin];
 const slotLabel = (a: { date: Date }) => a.date.toLocaleTimeString('en-US', { hour: 'numeric' });
@@ -35,6 +37,26 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
   const [slot, setSlot] = useState<{ start: Date; end: Date } | null>(null);
   const [request, setRequest] = useState<{ start: string; end: string } | null>(null);
   const [nudgeKey, setNudgeKey] = useState(0);
+  // A class with one mentor (from the dashboard's "Request a class"): the mentor is named in the address, the time is picked here.
+  const [mentor, setMentor] = useState<{ id: string; name: string } | null>(null);
+  const [classReqs, setClassReqs] = useState<ClassRequestRow[]>([]);
+  const [pickError, setPickError] = useState('');
+  // "Request a class" on this page (instead of from the dashboard): choose the mentor here, then the time.
+  const [chooser, setChooser] = useState(false);
+  const [mentorList, setMentorList] = useState<{ id: string; name: string }[] | null>(null);
+  const [mentorsError, setMentorsError] = useState('');
+  function startClassRequest() {
+    setChooser(true); setPicking(true); setSlot(null); setPickError('');
+    if (mentorList) return;
+    api<{ mentors: { id: string; name: string }[] }>('/api/mentors').then(
+      (r) => setMentorList(r.mentors.map((m) => ({ id: m.id, name: m.name }))),
+      (e) => { setMentorList([]); setMentorsError((e as Error).message); },
+    );
+  }
+  const loadClassReqs = useCallback(() => {
+    api<{ requests: ClassRequestRow[] }>('/api/class-requests/mine').then((r) => setClassReqs(r.requests), () => setClassReqs([]));
+  }, []);
+  useEffect(() => { loadClassReqs(); }, [loadClassReqs]);
 
   const refetch = () => cal.current?.getApi().refetchEvents();
 
@@ -55,7 +77,12 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
     );
   }, []);
   useEffect(() => { loadRequest(); }, [loadRequest, nudgeKey]);
-  useEffect(() => { if (new URLSearchParams(window.location.search).get('pick') === '1') setPicking(true); }, []); // the dashboard card links here
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    if (q.get('pick') === '1') setPicking(true); // the dashboard card links here
+    const id = q.get('mentor');
+    if (id && /^[0-9a-f-]{36}$/i.test(id)) { setMentor({ id, name: q.get('name')?.slice(0, 80) || 'your mentor' }); setPicking(true); }
+  }, []);
 
   useEffect(() => {
     void loadList();
@@ -85,31 +112,37 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
     () => [
       eventSource,
       ...(request ? [[{ id: 'free-class-request', title: 'Free trial class (requested)', start: request.start, end: request.end, editable: false }]] : []),
+      ...(classReqs.some((r) => r.status === 'requested') ? [classReqs.filter((r) => r.status === 'requested').map((r) => ({ id: `class-request-${r.id}`, title: `Requested: ${r.teacher.name ?? 'mentor'}`, start: r.start, end: r.end, editable: false }))] : []),
       ...(slot ? [[{ id: 'pending-slot', start: slot.start, end: slot.end, display: 'background' as const, classNames: ['pending-slot'] }]] : []),
     ],
-    [eventSource, request, slot],
+    [eventSource, request, slot, classReqs],
   );
   const onPick = (info: DateSelectArg) => {
     if (info.allDay) return;
     const start = info.start;
-    const end = new Date(start.getTime() + 30 * 60_000); // the trial class is 30 minutes, whatever was dragged
+    const end = new Date(start.getTime() + (mentor ? 60 : 30) * 60_000); // the trial class is 30 minutes and a mentor's class an hour, whatever was dragged
     setSlot({ start, end });
     cal.current?.getApi().unselect(); // FullCalendar's own selection stays out of the way so another slot can be picked; the chosen one is drawn below
   };
   async function sendRequest() {
     if (!slot) return;
     setError('');
+    setPickError('');
     try {
-      await api('/api/trial-requests', { method: 'POST', body: JSON.stringify({ start: slot.start.toISOString() }) });
-      setPicking(false);
-      setSlot(null);
-      cal.current?.getApi().unselect();
+      if (mentor) await api('/api/class-requests', { method: 'POST', body: JSON.stringify({ teacherId: mentor.id, start: slot.start.toISOString() }) });
+      else await api('/api/trial-requests', { method: 'POST', body: JSON.stringify({ start: slot.start.toISOString() }) });
+      stopPicking();
+      loadClassReqs();
       setNudgeKey((k) => k + 1);
     } catch (e) {
-      setError((e as Error).message);
+      (mentor ? setPickError : setError)((e as Error).message);
     }
   }
-  const stopPicking = () => { setPicking(false); setSlot(null); cal.current?.getApi().unselect(); };
+  const stopPicking = () => {
+    setPicking(false); setSlot(null); setMentor(null); setChooser(false); setPickError('');
+    cal.current?.getApi().unselect();
+    if (window.location.search) window.history.replaceState(null, '', window.location.pathname);
+  };
 
   const upcoming = upcomingOf(classes);
   const needsAnswer = upcoming.filter((c) => c.myStatus === 'invited');
@@ -152,6 +185,7 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
             <span className="sync-label">My classes</span>
             <span className="sync-meta">• {upcoming.length} upcoming{needsAnswer.length ? ` · ${needsAnswer.length} to answer` : ''}</span>
           </div>
+          <button type="button" className="req-class" onClick={startClassRequest}>Request a class</button>
         </div>
       </header>
       <div className="work">
@@ -167,7 +201,7 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
                 height="100%"
                 allDaySlot={false}
                 nowIndicator
-                selectable={picking}
+                selectable={picking && (!chooser || Boolean(mentor))}
                 selectMirror
                 snapDuration="00:15:00"
                 selectAllow={(s) => s.start.getTime() > Date.now()}
@@ -192,11 +226,24 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
         </section>
         <div className="side">
         {picking && (
-          <section className="freereq" aria-label="Request your free trial class">
-            <h3>Request your free trial class</h3>
-            {slot ? (
+          <section className="freereq" aria-label={mentor ? `Request a class with ${mentor.name}` : chooser ? 'Request a class' : 'Request your free trial class'}>
+            <h3>{mentor ? `Request a class with ${mentor.name}` : chooser ? 'Request a class' : 'Request your free trial class'}</h3>
+            {chooser && (
+              <label className="mentor-pick">Mentor
+                <select value={mentor?.id ?? ''} disabled={!mentorList} onChange={(e) => { const m = mentorList?.find((x) => x.id === e.target.value); setMentor(m ?? null); setSlot(null); }}>
+                  <option value="">{mentorList ? 'Choose a mentor' : 'Loading mentors…'}</option>
+                  {mentorList?.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+              </label>
+            )}
+            {mentorsError && <p role="alert" className="freereq-err">{mentorsError}</p>}
+            {mentorList && mentorList.length === 0 && !mentorsError && <p>No mentors have published a profile yet.</p>}
+            {pickError && <p role="alert" className="freereq-err">{pickError}{/plan/i.test(pickError) && <> <a href={`${process.env.NEXT_PUBLIC_USERS_UI_URL ?? ''}/billing`}>Choose a plan</a></>}</p>}
+            {chooser && !mentor ? (
+              <div className="freereq-btns"><button type="button" className="alt" onClick={stopPicking}>Cancel</button></div>
+            ) : slot ? (
               <>
-                <p>Request {slot.start.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} for your free trial class?</p>
+                <p>Request {slot.start.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} {mentor ? `with ${mentor.name}` : 'for your free trial class'}?</p>
                 <div className="freereq-btns"><button type="button" onClick={sendRequest}>Send request</button><button type="button" className="alt" onClick={stopPicking}>Cancel</button></div>
               </>
             ) : (
@@ -207,6 +254,7 @@ export default function StudentHome({ me, staleRole = false }: { me: Me; staleRo
             )}
           </section>
         )}
+        <MyClassRequests requests={classReqs} onChanged={loadClassReqs} />
         <ClassesPanel
           subtitle="Accept, decline or ask for another time"
           empty="No upcoming classes. When a teacher invites you, it will show up here and in your email."

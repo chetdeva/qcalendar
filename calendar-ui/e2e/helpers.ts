@@ -9,6 +9,7 @@ export const WEB_URL = 'http://localhost:58744';
 /** Pretend users-ui. Never actually served; tests intercept requests to it. */
 export const USERS_UI = 'http://localhost:58745';
 export const CHAT_URL = 'http://localhost:58746';
+export const DASHBOARD_URL = 'http://localhost:58747';
 export const SERVICE_KEY = 'e2e-service-key-e2e-service-key-0123456789';
 
 export type Role = 'student' | 'teacher' | 'admin';
@@ -112,4 +113,13 @@ export async function chatTexts(request: APIRequestContext, u: User): Promise<st
     texts.push(...messages.map((m) => m.body));
   }
   return texts;
+}
+
+/** Publishes a mentor card, which is how a teacher shows up in the student's list of mentors. */
+export async function publishMentor(request: APIRequestContext, teacher: User, headline: string) {
+  const res = await request.put(`${DASHBOARD_URL}/v1/me/mentor-profile`, {
+    data: { headline, specialties: ['Geometry'], levels: ['middle'], quote: '', published: true },
+    headers: { authorization: `Bearer ${await tokenFor(request, teacher)}` },
+  });
+  expect(res.ok(), await res.text()).toBeTruthy();
 }

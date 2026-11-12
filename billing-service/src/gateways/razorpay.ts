@@ -22,8 +22,9 @@ const CYCLES = { month: 120, year: 10 } as const; // ten years of billing cycles
  * subscription.cancelled, subscription.completed.
  *
  * The buyer travels in the subscription's notes (user_id, plan_key, interval), so no id encoding is needed. Checkout is
- * Razorpay's hosted page (the subscription's short_url). The first payment on that page is the first month's charge, so
- * classes arrive as soon as the student pays.
+ * Razorpay's pop-up opened by our own page (users-ui /billing/pay/razorpay) with the subscription id, because the hosted
+ * short_url page never sends the student back to us. The first payment is the first month's charge, so classes arrive as
+ * soon as the webhook does.
  */
 export function createRazorpayGateway(cfg: RazorpayConfig): PaymentGateway {
   const doFetch = cfg.fetch ?? fetch;
@@ -62,15 +63,21 @@ export function createRazorpayGateway(cfg: RazorpayConfig): PaymentGateway {
 
     async createCheckout(o) {
       const plan = await createPlan(o.planKey, o.interval, o.amountCents);
-      const sub = await call<{ short_url: string }>('POST', '/subscriptions', {
+      const sub = await call<{ id: string }>('POST', '/subscriptions', {
         plan_id: plan.id, total_count: CYCLES[o.interval], customer_notify: 1,
         notes: { user_id: o.userId, plan_key: o.planKey, interval: o.interval, email: o.email ?? '' },
       });
-      return { url: sub.short_url };
+      const page = new URL('/billing/pay/razorpay', o.successUrl);
+      page.search = new URLSearchParams({ subscription: sub.id, key: cfg.keyId }).toString(); // the key id is public; the secret never leaves this service
+      return { url: page.toString(), ref: sub.id, currency: cfg.currency.toLowerCase() };
     },
 
-    async createPortalSession() {
-      throw new HttpError(501, 'not_supported', 'Updating the payment method is not available yet. Please contact support.');
+    // The customer id we store is the subscription id. Razorpay's own subscription page (its short_url) shows the plan and the
+    // card on file and has an "Update Payment Method" button, so that is the portal. It has no link back, so people return by hand.
+    async createPortalSession(o) {
+      const sub = await call<{ short_url?: string }>('GET', `/subscriptions/${encodeURIComponent(o.customerRef)}`);
+      if (!sub.short_url) throw new HttpError(502, 'gateway_error', 'The payment provider has no page for this subscription yet. Please contact support.');
+      return { url: sub.short_url };
     },
 
     async cancelSubscription(o) {
@@ -84,9 +91,20 @@ export function createRazorpayGateway(cfg: RazorpayConfig): PaymentGateway {
       await call('PATCH', `/subscriptions/${encodeURIComponent(o.subscriptionRef)}`, { plan_id: plan.id, schedule_change_at: 'cycle_end' });
     },
 
+    // A failed payment names only its invoice (null when it is not a subscription's), never the subscription.
+    async subscriptionOfInvoice(invoiceRef) {
+      const inv = await call<{ subscription_id?: string | null }>('GET', `/invoices/${encodeURIComponent(invoiceRef)}`);
+      return inv.subscription_id || undefined;
+    },
+
     parseWebhook({ rawBody, headers: h }) {
       if (!verified(rawBody, h['x-razorpay-signature'])) throw new HttpError(400, 'bad_signature', 'Webhook signature mismatch');
       const body = JSON.parse(rawBody) as Body;
+      if (body.event === 'payment.failed') {
+        const pay = body.payload?.payment?.entity;
+        if (!pay?.invoice_id) return null;
+        return { type: 'payment_attempt_failed', gateway: 'razorpay', eventId: h['x-razorpay-event-id'] ?? `payment.failed:${pay.id}`, invoiceRef: pay.invoice_id };
+      }
       const sub = body.payload?.subscription?.entity;
       if (!sub?.id) return null;
       const payId = body.payload?.payment?.entity?.id;
@@ -106,6 +124,10 @@ export function createRazorpayGateway(cfg: RazorpayConfig): PaymentGateway {
             amountCents: pay?.amount ?? 0, currency: (pay?.currency ?? cfg.currency).toLowerCase(),
           } satisfies NormalizedEvent;
         }
+        case 'subscription.authenticated': // the buyer's payment method was verified
+          return { type: 'payment_progress', gateway: 'razorpay', eventId, subscriptionRef: sub.id, step: 'authenticated' };
+        case 'subscription.activated': // the subscription is live; its first charge follows
+          return { type: 'payment_progress', gateway: 'razorpay', eventId, subscriptionRef: sub.id, step: 'activated' };
         case 'subscription.pending': // a renewal charge failed and Razorpay will retry
         case 'subscription.halted': // retries exhausted
           return { type: 'payment_failed', gateway: 'razorpay', eventId, subscriptionRef: sub.id };
@@ -124,6 +146,6 @@ interface Body {
   event?: string; created_at?: number;
   payload?: {
     subscription?: { entity?: { id?: string; current_start?: number | null; current_end?: number | null; notes?: Record<string, string> } };
-    payment?: { entity?: { id?: string; amount?: number; currency?: string } };
+    payment?: { entity?: { id?: string; amount?: number; currency?: string; invoice_id?: string | null } };
   };
 }

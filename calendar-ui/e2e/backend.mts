@@ -9,9 +9,13 @@ import { exportJWK, generateKeyPair, jwtVerify, SignJWT } from 'jose';
 import { createApp } from '../../users-service/src/app.ts';
 import { createVerifier } from '../../users-service/src/auth.ts';
 import { MemoryDirectory } from '../../users-service/tests/memory-directory.ts';
+import { createApp as createDashboardApp } from '../../dashboard-service/src/app.ts';
+import { createAuthenticator as createDashboardAuth } from '../../dashboard-service/src/auth.ts';
+import { createPgliteDb as createDashboardDb, migrate as migrateDashboard } from '../../dashboard-service/src/db.ts';
 
 const AUTH_PORT = 58741;
 const USERS_PORT = 58742;
+const DASHBOARD_PORT = 58747;
 const AUTH_URL = `http://localhost:${AUTH_PORT}`;
 const ISS = `${AUTH_URL}/auth/v1`;
 
@@ -114,6 +118,15 @@ http.createServer(async (req, res) => {
 
 const usersApp = createApp({ verifier: createVerifier(async () => publicKey, ISS), directory, inviteRedirectTo: 'http://localhost:58745/accept-invite' });
 serve({ fetch: usersApp.fetch, port: USERS_PORT }, (i) => console.log(`users-service (real code, in-memory directory) on :${i.port}`));
+
+// dashboard-service lists the mentors a student can ask for a class. Its other sources are not used here.
+const dashboardDb = createDashboardDb();
+await migrateDashboard(dashboardDb);
+const dashboardApp = createDashboardApp({
+  ctx: { db: dashboardDb, sources: { events: async () => [], contacts: async () => [], people: async (_auth: string, ids: string[]) => new Map(ids.flatMap((id) => { const p = directory.profiles.get(id); return p ? [[id, { id, name: p.full_name ?? p.email, email: p.email }] as const] : []; })), guardian: async () => null }, now: () => new Date(), dashboardUrl: 'http://localhost:58744' },
+  authenticator: createDashboardAuth({ getKey: async () => publicKey, issuer: ISS }),
+});
+serve({ fetch: dashboardApp.fetch, port: DASHBOARD_PORT }, (i) => console.log(`dashboard-service (real code, in-memory database) on :${i.port}`));
 
 // A stand-in for users-ui on :58745, just enough for the calendar's links: login, account, and a POST-only sign-out.
 const html = (body: string) => `<!doctype html><title>users-ui stand-in</title>${body}`;

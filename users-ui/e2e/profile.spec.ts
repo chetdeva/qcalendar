@@ -167,7 +167,7 @@ test.describe('the mentor profile card', () => {
     await expect(page.getByRole('heading', { name: 'My Mentor Profile' })).toHaveCount(0);
   });
 
-  test('a teacher edits it on the Account page: it needs a headline and quote to publish, and is remembered', async ({ page, request }) => {
+  test('a teacher edits it on the Account page: it needs a headline (the quote is optional) to publish, and is remembered', async ({ page, request }) => {
     await seedUser(request, { ...TUTOR, role: 'teacher', name: 'Tess Teacher' });
     await page.context().clearCookies();
     await logInAs(page, TUTOR);
@@ -178,7 +178,9 @@ test.describe('the mentor profile card', () => {
     await page.getByLabel('Headline').fill('Lead STEM Specialist');
     await page.getByLabel('Specialties (separated by commas)').fill('Geometry, Proofs & Logic');
     await page.getByRole('button', { name: 'Middle (6–8)' }).click();
-    await page.getByLabel('A line in your own words').fill('Every shape has a story.');
+    await page.getByRole('button', { name: 'Save profile' }).click(); // no quote: it is optional
+    await expect(page.getByRole('status').filter({ hasText: 'Students can now find you under Mentors.' })).toBeVisible();
+    await page.getByLabel('A line in your own words (optional)').fill('Every shape has a story.');
     await page.getByRole('button', { name: 'Save profile' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Students can now find you under Mentors.' })).toBeVisible();
 

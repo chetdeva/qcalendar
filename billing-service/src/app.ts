@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { isManager, type Actor, type Authenticator } from './auth.ts';
@@ -36,6 +37,7 @@ function parse<T extends z.ZodType>(schema: T, data: unknown): z.infer<T> {
 
 const uuid = z.uuid();
 const ReserveBody = z.object({ userId: uuid, ref: z.string().min(1).max(200), endsAt: z.string().datetime({ offset: true }).optional(), trial: z.boolean().optional() }).strict();
+const StatusBody = z.object({ userId: uuid }).strict();
 const GradeBody = z.object({ userId: uuid, grade: z.number().int().min(1).max(10) }).strict();
 const BalancesBody = z.object({ userIds: z.array(uuid).min(1).max(100) }).strict();
 const AdjustBody = z.object({
@@ -64,7 +66,11 @@ export function createApp(d: AppDeps): Hono<Env> {
   app.post('/v1/webhooks/:gateway', async (c) => {
     const g = d.gateways[c.req.param('gateway')];
     if (!g) throw new HttpError(404, 'not_found', 'Unknown gateway');
-    const event = g.parseWebhook({ rawBody: await c.req.text(), headers: Object.fromEntries(c.req.raw.headers) });
+    let event = g.parseWebhook({ rawBody: await c.req.text(), headers: Object.fromEntries(c.req.raw.headers) });
+    if (event?.type === 'payment_attempt_failed' && !event.subscriptionRef) {
+      const ref = event.invoiceRef ? await g.subscriptionOfInvoice?.(event.invoiceRef) : undefined;
+      event = ref ? { ...event, subscriptionRef: ref } : null; // not a subscription's payment
+    }
     return c.json({ result: event ? await applyEvent(d.db, event) : 'ignored' });
   });
 
@@ -129,6 +135,13 @@ export function createApp(d: AppDeps): Hono<Env> {
   });
 
   // --- called by calendar-service and users-service -------------------------------------------------------------
+  // Whether a student has a live plan, so a class can be requested (credits are checked again when the teacher approves).
+  app.post('/v1/service/students/status', async (c) => {
+    service(c);
+    const b = parse(StatusBody, await c.req.json().catch(() => null));
+    const [sub] = await d.db.query(`select 1 from billing.subscriptions where user_id = $1 and status = 'active'`, [b.userId]);
+    return c.json({ subscribed: Boolean(sub) });
+  });
   app.post('/v1/service/credits/reserve', async (c) => {
     service(c);
     const b = parse(ReserveBody, await c.req.json().catch(() => null));
@@ -173,6 +186,10 @@ export function createApp(d: AppDeps): Hono<Env> {
       monthlyCents: priceCents(p, 'month'), annualCents: priceCents(p, 'year'), yours: p.key === plan?.key,
     }));
     const next = sub?.next_plan_key ? await getPlan(d.db, sub.next_plan_key) : undefined;
+    const payments = (await d.db.query<{ status: string; amount_cents: number | null; currency: string | null; plan_key: string | null; interval: string | null; created_at: Date }>(
+      'select status, amount_cents, currency, plan_key, interval, created_at from billing.payments where user_id = $1 order by created_at desc, id desc limit 36',
+      [me.id],
+    )).map((p) => ({ status: p.status, amountCents: p.amount_cents, currency: p.currency, planKey: p.plan_key, interval: p.interval, at: p.created_at }));
     return c.json({
       grade,
       plan: plan && { key: plan.key, monthlyCents: priceCents(plan, 'month'), annualCents: priceCents(plan, 'year'), creditsPerMonth: plan.credits_per_month },
@@ -181,6 +198,7 @@ export function createApp(d: AppDeps): Hono<Env> {
         pendingPlan: next && { key: next.key, cents: priceCents(next, sub.interval), from: sub.current_period_end },
       },
       credits: await balance(d.db, me.id),
+      payments,
       trialAvailable: !sub && trial === 'available',
       trial,
       prompts,
@@ -196,7 +214,26 @@ export function createApp(d: AppDeps): Hono<Env> {
     if (!plan) throw new HttpError(409, 'grade_required', 'Ask an admin to set your grade before subscribing');
     const [live] = await d.db.query(`select 1 from billing.subscriptions where user_id = $1 and status in ('active', 'past_due')`, [me.id]);
     if (live) throw new HttpError(409, 'already_subscribed', 'You already have a subscription');
-    return c.json(await gw().createCheckout({ userId: me.id, email: me.email, planKey: plan.key, interval, amountCents: priceCents(plan, interval), successUrl: `${d.returnUrl}?checkout=success`, cancelUrl: `${d.returnUrl}?checkout=cancelled` }));
+    const gateway = gw();
+    const amountCents = priceCents(plan, interval);
+    const out = await gateway.createCheckout({ userId: me.id, email: me.email, planKey: plan.key, interval, amountCents, successUrl: `${d.returnUrl}?checkout=success`, cancelUrl: `${d.returnUrl}?checkout=cancelled` });
+    if (out.ref) {
+      // The payment starts here. Earlier checkouts that never finished are closed so the history shows one open attempt at most.
+      await d.db.query(`update billing.payments set status = 'cancelled', updated_at = now() where user_id = $1 and status in ('started', 'authenticated', 'activated')`, [me.id]);
+      await d.db.query(
+        `insert into billing.payments (user_id, gateway, gateway_ref, event_id, status, amount_cents, currency, plan_key, interval) values ($1, $2, $3, $4, 'started', $5, $6, $7, $8)`,
+        [me.id, gateway.name, out.ref, `checkout:${out.ref}:${randomUUID()}`, amountCents, out.currency ?? null, plan.key, interval],
+      );
+    }
+    return c.json({ url: out.url });
+  });
+
+  // The buyer closed the payment window before paying anything. Only a checkout that has not got past "started" is closed:
+  // a payment already verified may still be going through.
+  app.post('/v1/billing/checkout/abandon', async (c) => {
+    const me = person(c);
+    await d.db.query(`update billing.payments set status = 'cancelled', updated_at = now() where user_id = $1 and status = 'started'`, [me.id]);
+    return c.body(null, 204);
   });
 
   const ownSubscription = async (userId: string) => {

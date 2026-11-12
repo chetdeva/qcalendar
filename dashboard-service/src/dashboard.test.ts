@@ -92,11 +92,12 @@ test('a published profile whose person cannot be found is not shown as a nameles
   assert.deepEqual((await json(await s.call('GET', '/v1/mentors'))).mentors, []);
 });
 
-test('mentor profile: validated, needs a headline and quote to be published, and is private to its teacher until then', async () => {
+test('mentor profile: validated, needs a headline (the quote is optional) to be published, and is private to its teacher until then', async () => {
   const t = await h.person('teacher', 'Tess Teacher');
   assert.deepEqual(await json(await t.call('GET', '/v1/me/mentor-profile')), { headline: '', specialties: [], levels: [], quote: '', published: false });
   assert.equal((await publishProfile(t, { headline: '' })).status, 400);
   for (const bad of [{ levels: ['college'] }, { specialties: Array(9).fill('x') }, { quote: 'x'.repeat(401) }, { extra: 1 }]) assert.equal((await publishProfile(t, bad)).status, 400, JSON.stringify(bad));
+  assert.equal((await publishProfile(t, { quote: '' })).status, 200); // a line in their own words is optional
   assert.equal((await publishProfile(t)).status, 200);
   assert.equal((await json(await t.call('GET', '/v1/me/mentor-profile'))).headline, 'Lead STEM Specialist');
   assert.equal((await json(await t.call('GET', '/v1/dashboard'))).teacher.mentorProfile.published, true);

@@ -9,6 +9,7 @@ import { safeEqual } from './auth.ts';
 import { createLead, listLeads } from './leads.ts';
 import * as svc from './events.ts';
 import * as trials from './trial-requests.ts';
+import * as classes from './class-requests.ts';
 
 type Env = { Variables: { actor: Actor } };
 
@@ -152,6 +153,20 @@ export function createApp(deps: { ctx: svc.Ctx; authenticator: Authenticator }) 
   app.get('/v1/trial-requests/mine', async (c) => c.json({ request: await trials.myRequest(ctx, c.get('actor')) }));
   app.delete('/v1/trial-requests/mine', async (c) => { await trials.cancelMyRequest(ctx, c.get('actor')); return c.body(null, 204); });
   app.get('/v1/trial-requests', async (c) => c.json({ requests: await trials.openRequests(ctx, c.get('actor')) }));
+
+  // A student with a plan asks one mentor for a class; the mentor approves (class + meeting link) or declines.
+  app.post('/v1/class-requests', async (c) => {
+    const b = parse(z.object({ teacher: z.object({ id: z.uuid(), email: z.string().trim().toLowerCase().pipe(z.email()), name: z.string().trim().max(200).nullish() }).strict(), start: iso, note: z.string().trim().max(500).optional() }).strict(), await body(c));
+    return c.json(await classes.requestClass(ctx, c.get('actor'), b), 201);
+  });
+  app.get('/v1/class-requests/mine', async (c) => c.json({ requests: await classes.myClassRequests(ctx, c.get('actor')) }));
+  app.delete('/v1/class-requests/:id', async (c) => { await classes.cancelClassRequest(ctx, c.get('actor'), id(c.req.param('id'))); return c.body(null, 204); });
+  app.get('/v1/class-requests', async (c) => c.json({ requests: await classes.classRequestsForMe(ctx, c.get('actor')) }));
+  app.post('/v1/class-requests/:id/approve', async (c) => c.json(await classes.approveClassRequest(ctx, c.get('actor'), id(c.req.param('id'))), 201));
+  app.post('/v1/class-requests/:id/decline', async (c) => {
+    const b = parse(z.object({ note: z.string().trim().max(500).optional() }).strict(), (await body(c)) ?? {});
+    return c.json(await classes.declineClassRequest(ctx, c.get('actor'), id(c.req.param('id')), b.note));
+  });
 
   // The admin portal's tables: classes and students per person, for a page of people at once.
   app.post('/v1/admin/summary', async (c) => {

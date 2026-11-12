@@ -1,7 +1,7 @@
 import os from 'node:os';
 import { defineConfig } from '@playwright/test';
 import path from 'node:path';
-import { AUTH_URL, CAL_URL, DASH_URL, SERVICE_KEY, USERS_UI, USERS_URL, WEB_URL } from './e2e/helpers';
+import { AUTH_URL, BILLING_URL, CAL_URL, DASH_URL, SERVICE_KEY, USERS_UI, USERS_URL, WEB_URL } from './e2e/helpers';
 
 // The suite runs the UI against the REAL dashboard-service, calendar-service and users-service code. Override to test another checkout.
 const CAL_DIR = process.env.CALENDAR_SERVICE_DIR ?? '../calendar-service';
@@ -63,6 +63,8 @@ export default defineConfig({
         NEXT_PUBLIC_COOKIE_DOMAIN: '',
         DASHBOARD_API_URL: DASH_URL,
         USERS_SERVICE_URL: USERS_URL,
+        BILLING_API_URL: BILLING_URL,
+        CALENDAR_API_URL: CAL_URL,
       },
     },
   ],

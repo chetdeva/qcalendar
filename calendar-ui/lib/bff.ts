@@ -4,6 +4,7 @@ import { currentSession } from './supabase/server.ts';
 const chatBase = () => (process.env.CHAT_API_URL ?? 'http://localhost:3001').replace(/\/$/, '');
 const calendarBase = () => (process.env.CALENDAR_API_URL ?? 'http://localhost:3000').replace(/\/$/, '');
 const billingBase = () => (process.env.BILLING_API_URL ?? 'http://localhost:3012').replace(/\/$/, '');
+const dashboardBase = () => (process.env.DASHBOARD_API_URL ?? 'http://localhost:3007').replace(/\/$/, '');
 const usersBase = () => (process.env.USERS_SERVICE_URL ?? 'http://localhost:3010').replace(/\/$/, '');
 
 export type Reply<T = any> = { status: number; json: T };
@@ -30,6 +31,7 @@ export const callCalendar = <T = any>(method: string, path: string, body?: unkno
 export const callChat = <T = any>(method: string, path: string, body?: unknown) => call<T>(chatBase(), method, path, body);
 /** billing-service: only read, to nudge a student toward the free class or a plan. */
 export const callBilling = <T = any>(method: string, path: string, body?: unknown) => call<T>(billingBase(), method, path, body);
+export const callDashboard = <T = any>(method: string, path: string, body?: unknown) => call<T>(dashboardBase(), method, path, body);
 export const callUsers = <T = any>(method: string, path: string, body?: unknown) => call<T>(usersBase(), method, path, body);
 
 export async function forwardCalendar(method: string, path: string, body?: unknown) {

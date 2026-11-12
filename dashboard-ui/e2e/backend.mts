@@ -120,6 +120,22 @@ serve({ fetch: usersApp.fetch, port: USERS_PORT }, (i) => console.log(`users-ser
 
 // A stand-in for users-ui on :58765, just enough for the dashboard's links: login, account, and a POST-only sign-out.
 const html = (body: string) => `<!doctype html><title>users-ui stand-in</title>${body}`;
+// A stand-in for billing-service on :58767: the dashboard only asks it "where is this student with the free class, and do they have a plan".
+// Tests set the answer with POST /__billing {trial, subscribed}.
+const fresh = () => ({ trial: 'available' as 'available' | 'booked' | 'done', subscribed: true });
+let billing = fresh();
+http.createServer((req, res) => {
+  const url = new URL(req.url ?? '/', 'http://localhost:58767');
+  const json = (status: number, body: unknown) => { res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify(body)); };
+  if (url.pathname === '/__billing' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', (c) => { raw += c; });
+    return void req.on('end', () => { const body = JSON.parse(raw || '{}'); billing = body.reset ? fresh() : { ...billing, ...body }; json(200, billing); });
+  }
+  if (url.pathname === '/v1/billing/me') return json(200, { trial: billing.trial, subscription: billing.subscribed ? { status: 'active' } : null, prompts: [] });
+  json(404, {});
+}).listen(58767, () => console.log('billing stand-in on :58767'));
+
 http.createServer((req, res) => {
   const url = new URL(req.url ?? '/', 'http://localhost:58765');
   if (url.pathname === '/auth/signout' && req.method === 'POST') { res.writeHead(303, { location: '/login?signed-out=1' }); return res.end(); }

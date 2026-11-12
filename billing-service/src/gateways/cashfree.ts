@@ -88,7 +88,7 @@ export function createCashfreeGateway(cfg: CashfreeConfig): PaymentGateway {
       }, { 'x-idempotency-key': randomUUID() });
       const page = new URL('/billing/pay/cashfree', o.successUrl);
       page.search = new URLSearchParams({ session: sub.subscription_session_id, mode: cfg.env }).toString();
-      return { url: page.toString() };
+      return { url: page.toString(), ref: id, currency: cfg.currency.toLowerCase() };
     },
 
     async createPortalSession() {

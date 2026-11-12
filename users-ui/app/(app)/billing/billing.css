@@ -38,3 +38,32 @@
 .bl-link { border: 0; background: none; padding: 8px; font: inherit; font-weight: 700; color: var(--bl-muted); text-decoration: underline; cursor: pointer; }
 .bl select { padding: 12px 16px; border: 1px solid var(--bl-line); border-radius: 12px; background: #fff; font: inherit; color: var(--bl-ink); }
 @media (max-width: 640px) { .bl-plans { grid-template-columns: 1fr; } .bl h1 { font-size: 32px; line-height: 40px; } .bl-in { padding: 16px 16px 40px; } }
+
+.bl-facts { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; padding: 16px 18px; border-radius: 20px; background: var(--bl-tint); }
+.bl-facts div { display: flex; flex-direction: column; gap: 2px; }
+.bl-facts dt { font-size: 13px; color: var(--bl-muted); }
+.bl-facts dd { margin: 0; font-size: 16px; font-weight: 700; color: var(--bl-ink); }
+
+.bl-history { overflow-x: auto; }
+.bl-history td { font-variant-numeric: tabular-nums; }
+.bl-ok { color: #1a7f37; }
+.bl-bad { color: #b42318; }
+.bl-wait { color: #9a6700; }
+.bl-off { color: var(--bl-muted); }
+
+.bl-result { align-items: center; text-align: center; padding: 36px 28px; }
+.bl-result h2 { font-size: 24px; line-height: 32px; }
+.bl-result p { max-width: 480px; }
+.bl-result-ok { background: #f0faf3; }
+.bl-result-bad { background: #fff5f4; }
+.bl-center { justify-content: center; }
+.bl-icon { display: grid; place-items: center; width: 72px; height: 72px; border-radius: 50%; background: var(--bl-tint); color: var(--bl-primary); }
+.bl-icon-ok { background: #1a7f37; color: #fff; }
+.bl-icon-bad { background: #b42318; color: #fff; }
+.bl-spin { width: 32px; height: 32px; border-radius: 50%; border: 4px solid rgba(0, 0, 0, .12); border-top-color: var(--bl-primary); animation: bl-rot 0.9s linear infinite; }
+@keyframes bl-rot { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .bl-spin { animation-duration: 3s; } }
+
+a.bl-btn { display: inline-block; text-decoration: none; }
+.bl-btn-ghost { background: #fff; color: var(--bl-primary); box-shadow: inset 0 0 0 2px var(--bl-primary); }
+.bl-btn-ghost:hover:not(:disabled) { background: var(--bl-tint); }

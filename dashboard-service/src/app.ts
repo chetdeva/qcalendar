@@ -157,7 +157,7 @@ export function createApp({ ctx, authenticator }: AppDeps) {
   app.put('/v1/me/mentor-profile', async (c) => {
     must(c.get('actor'), 'teacher');
     const p = parse(ProfileBody, await body(c));
-    if (p.published && (!p.headline || !p.quote)) throw new HttpError(400, 'invalid_request', 'Add a headline and a quote before publishing your profile');
+    if (p.published && !p.headline) throw new HttpError(400, 'invalid_request', 'Add a headline before publishing your profile');
     await st.saveProfile(db, c.get('actor').id, p);
     return c.json(p);
   });

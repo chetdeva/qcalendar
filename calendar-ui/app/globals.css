@@ -328,3 +328,8 @@ body:has(.fc-event-dragging) .dlg { pointer-events: none; } /* while the slot is
 .df-btn:hover:not(:disabled) { background: rgba(0, 0, 0, .06); }
 .datefield input:not(.df-native) { font-size: 13px; font-weight: 500; letter-spacing: -0.13px; padding: 6px 36px 6px 8px; }
 .field .df-native { position: absolute; right: 0; bottom: 0; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; pointer-events: none; }
+.creq input { margin-top: 6px; padding: 6px 10px; border-radius: 10px; border: 1px solid #c4cfe0; font: inherit; width: 100%; }
+
+.req-class { margin-left: auto; border: 0; border-radius: 999px; padding: 8px 18px; background: #006194; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.mentor-pick { display: flex; flex-direction: column; gap: 4px; margin: 0 0 10px; font-weight: 700; font-size: 13px; color: #0d1c2f; }
+.mentor-pick select { padding: 8px 10px; border-radius: 10px; border: 1px solid #c4cfe0; font: inherit; font-weight: 400; background: #fff; }

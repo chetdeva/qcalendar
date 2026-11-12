@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { calendarAs, chatTexts, inDays, openPage, resetBackend, seed, tokenFor, todayUtc, type User } from './helpers';
+import { calendarAs, chatTexts, inDays, openPage, publishMentor, resetBackend, seed, tokenFor, todayUtc, type User } from './helpers';
 
 test.beforeEach(async ({ request }) => resetBackend(request));
 
@@ -288,5 +288,67 @@ test.describe('declining with a note and asking for another time', () => {
     const page = await openPage(context, request, me);
     await expect(card(page, 'Group maths').getByRole('button', { name: 'Decline', exact: true })).toBeVisible();
     await expect(card(page, 'Group maths').getByRole('button', { name: 'Request new time' })).toHaveCount(0);
+  });
+});
+
+test.describe('Asking a mentor for a class', () => {
+  const post = (page: Page, body: unknown) => page.evaluate(async (b) => {
+    const r = await fetch('/api/class-requests', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) });
+    return { status: r.status, body: await r.json().catch(() => null) };
+  }, body);
+
+  test('a student asks a mentor, sees the request waiting, and can withdraw it', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    const me = await seed(request, 'student', 'Mia Student');
+    const page = await openPage(context, request, me);
+    const sent = await post(page, { teacherId: teacher.id, start: inDays(1, 18) });
+    expect(sent.status, JSON.stringify(sent.body)).toBe(201);
+
+    await page.reload();
+    const mine = page.getByRole('region', { name: 'Your class requests' });
+    await expect(mine).toContainText('Tess Teacher');
+    await expect(mine).toContainText('Waiting for approval');
+    await mine.getByRole('button', { name: 'Withdraw' }).click();
+    await expect(mine).toHaveCount(0);
+  });
+
+  test('Request a class on the calendar: choose a mentor from the published ones, then pick a time', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    const unlisted = await seed(request, 'teacher', 'Hana Hidden'); // never published a card: not offered
+    void unlisted;
+    await publishMentor(request, teacher, 'Lead STEM Specialist');
+    const me = await seed(request, 'student', 'Mia Student');
+    const page = await openPage(context, request, me);
+
+    await page.getByRole('button', { name: 'Request a class' }).click();
+    const panel = page.getByRole('region', { name: 'Request a class', exact: true });
+    await expect(panel).toBeVisible();
+    const choose = panel.getByLabel('Mentor');
+    await expect(choose.locator('option', { hasText: 'Tess Teacher' })).toHaveCount(1);
+    await expect(choose.locator('option', { hasText: 'Hana Hidden' })).toHaveCount(0);
+
+    await choose.selectOption({ label: 'Coach Tess Teacher' });
+    await expect(page.getByRole('region', { name: 'Request a class with Coach Tess Teacher' })).toContainText('click or drag on the calendar');
+  });
+
+  test('only a mentor can be asked: another student, or an unknown person, is refused', async ({ context, request }) => {
+    const other = await seed(request, 'student', 'Olly Other');
+    const me = await seed(request, 'student', 'Mia Student');
+    const page = await openPage(context, request, me);
+    expect((await post(page, { teacherId: other.id, start: inDays(1, 18) })).status).toBe(404);
+    expect((await post(page, { teacherId: crypto.randomUUID(), start: inDays(1, 18) })).status).toBe(404);
+    expect((await post(page, { start: inDays(1, 18) })).status).toBe(400);
+  });
+
+  test('a mentor who declined shows the answer, with their note', async ({ context, request }) => {
+    const teacher = await seed(request, 'teacher', 'Tess Teacher');
+    const me = await seed(request, 'student', 'Mia Student');
+    const asked = await (await as(request, me)).call('POST', '/v1/class-requests', { teacher: { id: teacher.id, email: teacher.email, name: 'Tess Teacher' }, start: inDays(1, 18) });
+    expect(asked.status, JSON.stringify(asked.body)).toBe(201);
+    expect((await (await as(request, teacher)).call('POST', `/v1/class-requests/${asked.body.id}/decline`, { note: 'Away that day' })).status).toBe(200);
+    const page = await openPage(context, request, me);
+    const mine = page.getByRole('region', { name: 'Your class requests' });
+    await expect(mine).toContainText('Declined');
+    await expect(mine).toContainText('Away that day');
   });
 });

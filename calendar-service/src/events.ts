@@ -6,6 +6,7 @@ import type { BillingClient } from './billing.ts';
 import { jitsiUrl, type NewMeeting } from './meeting.ts';
 import { enqueueMail, type MailKind, type OutboxPayload } from './outbox.ts';
 import { markScheduled } from './trial-requests.ts';
+import { markClassScheduled } from './class-requests.ts';
 import { enqueueWebhook } from './webhooks.ts';
 
 export interface Ctx {
@@ -294,6 +295,7 @@ export async function createEvent(ctx: Ctx, actor: Actor, input: CreateInput) {
     created = e;
     await charge(ctx, e, parts, paid);
     if (paidCategory(e.category)) await markScheduled(q, e.id, parts.map((p) => p.user_id));
+    if (e.category === 'tutoring') await markClassScheduled(q, e.id, e.owner_id, parts.map((p) => p.user_id));
     await notify(q, 'invite', e, parts.map((p) => ({ email: p.email, name: p.name })));
     await emit(ctx, q, 'event.created', e, parts);
     return viewOf(e, parts, 'manager');
@@ -461,6 +463,7 @@ export async function addParticipants(ctx: Ctx, actor: Actor, id: string, input:
     if (added.length) {
       await charge(ctx, e, added, paid);
       if (paidCategory(e.category)) await markScheduled(q, e.id, added.map((p) => p.user_id));
+      if (e.category === 'tutoring') await markClassScheduled(q, e.id, e.owner_id, added.map((p) => p.user_id));
       await notify(q, 'invite', e, added.map((p) => ({ email: p.email, name: p.name })));
       await emit(ctx, q, 'event.updated', e, [...existing, ...added]);
     }

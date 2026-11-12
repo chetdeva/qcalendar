@@ -12,12 +12,13 @@ export function createFakeGateway() {
     name: 'fake',
     async createCheckout(o) {
       record('createCheckout', o);
-      return { url: `https://pay.example.test/checkout?user=${o.userId}&plan=${o.planKey}&interval=${o.interval}` };
+      return { url: `https://pay.example.test/checkout?user=${o.userId}&plan=${o.planKey}&interval=${o.interval}`, ref: `sub_${o.userId}`, currency: 'usd' };
     },
     async createPortalSession(o) {
       record('createPortalSession', o);
       return { url: `https://pay.example.test/portal?customer=${o.customerRef}` };
     },
+    async subscriptionOfInvoice(ref) { return ref.replace(/^inv_/, 'sub_'); },
     async cancelSubscription(o) { record('cancelSubscription', o); },
     async changePlan(o) { record('changePlan', o); },
     parseWebhook({ rawBody, headers }) {

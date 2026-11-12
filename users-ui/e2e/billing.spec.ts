@@ -61,9 +61,15 @@ test('after paying, the student sees 15 classes, their renewal date, and can can
   await expect(page.getByText('Your payment is being confirmed.')).toBeVisible();
   await expect(page.locator('.bl-meter b')).toHaveText('15');
   await expect(page.getByText('Monthly plan, 15 classes every month. Renews on')).toBeVisible();
+  const details = page.getByLabel('Subscription');
+  await expect(details).toContainText('Grades');
+  await expect(details).toContainText('a month');
+  await expect(details).toContainText('Active');
+  await expect(details).toContainText('Next payment');
   page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Cancel plan' }).click();
-  await expect(page.getByText(/Ends on/)).toBeVisible();
+  await expect(page.getByText(/Ends on \w+ \d/)).toBeVisible();
+  await expect(details).toContainText('Cancelling');
   await expect(page.getByRole('button', { name: 'Cancel plan' })).toHaveCount(0);
 });
 

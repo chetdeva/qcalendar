@@ -37,6 +37,8 @@ export function BillingPanel({ data, checkout }: { data: BillingMe; checkout?: s
 
   const { plan, subscription: sub, credits } = data;
   const live = sub && sub.status !== 'canceled';
+  const band = sub ? data.bands.find((b) => b.key === sub.planKey) : undefined;
+  const price = band ? (sub?.interval === 'year' ? band.annualCents : band.monthlyCents) : undefined;
 
   return (
     <>
@@ -57,6 +59,12 @@ export function BillingPanel({ data, checkout }: { data: BillingMe; checkout?: s
         <section className="bl-card" aria-label="Your plan">
           <h2>Your plan</h2>
           <p>{sub.interval === 'year' ? 'Annual' : 'Monthly'} plan, 15 classes every month. {sub.cancelAtPeriodEnd ? `Ends on ${fullDate(sub.periodEnd)}.` : `Renews on ${fullDate(sub.periodEnd)}.`}</p>
+          <dl className="bl-sub" aria-label="Subscription">
+            <div><dt>Plan</dt><dd>{band ? `${band.label}, ` : ''}{sub.interval === 'year' ? 'annual' : 'monthly'}</dd></div>
+            {price !== undefined && <div><dt>Price</dt><dd>{dollars(price)} {sub.interval === 'year' ? 'a year' : 'a month'}</dd></div>}
+            <div><dt>Status</dt><dd>{sub.status === 'past_due' ? 'Payment failed' : sub.cancelAtPeriodEnd ? 'Cancelling' : 'Active'}</dd></div>
+            <div><dt>{sub.cancelAtPeriodEnd ? 'Ends on' : 'Next payment'}</dt><dd>{fullDate(sub.periodEnd)}</dd></div>
+          </dl>
           {sub.pendingPlan && <p className="bl-note">Your grade moved up a level, so your price changes to {dollars(sub.pendingPlan.cents)} {sub.interval === 'year' ? 'a year' : 'a month'} from {fullDate(sub.pendingPlan.from)}.</p>}
           <div className="bl-actions">
             <button type="button" className="bl-btn" disabled={busy} onClick={() => go('/api/billing/portal')}>Manage payment method</button>

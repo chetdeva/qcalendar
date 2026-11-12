@@ -38,3 +38,8 @@
 .bl-link { border: 0; background: none; padding: 8px; font: inherit; font-weight: 700; color: var(--bl-muted); text-decoration: underline; cursor: pointer; }
 .bl select { padding: 12px 16px; border: 1px solid var(--bl-line); border-radius: 12px; background: #fff; font: inherit; color: var(--bl-ink); }
 @media (max-width: 640px) { .bl-plans { grid-template-columns: 1fr; } .bl h1 { font-size: 32px; line-height: 40px; } .bl-in { padding: 16px 16px 40px; } }
+
+.bl-sub { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; padding: 16px 18px; border-radius: 20px; background: var(--bl-tint); }
+.bl-sub div { display: flex; flex-direction: column; gap: 2px; }
+.bl-sub dt { font-size: 13px; color: var(--bl-muted); }
+.bl-sub dd { margin: 0; font-size: 16px; font-weight: 700; color: var(--bl-ink); }

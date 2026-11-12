@@ -10,7 +10,7 @@ const SECRET = 'whsec_test';
 const calls: { method: string; url: string; body: any; auth: string }[] = [];
 const fakeFetch = (async (url: string, init: RequestInit) => {
   calls.push({ method: init.method!, url: url.replace('https://api.razorpay.com/v1', ''), body: init.body ? JSON.parse(init.body as string) : undefined, auth: (init.headers as Record<string, string>).authorization! });
-  return new Response(JSON.stringify(url.endsWith('/plans') ? { id: 'plan_abc' } : url.endsWith('/subscriptions') ? { id: 'sub_abc', short_url: 'https://rzp.io/i/xyz' } : {}), { status: 200 });
+  return new Response(JSON.stringify(url.endsWith('/plans') ? { id: 'plan_abc' } : url.endsWith('/subscriptions') ? { id: 'sub_abc' } : url.endsWith('/subscriptions/sub_abc') ? { id: 'sub_abc', short_url: 'https://rzp.io/i/xyz' } : {}), { status: 200 });
 }) as unknown as typeof fetch;
 const gw = createRazorpayGateway({ keyId: 'rzp_test_id', keySecret: 'sec', webhookSecret: SECRET, currency: 'INR', fetch: fakeFetch });
 const USER = randomUUID();
@@ -26,17 +26,17 @@ const paid = { id: 'pay_1', amount: 35000, currency: 'INR' };
 beforeEach(() => { calls.length = 0; });
 
 describe('razorpay: requests', () => {
-  it('checkout creates a plan and a subscription carrying the buyer in its notes, and returns the hosted page', async () => {
-    const r = await gw.createCheckout({ userId: USER, email: 'kid@example.test', planKey: 'middle', interval: 'month', amountCents: 35000, successUrl: 'x', cancelUrl: 'x' });
+  it('checkout creates a plan and a subscription carrying the buyer in its notes, and returns our checkout page', async () => {
+    const r = await gw.createCheckout({ userId: USER, email: 'kid@example.test', planKey: 'middle', interval: 'month', amountCents: 35000, successUrl: 'https://accounts.test/billing?checkout=success', cancelUrl: 'https://accounts.test/billing?checkout=cancelled' });
     assert.deepEqual(calls.map((c) => [c.method, c.url]), [['POST', '/plans'], ['POST', '/subscriptions']]);
     assert.equal(calls[0]!.auth, `Basic ${Buffer.from('rzp_test_id:sec').toString('base64')}`);
     assert.deepEqual(calls[0]!.body, { period: 'monthly', interval: 1, item: { name: 'Quanttoria middle monthly', amount: 35000, currency: 'INR' } });
     assert.equal(calls[1]!.body.plan_id, 'plan_abc');
     assert.deepEqual(calls[1]!.body.notes, { user_id: USER, plan_key: 'middle', interval: 'month', email: 'kid@example.test' });
-    assert.equal(r.url, 'https://rzp.io/i/xyz');
+    assert.equal(r.url, 'https://accounts.test/billing/pay/razorpay?subscription=sub_abc&key=rzp_test_id');
   });
   it('annual is a yearly plan; cancel can wait for the cycle end; a plan change takes effect at the cycle end', async () => {
-    await gw.createCheckout({ userId: USER, email: undefined, planKey: 'high', interval: 'year', amountCents: 384000, successUrl: 'x', cancelUrl: 'x' });
+    await gw.createCheckout({ userId: USER, email: undefined, planKey: 'high', interval: 'year', amountCents: 384000, successUrl: 'https://accounts.test/billing?checkout=success', cancelUrl: 'https://accounts.test/billing?checkout=cancelled' });
     assert.equal(calls[0]!.body.period, 'yearly');
     calls.length = 0;
     await gw.cancelSubscription({ subscriptionRef: 'sub_abc', atPeriodEnd: true });
@@ -46,8 +46,11 @@ describe('razorpay: requests', () => {
     assert.deepEqual([calls[0]!.body, calls[1]!.body], [{ cancel_at_cycle_end: 1 }, { cancel_at_cycle_end: 0 }]);
     assert.deepEqual(calls[3]!.body, { plan_id: 'plan_abc', schedule_change_at: 'cycle_end' });
   });
-  it('has no billing portal, and says so', async () => {
-    await assert.rejects(gw.createPortalSession({ customerRef: 'c', returnUrl: 'r' }), /not available/);
+  it("the portal is the subscription's own Razorpay page, where the card can be changed", async () => {
+    calls.length = 0;
+    const r = await gw.createPortalSession({ customerRef: 'sub_abc', returnUrl: 'r' });
+    assert.deepEqual(calls.map((c) => [c.method, c.url]), [['GET', '/subscriptions/sub_abc']]);
+    assert.equal(r.url, 'https://rzp.io/i/xyz');
   });
 });
 

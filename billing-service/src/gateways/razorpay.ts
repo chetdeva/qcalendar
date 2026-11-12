@@ -22,8 +22,9 @@ const CYCLES = { month: 120, year: 10 } as const; // ten years of billing cycles
  * subscription.cancelled, subscription.completed.
  *
  * The buyer travels in the subscription's notes (user_id, plan_key, interval), so no id encoding is needed. Checkout is
- * Razorpay's hosted page (the subscription's short_url). The first payment on that page is the first month's charge, so
- * classes arrive as soon as the student pays.
+ * Razorpay's pop-up opened by our own page (users-ui /billing/pay/razorpay) with the subscription id, because the hosted
+ * short_url page never sends the student back to us. The first payment is the first month's charge, so classes arrive as
+ * soon as the webhook does.
  */
 export function createRazorpayGateway(cfg: RazorpayConfig): PaymentGateway {
   const doFetch = cfg.fetch ?? fetch;
@@ -62,15 +63,21 @@ export function createRazorpayGateway(cfg: RazorpayConfig): PaymentGateway {
 
     async createCheckout(o) {
       const plan = await createPlan(o.planKey, o.interval, o.amountCents);
-      const sub = await call<{ short_url: string }>('POST', '/subscriptions', {
+      const sub = await call<{ id: string }>('POST', '/subscriptions', {
         plan_id: plan.id, total_count: CYCLES[o.interval], customer_notify: 1,
         notes: { user_id: o.userId, plan_key: o.planKey, interval: o.interval, email: o.email ?? '' },
       });
-      return { url: sub.short_url };
+      const page = new URL('/billing/pay/razorpay', o.successUrl);
+      page.search = new URLSearchParams({ subscription: sub.id, key: cfg.keyId }).toString(); // the key id is public; the secret never leaves this service
+      return { url: page.toString() };
     },
 
-    async createPortalSession() {
-      throw new HttpError(501, 'not_supported', 'Updating the payment method is not available yet. Please contact support.');
+    // The customer id we store is the subscription id. Razorpay's own subscription page (its short_url) shows the plan and the
+    // card on file and has an "Update Payment Method" button, so that is the portal. It has no link back, so people return by hand.
+    async createPortalSession(o) {
+      const sub = await call<{ short_url?: string }>('GET', `/subscriptions/${encodeURIComponent(o.customerRef)}`);
+      if (!sub.short_url) throw new HttpError(502, 'gateway_error', 'The payment provider has no page for this subscription yet. Please contact support.');
+      return { url: sub.short_url };
     },
 
     async cancelSubscription(o) {

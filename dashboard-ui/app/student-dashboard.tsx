@@ -22,7 +22,7 @@ export default function StudentDashboard({ initial, subscribed, trial }: { initi
       )}
       <Progress d={d} />
       <Sessions sessions={d.sessions} />
-      <MentorFinder d={d} subscribed={subscribed} />
+      {subscribed !== false && <MentorFinder d={d} />} {/* mentors are for students with a plan; unknown (billing unreachable) still shows them */}
     </div>
   );
 }
@@ -164,7 +164,7 @@ function Sessions({ sessions }: { sessions: Session[] }) {
   );
 }
 
-function MentorFinder({ d, subscribed }: { d: Data; subscribed?: boolean }) {
+function MentorFinder({ d }: { d: Data }) {
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('all');
   const [mentors, setMentors] = useState<Mentor[]>(d.mentors);
@@ -206,12 +206,10 @@ function MentorFinder({ d, subscribed }: { d: Data; subscribed?: boolean }) {
               </div>
               <ul className="tags">{m.specialties.map((t) => <li key={t}>{t}</li>)}</ul>
               {m.quote && <blockquote>“{m.quote}”</blockquote>}
-              {subscribed === false
-                ? <a className="btn-soft btn-block" href={`${usersUiUrl}/billing`}><CalendarPlus size={15} aria-hidden /> Choose a plan to request a class</a>
-                : <a className={m.primary ? 'btn-primary btn-block' : 'btn-soft btn-block'} href={`${calendarUrl}/?mentor=${m.id}&name=${encodeURIComponent(m.name)}`}><CalendarPlus size={15} aria-hidden /> {m.primary ? 'Request an extra class' : 'Request a class'}</a>}
+              <a className={m.primary ? 'btn-primary btn-block' : 'btn-soft btn-block'} href={`${calendarUrl}/?mentor=${m.id}&name=${encodeURIComponent(m.name)}`}><CalendarPlus size={15} aria-hidden /> {m.primary ? 'Request an extra class' : 'Request a class'}</a>
               <div className="duo">
                 <Soon className="btn-soft"><Eye size={14} aria-hidden /> View Profile</Soon>
-                <a className="btn-soft" href={chatUrl}><MessageSquare size={14} aria-hidden /> Send Message</a>
+                <a className="btn-soft" href={`${chatUrl}/?mentor=${m.id}`}><MessageSquare size={14} aria-hidden /> Send Message</a>
               </div>
             </article>
           ))}

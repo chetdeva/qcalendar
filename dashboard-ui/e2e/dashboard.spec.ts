@@ -46,14 +46,21 @@ test.describe('free trial class on the dashboard', () => {
     await expect(card(page)).toContainText('Not taken yet');
   });
 
-  test('a student without a plan is pointed to plans, not to requesting a class', async ({ context, request }) => {
+  test('mentors are only for students with a plan: without one the section is not on the dashboard', async ({ context, request }) => {
     const t = await seed(request, 'teacher', 'Tess Teacher');
     await dashboardAs(request, t, 'PUT', '/v1/me/mentor-profile', { headline: 'Lead STEM Specialist', specialties: ['Geometry'], levels: ['middle'], quote: '', published: true });
     await setBilling(request, { subscribed: false });
     const page = await openPage(context, await seed(request, 'student', 'Mia Student'));
+    await expect(page.getByRole('region', { name: 'Free trial class' })).toBeVisible(); // the page is loaded
+    await expect(page.getByRole('heading', { name: 'Find & Connect with Expert Mentors' })).toHaveCount(0);
+    await expect(page.locator('.mentor')).toHaveCount(0);
+
+    await setBilling(request, { subscribed: true });
+    await page.reload();
     const mentor = page.locator('.mentor', { hasText: 'Tess Teacher' });
-    await expect(mentor.getByRole('link', { name: 'Choose a plan to request a class' })).toBeVisible();
+    await expect(mentor).toBeVisible();
     await expect(mentor.locator('blockquote')).toHaveCount(0); // the line in their own words is optional
+    await expect(mentor.getByRole('link', { name: 'Send Message' })).toHaveAttribute('href', new RegExp(`/\\?mentor=${t.id}$`));
   });
 });
 

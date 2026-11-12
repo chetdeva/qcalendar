@@ -339,7 +339,8 @@ export async function listEvents(ctx: Ctx, actor: Actor, f: ListFilters) {
 
 /**
  * The people this user has (or had) a confirmed class with, teacher to student or student to teacher; students are not
- * contacts of each other. Chat asks this to decide who may talk. Participants who have not signed in yet have no user_id
+ * contacts of each other. A student who reached out to a mentor (from the mentor's card, or by requesting a class) and that mentor
+ * can talk too. Chat asks this to decide who may talk. Participants who have not signed in yet have no user_id
  * and are skipped; the row is linked the first time they use the calendar.
  */
 export async function contactIds(ctx: Ctx, actor: Actor): Promise<string[]> {
@@ -354,7 +355,15 @@ export async function contactIds(ctx: Ctx, actor: Actor): Promise<string[]> {
      union
      select teacher_id from calendar.student_teacher where ended_at is null and student_id = $1
      union
-     select student_id from calendar.student_teacher where ended_at is null and teacher_id = $1`,
+     select student_id from calendar.student_teacher where ended_at is null and teacher_id = $1
+     union
+     select teacher_id from calendar.chat_links where student_id = $1
+     union
+     select student_id from calendar.chat_links where teacher_id = $1
+     union
+     select teacher_id from calendar.class_requests where student_id = $1 and status <> 'cancelled'
+     union
+     select student_id from calendar.class_requests where teacher_id = $1 and status <> 'cancelled'`,
     [actor.id],
   );
   return rows.map((r) => r.id);

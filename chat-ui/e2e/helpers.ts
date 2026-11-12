@@ -36,10 +36,11 @@ export async function tokenFor(request: APIRequestContext, u: User): Promise<str
 }
 
 /** A class today for the teacher and these students: it is what makes them contacts of each other. */
-export async function shareAClass(request: APIRequestContext, teacher: User, students: User[]) {
+/** A class tomorrow (or `days` from now) that puts these students and the teacher in each other's chat contacts. */
+export async function shareAClass(request: APIRequestContext, teacher: User, students: User[], days = 1) {
   const res = await request.post(`${CAL_URL}/v1/events`, {
     headers: { authorization: `Bearer ${await tokenFor(request, teacher)}` },
-    data: { title: 'Algebra', start: new Date(Date.now() + 86_400_000).toISOString(), durationMinutes: 60, participants: students.map((s) => ({ email: s.email, userId: s.id })) },
+    data: { title: 'Algebra', start: new Date(Date.now() + days * 86_400_000).toISOString(), durationMinutes: 60, participants: students.map((s) => ({ email: s.email, userId: s.id })) },
   });
   expect(res.status(), await res.text()).toBe(201);
 }

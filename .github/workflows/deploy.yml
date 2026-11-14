@@ -109,6 +109,7 @@ jobs:
               docker tag syncschedule-\$s syncschedule-\$s:previous 2>/dev/null || true
               docker pull $IMAGE-\$s:$SHA
               docker tag $IMAGE-\$s:$SHA syncschedule-\$s
+              docker rmi $IMAGE-\$s:$SHA >/dev/null # the registry name was only for pulling; each sha tag kept a 600 MB copy
             done
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build --no-deps $SVCS
             sleep 10; docker ps --format '{{.Names}} {{.Status}}'"

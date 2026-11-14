@@ -11,12 +11,14 @@ const initialsOf = (name: string) => name.replace(/^Coach\s+/, '').split(/\s+/).
 
 export default function StudentDashboard({ initial, subscribed, trial }: { initial: Data; subscribed?: boolean; trial?: TrialState }) {
   const d = initial;
+  // A student with a plan is not offered the free class; one already booked, requested or taken still shows where it stands.
+  const showTrial = trial && !(subscribed && trial.state === 'not_taken');
   return (
     <div className="page">
       <Welcome d={d} />
-      {(trial || subscribed === false) && (
+      {(showTrial || subscribed === false) && (
         <div className="start-row">
-          {trial && <TrialCard trial={trial} />}
+          {showTrial && <TrialCard trial={trial} />}
           {subscribed === false && <SubscribeCard trialTaken={trial?.state === 'taken'} />}
         </div>
       )}

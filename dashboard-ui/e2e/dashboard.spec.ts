@@ -9,9 +9,20 @@ test.describe('free trial class on the dashboard', () => {
   const card = (page: import('@playwright/test').Page) => page.getByRole('region', { name: 'Free trial class' });
 
   test('not taken yet: says so and offers to book it on the calendar', async ({ context, request }) => {
+    await setBilling(request, { subscribed: false });
     const page = await openPage(context, await seed(request, 'student', 'Mia Student'));
     await expect(card(page)).toContainText('Not taken yet');
     await expect(card(page).getByRole('link', { name: 'Book your free trial class' })).toHaveAttribute('href', /\/\?pick=1$/);
+  });
+
+  test('a student with a plan is not offered the free class, but is still told when it is booked', async ({ context, request }) => {
+    await setBilling(request, { subscribed: true });
+    const page = await openPage(context, await seed(request, 'student', 'Mia Student'));
+    await expect(card(page)).toHaveCount(0);
+    await expect(page.getByText('Book your free trial class')).toHaveCount(0);
+    await setBilling(request, { trial: 'booked' });
+    await page.reload();
+    await expect(card(page)).toContainText('Your free trial class is booked');
   });
 
   test('booked, and taken: each says where the student is', async ({ context, request }) => {
@@ -43,7 +54,7 @@ test.describe('free trial class on the dashboard', () => {
     await setBilling(request, { subscribed: true });
     await page.reload();
     await expect(subscribe).toHaveCount(0);
-    await expect(card(page)).toContainText('Not taken yet');
+    await expect(card(page)).toHaveCount(0); // subscribed: no free class on offer
   });
 
   test('mentors are only for students with a plan: without one the section is not on the dashboard', async ({ context, request }) => {

@@ -11,7 +11,7 @@ export default function JsonLd() {
         name: BRAND,
         url: SITE_URL,
         logo: `${SITE_URL}/images/quanttoria-logo.png`,
-        description: 'Private 1-on-1 online math tutoring for kids in Grades 1-10: Common Core, math anxiety, Olympiad prep and school homework.',
+        description: 'Private 1-on-1 online math coaching for kids in Grades 1-10: Common Core, math anxiety, Olympiad prep and school homework.',
         email: site.emails[0],
         founder: { '@id': `${SITE_URL}/#teacher` },
         areaServed: { '@type': 'Country', name: 'United States' },

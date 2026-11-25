@@ -79,6 +79,6 @@ test.describe('sign-in screens', () => {
 
 test('the tab shows the Quanttoria title and icon on the sign-in page', async ({ page }) => {
   await page.goto('/login');
-  await expect(page).toHaveTitle('Quanttoria | Online Math Tutoring for Kids');
+  await expect(page).toHaveTitle('Quanttoria | Online Math Coaching for Kids');
   await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', /\/_next\/static\/media\/icon.*\.png/);
 });

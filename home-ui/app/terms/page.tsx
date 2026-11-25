@@ -15,7 +15,7 @@ export default function Terms() {
       <p>By using this website or booking a class with Quanttoria you agree to these terms. Questions: <a href={`mailto:${email}`}>{email}</a>.</p>
 
       <h2>The service</h2>
-      <p>Quanttoria offers private one-to-one online math tutoring. The first class is free, with no obligation. Classes are held live online; you need a device with a camera, microphone and a reliable internet connection.</p>
+      <p>Quanttoria offers private one-to-one online math coaching. The first class is free, with no obligation. Classes are held live online; you need a device with a camera, microphone and a reliable internet connection.</p>
 
       <h2>Parents and guardians</h2>
       <p>Only a parent or legal guardian may book classes for a child and accept these terms on the child’s behalf. You are responsible for the information you give us being correct.</p>

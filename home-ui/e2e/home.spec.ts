@@ -23,7 +23,7 @@ test('renders every section, the real content and the header links', async ({ pa
   for (const invented of ['1,240', '+42%', '89%', '3.4x', 'Top 2%', 'Elena Rostova', 'GeoGebra']) await expect(page.getByText(invented)).toHaveCount(0);
   await expect(page.getByText('Sarah Lin')).toHaveCount(0);
   await expect(page.getByText('Marcus Vance')).toHaveCount(0);
-  await expect(page.locator('#reviews .review')).toHaveCount(6);
+  await expect(page.locator('#reviews .review')).toHaveCount(3);
   // Header: logo, nav, a single Login button; no "Book Free Demo".
   await expect(page.getByRole('link', { name: 'Quanttoria home' }).locator('img')).toBeVisible();
   const login = page.getByRole('banner').getByRole('link', { name: 'Login' });
@@ -52,11 +52,11 @@ test('WhatsApp links use the Quanttoria number', async ({ page }) => {
 test('reviews are word for word, say where they come from, and link to their own Trustpilot review', async ({ page }) => {
   await page.goto('/');
   const section = page.locator('#reviews');
-  await expect(section).toContainText('13 five-star reviews of Princy’s teaching');
-  await expect(section).toContainText('BYJU’S FutureSchool');
-  // The two quotes the audit found reworded, as the parents wrote them (school name kept).
-  await expect(section).toContainText('I started BYJU with a demo class with Ms Princy Sugandh.');
-  await expect(section).toContainText('BYJU Future School is extraordinary!');
+  await expect(section).toContainText('5-star reviews of Princy’s teaching');
+  await expect(section).toContainText('about our classes');
+  // Reviews that name another company are not shown.
+  await expect(section).not.toContainText(/byju/i);
+  await expect(section.locator('article')).toHaveCount(3);
   await expect(section).toContainText('Mr. Princy is an amazing teacher');
   for (const link of await section.getByRole('link', { name: /^Read .* on Trustpilot$/ }).all()) {
     await expect(link).toHaveAttribute('href', /^https:\/\/www\.trustpilot\.com\/reviews\/[0-9a-f]{24}$/);
@@ -68,17 +68,32 @@ test('reviews are word for word, say where they come from, and link to their own
 
 test('the founder rating jumps to the reviews on this page', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('#tutor').getByRole('link', { name: '13 five-star parent reviews' })).toHaveAttribute('href', '#reviews');
+  await expect(page.locator('#tutor').getByRole('link', { name: '5-star parent reviews' })).toHaveAttribute('href', '#reviews');
+});
+
+test('the FAQ shows no per-class price and no coach is called a tutor', async ({ page }) => {
+  await page.goto('/');
+  const faq = page.locator('#faq');
+  await expect(faq.getByRole('heading', { name: 'What to expect from Quanttoria' })).toBeVisible();
+  await expect(faq.locator('table')).toHaveCount(0);
+  await faq.locator('summary', { hasText: 'How much do classes cost after that?' }).click();
+  await expect(faq).toContainText('plans start at $300 a month for 15 classes, billed monthly.');
+  await expect(faq).not.toContainText(/\$20|about \$|20% off|From \$/);
+  await expect(faq).toContainText('Our teachers have taught children with autism');
+  const body = await page.locator('body').innerText();
+  expect(body).not.toMatch(/\btutor(s|ing)?\b/i);
+  expect(body.toLowerCase()).toContain('premier 1:1 mathematical coaching');
+  expect(body.toLowerCase()).toContain('usa and global maths curriculum coaching');
 });
 
 test('US spelling and one name, in the page and in the search metadata', async ({ page }) => {
   await page.goto('/');
   const text = await page.locator('body').innerText();
-  expect(text).not.toMatch(/\bmaths\b/i);
+  expect(text.replace('USA and global maths curriculum coaching', '')).not.toMatch(/\bmaths\b/i); // that one phrase is deliberate
   expect(text).not.toMatch(/personalis/i);
   expect(text).not.toContain('Pprincy');
-  await expect(page).toHaveTitle(/Online Math Tutor for Kids/);
-  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /1-on-1 online math tutoring/);
+  await expect(page).toHaveTitle(/Online Math Coach for Kids/);
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /1-on-1 online math coaching/);
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /^https:\/\/www\.quanttoria\.com\/?$/);
   await expect(page.locator('meta[property="og:image"]')).toHaveCount(1);
   const ld = JSON.parse(await page.locator('script[type="application/ld+json"]').innerText());
@@ -290,10 +305,10 @@ test('"Book a free demo" animates on hover and press like the other primary butt
 
 const SEO_SLUGS = ['grades-1-2', 'grades-3-5', 'grades-6-8', 'grades-9-10', 'closing-gaps', 'confidence-and-math-anxiety', 'math-olympiad-coaching', 'common-core-math-help'];
 
-test('home has an FAQ, a price table and links to every grade and goal page', async ({ page }) => {
+test('home has an FAQ, no price table and links to every grade and goal page', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#faq details')).not.toHaveCount(0);
-  await expect(page.locator('#faq .price')).toContainText('$300 a month');
+  await expect(page.locator('#faq .price')).toHaveCount(0);
   for (const s of SEO_SLUGS) await expect(page.locator(`#faq a[href="/math-tutoring/${s}"]`)).toHaveCount(1);
   const ld = await page.locator('script[type="application/ld+json"]').first().textContent();
   expect(JSON.parse(ld!)['@graph'].some((n: { '@type': string }) => n['@type'] === 'FAQPage')).toBe(true);

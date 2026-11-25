@@ -13,5 +13,5 @@ npm run test:e2e                           # 10 browser tests (needs Google Chro
 - **Content** comes from the Quanttoria site repo (`chetdeva/quanttoria-8e`: `lib/site.ts` and `components/*`) and lives in `content/site.ts`. It is copied by hand; update both when it changes. Images are copies in `public/images/`.
 - **The booking form** (inline, `#book`) has no server. Submitting opens WhatsApp (`wa.me/<number>`) with the details filled in, like the Quanttoria contact form. Nothing is stored.
 - **Login** links to users-ui via `NEXT_PUBLIC_ACCOUNTS_URL` (default `http://localhost:3003`; baked in at build time).
-- **Reviews** are quoted word for word from Trustpilot (parents of Princy's classes at BYJU'S FutureSchool, 2022-2023), each linking to its own review; the section says so. `site.reviewsSourceUrl` is that school's page filtered to her name.
+- **Reviews** are quoted word for word from Trustpilot (parents of Princy's classes, 2022-2023; any review that names another company is left out), each linking to its own review; the section says so. `site.reviewsSourceUrl` is the Trustpilot page they were posted on, filtered to her name.
 - Not carried over from the Quanttoria site: auth pages, calendar booking.

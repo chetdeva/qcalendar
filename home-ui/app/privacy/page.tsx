@@ -12,7 +12,7 @@ export default function Privacy() {
   const email = site.emails[0];
   return (
     <LegalPage title="Privacy Policy" updated="October 31, 2026">
-      <p>Quanttoria provides private one-to-one online math tutoring. This page explains what we collect, why, and what you can ask us to do. We wrote it in plain language; questions go to <a href={`mailto:${email}`}>{email}</a>.</p>
+      <p>Quanttoria provides private one-to-one online math coaching. This page explains what we collect, why, and what you can ask us to do. We wrote it in plain language; questions go to <a href={`mailto:${email}`}>{email}</a>.</p>
 
       <h2>What we collect</h2>
       <ul>

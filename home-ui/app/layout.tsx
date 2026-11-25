@@ -6,8 +6,8 @@ import './globals.css';
 
 const jakarta = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['500', '600', '700', '800'], style: ['normal', 'italic'], display: 'swap', variable: '--font-jakarta' });
 
-const title = `Online Math Tutor for Kids, Grades 1-10 | ${BRAND}`;
-const description = 'Private 1-on-1 online math tutoring for kids in Grades 1-10: Common Core help, math anxiety, Olympiad prep and school homework. Your first class is free.';
+const title = `Online Math Coach for Kids, Grades 1-10 | ${BRAND}`;
+const description = 'Private 1-on-1 online math coaching for kids in Grades 1-10: Common Core help, math anxiety, Olympiad prep and school homework. Your first class is free.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

@@ -3,7 +3,7 @@ import { ExternalLink } from 'lucide-react';
 import FloatBook from './FloatBook';
 import MobileNav from './MobileNav';
 import { SiteFooter } from '@components/site-footer';
-import { ACCOUNTS_URL, BRAND, faq, founder, framework, hero, nav, pricing, reviews, site, whatsappLink, why } from '@/content/site';
+import { ACCOUNTS_URL, BRAND, faq, founder, framework, hero, nav, reviews, site, whatsappLink, why } from '@/content/site';
 import { pages } from '@/content/pages';
 
 function WhatsApp({ className = 'wa' }: { className?: string }) {
@@ -218,15 +218,12 @@ export function Faq() {
   return (
     <section id="faq" className="sec sec-white">
       <div className="wrap stack">
-        <Head pill="Questions parents ask" title={`Prices, times and what to expect. From ${pricing.from} a class.`} />
+        <Head pill="Questions parents ask" title="What to expect from Quanttoria" />
         <div className="faq">
           {faq.map((f) => <details key={f.q}><summary>{f.q}</summary><p>{f.a}</p></details>)}
-          <table className="price"><caption>Monthly plans (15 one-hour classes)</caption><tbody>
-            {pricing.plans.map((p) => <tr key={p.grades}><th scope="row">{p.grades}</th><td>{p.monthly} a month</td><td>{p.perClass} a class</td></tr>)}
-          </tbody></table>
         </div>
-        <nav aria-label="Tutoring by grade and goal" className="seo-links">
-          {pages.map((p) => <a key={p.slug} href={`/math-tutoring/${p.slug}`}>{p.kind === 'grade' ? `Math tutor, ${p.short}` : p.short}</a>)}
+        <nav aria-label="Coaching by grade and goal" className="seo-links">
+          {pages.map((p) => <a key={p.slug} href={`/math-tutoring/${p.slug}`}>{p.kind === 'grade' ? `Math coach, ${p.short}` : p.short}</a>)}
         </nav>
       </div>
     </section>
